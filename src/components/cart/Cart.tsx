@@ -3,6 +3,7 @@
 import { useCart } from "@/hooks";
 import { X, Plus, Minus, ShoppingCart } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useRouter } from "next/navigation";
 import {
   Card,
   CardContent,
@@ -20,6 +21,7 @@ type CartItem = {
 };
 
 export function Cart() {
+  const router = useRouter();
   const {
     isOpen,
     setIsOpen,
@@ -136,7 +138,14 @@ export function Cart() {
             <Button className="w-full" size="lg">
               Proceder al pago
             </Button>
-            <Button variant="outline" className="w-full">
+            <Button 
+              variant="outline" 
+              className="w-full"
+              onClick={() => {
+                setIsOpen(false);
+                router.push('/');
+              }}
+            >
               Seguir comprando
             </Button>
           </CardFooter>
