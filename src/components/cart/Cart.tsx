@@ -1,9 +1,15 @@
-'use client';
+"use client";
 
-import { useCart } from '@/hooks';
-import { X, Plus, Minus, ShoppingCart } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import { useCart } from "@/hooks";
+import { X, Plus, Minus, ShoppingCart } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 
 type CartItem = {
   id: string;
@@ -14,16 +20,19 @@ type CartItem = {
 };
 
 export function Cart() {
-  const { 
-    isOpen, 
-    setIsOpen, 
-    items: cartItems, 
-    updateQuantity, 
-    removeItem, 
-    totalItems 
+  const {
+    isOpen,
+    setIsOpen,
+    items: cartItems,
+    updateQuantity,
+    removeItem,
+    totalItems,
   } = useCart();
 
-  const subtotal = cartItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
+  const subtotal = cartItems.reduce(
+    (sum, item) => sum + item.price * item.quantity,
+    0
+  );
 
   if (!isOpen) {
     return (
@@ -66,7 +75,10 @@ export function Cart() {
           ) : (
             <ul className="space-y-4">
               {cartItems.map((item) => (
-                <li key={item.id} className="flex items-center gap-4 border-b pb-4">
+                <li
+                  key={item.id}
+                  className="flex items-center gap-4 border-b pb-4"
+                >
                   <img
                     src={item.image}
                     alt={item.name}
@@ -74,13 +86,17 @@ export function Cart() {
                   />
                   <div className="flex-1">
                     <h3 className="font-medium">{item.name}</h3>
-                    <p className="text-sm text-muted-foreground">${item.price.toFixed(2)}</p>
+                    <p className="text-sm text-muted-foreground">
+                      ${item.price.toFixed(2)}
+                    </p>
                     <div className="flex items-center gap-2 mt-1">
                       <Button
                         variant="outline"
                         size="icon"
                         className="h-6 w-6"
-                        onClick={() => updateQuantity(item.id, item.quantity - 1)}
+                        onClick={() =>
+                          updateQuantity(item.id, item.quantity - 1)
+                        }
                       >
                         <Minus className="h-3 w-3" />
                       </Button>
@@ -89,7 +105,9 @@ export function Cart() {
                         variant="outline"
                         size="icon"
                         className="h-6 w-6"
-                        onClick={() => updateQuantity(item.id, item.quantity + 1)}
+                        onClick={() =>
+                          updateQuantity(item.id, item.quantity + 1)
+                        }
                       >
                         <Plus className="h-3 w-3" />
                       </Button>

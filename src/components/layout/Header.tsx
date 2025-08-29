@@ -1,12 +1,17 @@
-'use client';
+"use client";
 
-import { FiSearch, FiUser, FiChevronDown } from 'react-icons/fi';
-import { ShoppingCart } from 'lucide-react';
-import Link from 'next/link';
-import { useCart } from '@/hooks';
+import { FiSearch, FiUser, FiChevronDown } from "react-icons/fi";
+import { ShoppingCart } from "lucide-react";
+import Link from "next/link";
+import { useCart } from "@/hooks";
 
 export function Header() {
-  const { totalItems, setIsOpen } = useCart();
+  const { totalItems, setIsOpen, isOpen } = useCart();
+
+  const handleCartClick = () => {
+    console.log("Cart button clicked, setting isOpen to true");
+    setIsOpen?.(true);
+  };
 
   return (
     <header className="bg-white shadow-sm sticky top-0 z-10">
@@ -15,7 +20,7 @@ export function Header() {
           <Link href="/" className="text-2xl font-bold text-blue-600">
             Mercador
           </Link>
-          
+
           <div className="relative flex-1 max-w-2xl">
             <input
               type="text"
@@ -33,7 +38,7 @@ export function Header() {
               <span>Iniciar sesión</span>
             </button>
             <button
-              onClick={() => setIsOpen(true)}
+              onClick={handleCartClick}
               className="relative p-2 text-gray-700 hover:text-blue-600"
               aria-label="Carrito de compras"
               type="button"
@@ -47,17 +52,35 @@ export function Header() {
             </button>
           </div>
         </div>
-        
+
         <nav className="mt-4">
           <ul className="flex gap-6 text-sm font-medium">
-            <li><Link href="/" className="hover:text-blue-600">Inicio</Link></li>
+            <li>
+              <Link href="/" className="hover:text-blue-600">
+                Inicio
+              </Link>
+            </li>
             <li className="flex items-center gap-1">
-              <a href="#" className="hover:text-blue-600">Categorías</a>
+              <a href="#" className="hover:text-blue-600">
+                Categorías
+              </a>
               <FiChevronDown size={16} />
             </li>
-            <li><a href="#" className="hover:text-blue-600">Ofertas</a></li>
-            <li><a href="#" className="hover:text-blue-600">Nuevo</a></li>
-            <li><a href="#" className="hover:text-blue-600">Soporte</a></li>
+            <li>
+              <a href="#" className="hover:text-blue-600">
+                Ofertas
+              </a>
+            </li>
+            <li>
+              <a href="#" className="hover:text-blue-600">
+                Nuevo
+              </a>
+            </li>
+            <li>
+              <a href="#" className="hover:text-blue-600">
+                Soporte
+              </a>
+            </li>
           </ul>
         </nav>
       </div>

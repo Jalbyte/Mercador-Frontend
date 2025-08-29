@@ -1,14 +1,14 @@
-import type { Metadata } from 'next';
-import { Inter } from 'next/font/google';
-import './globals.css';
-import { Cart } from '@/components/cart/Cart';
-import { CartProvider } from '@/hooks';
+import type { Metadata } from "next";
+import { Inter } from "next/font/google";
+import "./globals.css";
+import { Cart } from "@/components/cart/Cart";
+import { CartProvider } from "@/hooks";
 
-const inter = Inter({ subsets: ['latin'] });
+const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: 'Mercador - Licencias de Software',
-  description: 'Encuentra las mejores licencias de software al mejor precio',
+  title: "Mercador - Licencias de Software",
+  description: "Encuentra las mejores licencias de software al mejor precio",
 };
 
 export default function RootLayout({
