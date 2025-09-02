@@ -1,27 +1,20 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
-import { FiShield, FiRefreshCw } from "react-icons/fi";
-import { AuthLayout } from "@/components/auth/AuthLayout";
-import { AuthHeader } from "@/components/auth/AuthHeader";
+import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import { FiShield, FiRefreshCw, FiLoader, FiArrowLeft } from 'react-icons/fi';
+import { AuthLayout } from '@/components/auth/AuthLayout';
+import { AuthHeader } from '@/components/auth/AuthHeader';
 
-export default function VerifyCodePage() {
+function VerifyCodeForm({ email }: { email: string }) {
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const email = searchParams.get("email");
-
-  const [code, setCode] = useState(["", "", "", "", "", ""]);
+  const [code, setCode] = useState(['', '', '', '', '', '']);
   const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState("");
+  const [error, setError] = useState('');
   const [timeLeft, setTimeLeft] = useState(300); // 5 minutes
   const [canResend, setCanResend] = useState(false);
 
   useEffect(() => {
-    if (!email) {
-      router.push("/forgot-password");
-      return;
-    }
 
     const timer = setInterval(() => {
       setTimeLeft((prev) => {
@@ -218,4 +211,42 @@ export default function VerifyCodePage() {
       </div>
     </AuthLayout>
   );
+}
+
+function VerifyCodeContent() {
+  const [email, setEmail] = useState<string | null>(null);
+  
+  useEffect(() => {
+    // This code runs only on the client side
+    const searchParams = new URLSearchParams(window.location.search);
+    setEmail(searchParams.get('email'));
+  }, []);
+
+  if (email === null) {
+    return (
+      <div className="flex justify-center py-8">
+        <FiLoader className="animate-spin text-blue-600" size={32} />
+      </div>
+    );
+  }
+
+  return (
+    <AuthLayout>
+      <div className="relative bg-white rounded-2xl shadow-xl overflow-hidden">
+        <AuthHeader
+          title="Verificar Código"
+          subtitle="Ingresa el código de 6 dígitos que enviamos a tu email"
+          icon={<FiShield size={32} />}
+          onBack={() => window.history.back()}
+        />
+        <div className="p-8">
+          <VerifyCodeForm email={email} />
+        </div>
+      </div>
+    </AuthLayout>
+  );
+}
+
+export default function VerifyCodePage() {
+  return <VerifyCodeContent />;
 }

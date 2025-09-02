@@ -1,17 +1,16 @@
 "use client";
 
+"use client";
+
 import { useState, useEffect } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
-import { FiLock, FiCheck } from "react-icons/fi";
+import { useRouter } from "next/navigation";
+import { FiLock, FiCheck, FiLoader, FiArrowLeft } from "react-icons/fi";
 import { AuthLayout } from "@/components/auth/AuthLayout";
 import { AuthHeader } from "@/components/auth/AuthHeader";
 import { FormInput } from "@/components/auth/FormInput";
 
-export default function ResetPasswordPage() {
+function ResetPasswordForm({ email, code }: { email: string | null; code: string | null }) {
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const email = searchParams.get("email");
-  const code = searchParams.get("code");
 
   const [passwords, setPasswords] = useState({
     newPassword: "",
@@ -27,10 +26,6 @@ export default function ResetPasswordPage() {
   });
 
   useEffect(() => {
-    if (!email || !code) {
-      router.push("/forgot-password");
-      return;
-    }
   }, [email, code, router]);
 
   const checkPasswordStrength = (password: string) => {
@@ -321,4 +316,53 @@ export default function ResetPasswordPage() {
       </div>
     </AuthLayout>
   );
+}
+
+function ResetPasswordContent() {
+  const [email, setEmail] = useState<string | null>(null);
+  const [code, setCode] = useState<string | null>(null);
+  const router = useRouter();
+  
+  useEffect(() => {
+    // This code runs only on the client side
+    const searchParams = new URLSearchParams(window.location.search);
+    const emailParam = searchParams.get('email');
+    const codeParam = searchParams.get('code');
+    
+    if (!emailParam || !codeParam) {
+      router.push('/forgot-password');
+      return;
+    }
+    
+    setEmail(emailParam);
+    setCode(codeParam);
+  }, [router]);
+
+  if (email === null || code === null) {
+    return (
+      <div className="flex justify-center py-8">
+        <FiLoader className="animate-spin text-blue-600" size={32} />
+      </div>
+    );
+  }
+
+  return (
+    <AuthLayout>
+      <div className="relative bg-white rounded-2xl shadow-xl overflow-hidden">
+        <AuthHeader
+          title="Nueva Contraseña"
+          subtitle="Crea una contraseña segura para tu cuenta"
+          icon={<FiLock size={32} />}
+          onBack={() => window.history.back()}
+        />
+        <div className="p-8">
+          {email && code && <ResetPasswordForm email={email} code={code} />}
+        </div>
+      </div>
+    </AuthLayout>
+  );
+}
+
+export default function ResetPasswordPage() {
+  return <ResetPasswordContent />;
 }
