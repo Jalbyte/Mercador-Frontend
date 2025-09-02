@@ -1,15 +1,13 @@
 "use client";
 
-"use client";
-
-import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
-import { FiLock, FiCheck, FiLoader, FiArrowLeft } from "react-icons/fi";
+import { useState, useEffect, Suspense } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { FiLock, FiCheck, FiLoader } from "react-icons/fi";
 import { AuthLayout } from "@/components/auth/AuthLayout";
 import { AuthHeader } from "@/components/auth/AuthHeader";
 import { FormInput } from "@/components/auth/FormInput";
 
-function ResetPasswordForm({ email, code }: { email: string | null; code: string | null }) {
+function ResetPasswordForm({ email, code }: { email: string; code: string }) {
   const router = useRouter();
 
   const [passwords, setPasswords] = useState({
@@ -24,9 +22,6 @@ function ResetPasswordForm({ email, code }: { email: string | null; code: string
     score: 0,
     feedback: "",
   });
-
-  useEffect(() => {
-  }, [email, code, router]);
 
   const checkPasswordStrength = (password: string) => {
     let score = 0;
@@ -176,7 +171,7 @@ function ResetPasswordForm({ email, code }: { email: string | null; code: string
           subtitle="Crea una contraseña segura para tu cuenta"
           icon={<FiLock size={32} />}
           onBack={() =>
-            router.push(`/verify-code?email=${encodeURIComponent(email!)}`)
+            router.push(`/verify-code?email=${encodeURIComponent(email)}`)
           }
         />
 
@@ -319,50 +314,44 @@ function ResetPasswordForm({ email, code }: { email: string | null; code: string
 }
 
 function ResetPasswordContent() {
-  const [email, setEmail] = useState<string | null>(null);
-  const [code, setCode] = useState<string | null>(null);
   const router = useRouter();
-  
-  useEffect(() => {
-    // This code runs only on the client side
-    const searchParams = new URLSearchParams(window.location.search);
-    const emailParam = searchParams.get('email');
-    const codeParam = searchParams.get('code');
-    
-    if (!emailParam || !codeParam) {
-      router.push('/forgot-password');
-      return;
-    }
-    
-    setEmail(emailParam);
-    setCode(codeParam);
-  }, [router]);
+  const searchParams = useSearchParams();
+  const email = searchParams.get("email");
+  const code = searchParams.get("code");
 
-  if (email === null || code === null) {
+  useEffect(() => {
+    if (!email || !code) {
+      router.push("/forgot-password");
+    }
+  }, [email, code, router]);
+
+  if (!email || !code) {
     return (
-      <div className="flex justify-center py-8">
-        <FiLoader className="animate-spin text-blue-600" size={32} />
-      </div>
+      <AuthLayout>
+        <div className="flex justify-center py-8">
+          <FiLoader className="animate-spin text-blue-600" size={32} />
+        </div>
+      </AuthLayout>
     );
   }
 
+  return <ResetPasswordForm email={email} code={code} />;
+}
+
+function LoadingFallback() {
   return (
     <AuthLayout>
-      <div className="relative bg-white rounded-2xl shadow-xl overflow-hidden">
-        <AuthHeader
-          title="Nueva Contraseña"
-          subtitle="Crea una contraseña segura para tu cuenta"
-          icon={<FiLock size={32} />}
-          onBack={() => window.history.back()}
-        />
-        <div className="p-8">
-          {email && code && <ResetPasswordForm email={email} code={code} />}
-        </div>
+      <div className="flex justify-center py-8">
+        <FiLoader className="animate-spin text-blue-600" size={32} />
       </div>
     </AuthLayout>
   );
 }
 
 export default function ResetPasswordPage() {
-  return <ResetPasswordContent />;
+  return (
+    <Suspense fallback={<LoadingFallback />}>
+      <ResetPasswordContent />
+    </Suspense>
+  );
 }
