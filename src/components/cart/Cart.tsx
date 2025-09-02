@@ -1,6 +1,7 @@
 "use client";
 
 import { useCart } from "@/hooks";
+import { useAuthRoute } from "@/hooks/use-auth-route";
 import { X, Plus, Minus, ShoppingCart } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useRouter } from "next/navigation";
@@ -22,6 +23,7 @@ type CartItem = {
 
 export function Cart() {
   const router = useRouter();
+  const { isAuthRoute } = useAuthRoute();
   const {
     isOpen,
     setIsOpen,
@@ -35,6 +37,10 @@ export function Cart() {
     (sum, item) => sum + item.price * item.quantity,
     0
   );
+
+  if (isAuthRoute) {
+    return null;
+  }
 
   if (!isOpen) {
     return (
