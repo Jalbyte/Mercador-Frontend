@@ -138,12 +138,12 @@ export function Cart() {
             <Button className="w-full" size="lg">
               Proceder al pago
             </Button>
-            <Button 
-              variant="outline" 
+            <Button
+              variant="outline"
               className="w-full"
               onClick={() => {
                 setIsOpen(false);
-                router.push('/');
+                router.push("/");
               }}
             >
               Seguir comprando

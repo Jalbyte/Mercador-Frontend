@@ -33,10 +33,13 @@ export function Header() {
           </div>
 
           <div className="flex items-center gap-4">
-            <button className="flex items-center gap-1 text-gray-700 hover:text-blue-600">
+            <Link
+              href="/login"
+              className="flex items-center gap-1 text-gray-700 hover:text-blue-600"
+            >
               <FiUser size={20} />
               <span>Iniciar sesión</span>
-            </button>
+            </Link>
             <button
               onClick={handleCartClick}
               className="relative p-2 text-gray-700 hover:text-blue-600"
