@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { useRouter } from "next/navigation";
 import { FiMail, FiLock, FiUser as UserIcon } from "react-icons/fi";
 import { ShoppingCart } from "lucide-react";
 import { FormInput } from "./FormInput";
@@ -31,6 +32,7 @@ export const AuthForm: React.FC<AuthFormProps> = ({
   loading = false,
   error,
 }) => {
+  const router = useRouter();
   const [showPassword, setShowPassword] = useState(false);
   const [formData, setFormData] = useState<FormData>({
     email: "",
@@ -143,11 +145,11 @@ export const AuthForm: React.FC<AuthFormProps> = ({
               <span className="ml-2 text-sm text-gray-600">Recordarme</span>
             </label>
             <a
-              href="#"
+              href="/forgot-password"
               className="text-sm text-blue-600 hover:text-blue-800 transition-colors"
               onClick={(e) => {
                 e.preventDefault();
-                // TODO: Handle forgot password
+                router.push('/forgot-password');
               }}
             >
               ¿Olvidaste tu contraseña?
