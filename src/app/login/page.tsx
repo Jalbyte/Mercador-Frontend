@@ -7,6 +7,7 @@ import { AuthLayout } from "@/components/auth/AuthLayout";
 import { AuthHeader } from "@/components/auth/AuthHeader";
 import { AuthForm } from "@/components/auth/AuthForm";
 import { AuthFooter } from "@/components/auth/AuthFooter";
+import { useAuth } from "@/context/AuthContext";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -14,32 +15,27 @@ export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
 
-  const handleSubmit = async (data: any) => {
+  const { login } = useAuth();
+
+  const handleSubmit = async (data: { email: string; password: string }) => {
     setIsLoading(true);
     setError("");
 
     try {
-      // Simulate API call
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-
       if (isLogin) {
-        console.log("Login attempt with:", { email: data.email });
-        // TODO: Implement actual login logic
-        // router.push('/dashboard');
+        // Call the login function from AuthContext
+        await login(data.email, data.password);
+        // The AuthContext will handle the redirection after successful login
       } else {
-        console.log("Register attempt with:", data);
-        // TODO: Implement actual registration logic
-        // After successful registration, you might want to log the user in automatically
-        // or redirect to login page with a success message
-        // router.push('/login?registered=true');
+        // For registration, you would typically make an API call to your backend
+        // and then log the user in automatically after successful registration
+        // For now, we'll just log in the user with the provided credentials
+        await login(data.email, data.password);
       }
-
-      // Show success message or redirect
-      alert(`¡${isLogin ? "Inicio de sesión" : "Registro"} exitoso!`);
     } catch (err) {
       console.error("Authentication error:", err);
       setError(
-        "Ocurrió un error durante la autenticación. Por favor, inténtalo de nuevo."
+        err instanceof Error ? err.message : "Ocurrió un error durante la autenticación. Por favor, inténtalo de nuevo."
       );
     } finally {
       setIsLoading(false);
