@@ -19,23 +19,53 @@ export default function LoginPage() {
     setError("");
 
     try {
-      // Simulate API call
-      await new Promise((resolve) => setTimeout(resolve, 1000));
+      // Call backend login for real
+      const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? (typeof window !== 'undefined' ? `${window.location.protocol}//${window.location.hostname}:3010` : '')
 
       if (isLogin) {
-        console.log("Login attempt with:", { email: data.email });
-        // TODO: Implement actual login logic
-        // router.push('/dashboard');
-      } else {
-        console.log("Register attempt with:", data);
-        // TODO: Implement actual registration logic
-        // After successful registration, you might want to log the user in automatically
-        // or redirect to login page with a success message
-        // router.push('/login?registered=true');
-      }
+        const resp = await fetch(`${API_BASE}/auth/login`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({ email: data.email, password: data.password })
+        });
 
-      // Show success message or redirect
-      alert(`¡${isLogin ? "Inicio de sesión" : "Registro"} exitoso!`);
+        const json = await resp.json().catch(() => null);
+
+        if (!resp.ok || !json) {
+          const errObj = json?.error ?? json?.message ?? `Login failed: ${resp.status} ${resp.statusText}`;
+          const errMsg = typeof errObj === 'string' ? errObj : (errObj?.message ?? JSON.stringify(errObj));
+          setError(errMsg || 'Login failed');
+          return;
+        }
+
+        // Notify other parts of the app that auth changed, then go to main page.
+        try {
+          window.dispatchEvent(new CustomEvent('auth-changed', { detail: { loggedIn: true } }));
+        } catch (e) {
+          // noop in non-browser env (shouldn't happen client-side)
+        }
+        router.push('/');
+        return;
+      } else {
+        // registration: call signup endpoint, then redirect to login
+        const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? (typeof window !== 'undefined' ? `${window.location.protocol}//${window.location.hostname}:3010` : '')
+        const resp = await fetch(`${API_BASE}/auth/signup`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email: data.email, password: data.password, full_name: `${data.firstName ?? ''} ${data.lastName ?? ''}`.trim() })
+        })
+        const json = await resp.json().catch(() => null);
+        if (!resp.ok || !json?.success) {
+          const errObj = json?.error ?? json?.message ?? 'Registration failed';
+          const errMsg = typeof errObj === 'string' ? errObj : (errObj?.message ?? JSON.stringify(errObj));
+          setError(errMsg || 'Registration failed');
+          return;
+        }
+        // After registration redirect to login with success query
+        router.push('/login?registered=true')
+        return
+      }
     } catch (err) {
       console.error("Authentication error:", err);
       setError(

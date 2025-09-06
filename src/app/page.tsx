@@ -9,7 +9,7 @@ import {
 } from "react-icons/fi";
 import { Header } from "@/components/layout/Header";
 import { useCart } from "@/hooks";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 
 type LicenseCardProps = {
   id: string;
@@ -20,44 +20,10 @@ type LicenseCardProps = {
   image: string;
 };
 
-const licenses: LicenseCardProps[] = [
-  {
-    id: "1",
-    title: "Microsoft Office 365",
-    description: "Licencia anual para 5 dispositivos",
-    price: 89.99,
-    category: "Productividad",
-    image:
-      "https://images.unsplash.com/photo-1633419461186-7d40a38105ec?w=400&h=300&fit=crop",
-  },
-  {
-    id: "2",
-    title: "Adobe Creative Cloud",
-    description: "Acceso completo a todas las aplicaciones de Adobe",
-    price: 59.99,
-    category: "Diseño",
-    image:
-      "https://images.unsplash.com/photo-1611224923853-80b023f02d71?w=400&h=300&fit=crop",
-  },
-  {
-    id: "3",
-    title: "Windows 11 Pro",
-    description: "Licencia de actualización para un PC",
-    price: 199.99,
-    category: "Sistema Operativo",
-    image:
-      "https://images.unsplash.com/photo-1633419461186-7d40a38105ec?w=400&h=300&fit=crop",
-  },
-  {
-    id: "4",
-    title: "Norton 360 Deluxe",
-    description: "Protección antivirus para 5 dispositivos",
-    price: 49.99,
-    category: "Seguridad",
-    image:
-      "https://images.unsplash.com/photo-1563013544-824ae1b704d3?w=400&h=300&fit=crop",
-  },
-];
+// Client-side API base (can be set via NEXT_PUBLIC_API_URL)
+const API_BASE =
+  process.env.NEXT_PUBLIC_API_URL ??
+  (typeof window !== "undefined" ? `${window.location.protocol}//${window.location.hostname}:3010` : "");
 
 const LicenseCard = ({
   id,
@@ -102,6 +68,9 @@ const LicenseCard = ({
 
 export default function Home() {
   const { addItem, items, clearCart } = useCart();
+  const [products, setProducts] = useState<LicenseCardProps[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   // 🔥 Agregar datos quemados al carrito SOLO la primera vez
   useEffect(() => {
@@ -136,6 +105,37 @@ export default function Home() {
       }, 1000);
     }
   }, [addItem, items.length]);
+
+  useEffect(() => {
+    let mounted = true
+    async function load() {
+      setLoading(true)
+      setError(null)
+      try {
+        const res = await fetch(`${API_BASE}/products`)
+        if (!res.ok) throw new Error(`API error ${res.status}`)
+        const body = await res.json()
+        // Backend returns { success: true, data: { products: [...], pagination: {...} } }
+        const items = body?.data?.products ?? []
+        const mapped = items.map((p: any) => ({
+          id: p.id,
+          title: p.name,
+          description: p.description,
+          price: p.price,
+          category: p.category,
+          image: p.image_url ?? `https://via.placeholder.com/400x300?text=${encodeURIComponent(p.name)}`
+        }))
+        if (mounted) setProducts(mapped)
+      } catch (err: any) {
+        if (mounted) setError(err.message ?? 'Failed to load products')
+      } finally {
+        if (mounted) setLoading(false)
+      }
+    }
+
+    load()
+    return () => { mounted = false }
+  }, [])
 
   return (
     <div className="min-h-screen">
@@ -172,7 +172,13 @@ export default function Home() {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          {licenses.map((license) => (
+          {loading && <div className="col-span-full text-center">Cargando productos...</div>}
+          {error && <div className="col-span-full text-center text-red-500">{error}</div>}
+          {!loading && !error && products.length === 0 && (
+            <div className="col-span-full text-center">No hay productos disponibles.</div>
+          )}
+
+          {!loading && !error && products.map((license) => (
             <LicenseCard key={license.id} {...license} />
           ))}
         </div>
