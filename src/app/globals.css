@@ -24,6 +24,9 @@
     --input: 214.3 31.8% 91.4%;
     --ring: 222.2 84% 4.9%;
     --radius: 0.5rem;
+
+    /* Variables para accesibilidad */
+    --base-font-size: 1rem;
   }
 
   .dark {
@@ -53,17 +56,28 @@
   * {
     @apply border-border;
   }
-  
+
   body {
     @apply bg-background text-foreground;
     font-feature-settings: "rlig" 1, "calt" 1;
+  }
+
+  /* Aplicar tamaño de fuente base para accesibilidad */
+  html {
+    font-size: var(--base-font-size) !important;
   }
 }
 
 /* Custom animations */
 @keyframes fadeIn {
-  from { opacity: 0; transform: translateY(10px); }
-  to { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .animate-fadeIn {
@@ -99,7 +113,9 @@
   border-radius: 0.375rem;
   font-size: 0.875rem;
   font-weight: 500;
-  transition-property: color, background-color, border-color, text-decoration-color, fill, stroke, opacity, box-shadow, transform, filter, backdrop-filter;
+  transition-property: color, background-color, border-color,
+    text-decoration-color, fill, stroke, opacity, box-shadow, transform, filter,
+    backdrop-filter;
   transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
   transition-duration: 150ms;
 }
@@ -172,4 +188,294 @@
 
 .footer-link:hover {
   color: hsl(var(--primary));
+}
+
+/* ===== ESTILOS DE ACCESIBILIDAD CORREGIDOS ===== */
+
+/* Variables para el tamaño de fuente */
+:root {
+  --base-font-size: 1rem;
+}
+
+/* Aplicar tamaño de fuente base solo al texto, no a elementos específicos */
+html {
+  font-size: var(--base-font-size) !important;
+}
+
+/* Mejorar el enfoque para todos los elementos interactivos */
+button:focus-visible,
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible,
+a:focus-visible,
+[tabindex]:focus-visible {
+  outline: 3px solid #2563eb !important;
+  outline-offset: 2px !important;
+  border-radius: 0.25rem;
+}
+
+/* Skip link para navegación por teclado */
+.skip-link {
+  position: absolute;
+  top: -40px;
+  left: 6px;
+  background: #000;
+  color: #fff;
+  padding: 8px 16px;
+  text-decoration: none;
+  z-index: 1000;
+  border-radius: 4px;
+  font-weight: bold;
+}
+
+.skip-link:focus {
+  top: 6px;
+}
+
+/* Clase para elementos que solo deben ser leídos por lectores de pantalla */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* ===== ESTILOS PARA MODO DE ALTO CONTRASTE ===== */
+/* Solo se aplicarán cuando la clase .accessibility-high-contrast esté presente */
+
+.accessibility-high-contrast {
+  /* Override CSS variables for high contrast */
+  --background: 0 0% 100% !important;
+  --foreground: 0 0% 0% !important;
+  --card: 0 0% 100% !important;
+  --card-foreground: 0 0% 0% !important;
+  --primary: 0 0% 0% !important;
+  --primary-foreground: 0 0% 100% !important;
+  --secondary: 0 0% 95% !important;
+  --secondary-foreground: 0 0% 0% !important;
+  --border: 0 0% 20% !important;
+  --input: 0 0% 95% !important;
+  --ring: 0 0% 0% !important;
+  --muted: 0 0% 90% !important;
+  --muted-foreground: 0 0% 20% !important;
+}
+
+/* Aplicar colores de alto contraste solo a elementos de texto y fondos básicos */
+.accessibility-high-contrast body {
+  background-color: white !important;
+  color: black !important;
+}
+
+/* Remover gradientes solo en modo alto contraste */
+.accessibility-high-contrast .bg-gradient-to-r,
+.accessibility-high-contrast .bg-gradient-to-br,
+.accessibility-high-contrast .bg-gradient-to-l,
+.accessibility-high-contrast .bg-gradient-to-t,
+.accessibility-high-contrast .bg-gradient-to-b {
+  background: white !important;
+  background-image: none !important;
+}
+
+/* Mantener botones primarios (azules) con mejor contraste */
+.accessibility-high-contrast .bg-blue-600,
+.accessibility-high-contrast .bg-blue-700 {
+  background-color: #000080 !important;
+  color: white !important;
+  border: 2px solid #000080 !important;
+}
+
+.accessibility-high-contrast .bg-blue-600:hover,
+.accessibility-high-contrast .bg-blue-700:hover {
+  background-color: #000060 !important;
+}
+
+/* Formularios en modo alto contraste */
+.accessibility-high-contrast input,
+.accessibility-high-contrast textarea,
+.accessibility-high-contrast select {
+  background-color: white !important;
+  color: black !important;
+  border: 2px solid black !important;
+}
+
+/* Enlaces en modo alto contraste */
+.accessibility-high-contrast a {
+  color: #0000ee !important;
+  text-decoration: underline !important;
+}
+
+.accessibility-high-contrast a:visited {
+  color: #551a8b !important;
+}
+
+.accessibility-high-contrast a:hover {
+  background-color: yellow !important;
+  color: black !important;
+}
+
+/* Cards y contenedores con más selectividad */
+.accessibility-high-contrast .card {
+  background-color: white !important;
+  border: 2px solid black !important;
+  box-shadow: none !important;
+  color: black !important;
+}
+
+/* Header y footer en modo alto contraste */
+.accessibility-high-contrast header {
+  background-color: white !important;
+  border-bottom: 3px solid black !important;
+  color: black !important;
+}
+
+.accessibility-high-contrast footer {
+  background-color: white !important;
+  border-top: 3px solid black !important;
+  color: black !important;
+}
+
+/* Preservar el botón de accesibilidad */
+.accessibility-button {
+  background-color: #2563eb !important;
+  color: white !important;
+  border: 2px solid #2563eb !important;
+}
+
+.accessibility-high-contrast .accessibility-button {
+  background-color: black !important;
+  color: white !important;
+  border: 2px solid white !important;
+}
+
+/* ===== ESTILOS PARA MODO SOLO TEXTO ===== */
+
+.accessibility-text-only {
+  background: white !important;
+}
+
+/* Ocultar imágenes decorativas en modo solo texto */
+.accessibility-text-only img:not([alt]),
+.accessibility-text-only img[alt=""] {
+  display: none !important;
+}
+
+/* Ocultar elementos decorativos */
+.accessibility-text-only .bg-gradient-to-r,
+.accessibility-text-only .bg-gradient-to-br,
+.accessibility-text-only .bg-gradient-to-l,
+.accessibility-text-only .bg-gradient-to-t,
+.accessibility-text-only .bg-gradient-to-b {
+  background: white !important;
+  background-image: none !important;
+}
+
+.accessibility-text-only .shadow-lg,
+.accessibility-text-only .shadow-xl,
+.accessibility-text-only .shadow-md,
+.accessibility-text-only .shadow-sm {
+  box-shadow: none !important;
+  border: 1px solid #e5e7eb !important;
+}
+
+/* Mostrar texto alternativo para imágenes importantes */
+.accessibility-text-only img[alt]:not([alt=""]) {
+  border: 1px solid #d1d5db;
+  padding: 8px;
+  background: #f9fafb;
+  position: relative;
+}
+
+/* Simplificar elementos visuales pero mantener funcionalidad */
+.accessibility-text-only * {
+  background-image: none !important;
+}
+
+/* No afectar elementos de interfaz importantes */
+.accessibility-text-only .bg-blue-600,
+.accessibility-text-only .bg-blue-700,
+.accessibility-text-only button,
+.accessibility-text-only .btn {
+  background-color: var(--primary) !important;
+  color: var(--primary-foreground) !important;
+}
+
+/* Mejorar la legibilidad de texto */
+.accessibility-text-only {
+  line-height: 1.6 !important;
+}
+
+/* Animaciones reducidas para usuarios sensibles */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Estilos responsivos para el panel de accesibilidad */
+@media (max-width: 640px) {
+  .accessibility-sidebar {
+    width: 100% !important;
+  }
+
+  .accessibility-button {
+    top: 10px !important;
+    right: 10px !important;
+  }
+}
+
+/* Mejorar contraste solo en textos específicos en modo alto contraste */
+.accessibility-high-contrast .text-gray-600,
+.accessibility-high-contrast .text-gray-500,
+.accessibility-high-contrast .text-gray-400 {
+  color: black !important;
+}
+
+.accessibility-high-contrast .text-blue-600,
+.accessibility-high-contrast .text-blue-700,
+.accessibility-high-contrast .text-blue-500 {
+  color: #0000ee !important;
+}
+
+.accessibility-high-contrast th {
+  background-color: #f0f0f0 !important;
+  font-weight: bold !important;
+}
+
+/* Mejoras para formularios en modo alto contraste */
+.accessibility-high-contrast label {
+  font-weight: bold !important;
+  color: black !important;
+}
+
+.accessibility-high-contrast input:focus,
+.accessibility-high-contrast textarea:focus,
+.accessibility-high-contrast select:focus {
+  background-color: yellow !important;
+  color: black !important;
+  border: 3px solid #0000ee !important;
+}
+
+/* Estilos para errores y mensajes importantes */
+.accessibility-high-contrast .text-red-600,
+.accessibility-high-contrast .text-red-500,
+.accessibility-high-contrast .text-red-700 {
+  color: #cc0000 !important;
+  font-weight: bold !important;
+}
+
+.accessibility-high-contrast .text-green-600,
+.accessibility-high-contrast .text-green-500,
+.accessibility-high-contrast .text-green-700 {
+  color: #006600 !important;
+  font-weight: bold !important;
 }
