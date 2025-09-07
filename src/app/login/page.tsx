@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import React, { useState } from "react";
+import { Modal } from "@/components/ui/modal";
 import { useRouter } from "next/navigation";
 import { FiUser, FiShoppingCart } from "react-icons/fi";
 import { AuthLayout } from "@/components/auth/AuthLayout";
@@ -13,6 +14,23 @@ export default function LoginPage() {
   const [isLogin, setIsLogin] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
+  const [info, setInfo] = useState("");
+  const [showModal, setShowModal] = useState(false);
+
+  // Mostrar mensaje si viene de registro
+  React.useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get('registered') === 'true') {
+        setInfo("Verifique su correo para activar la cuenta");
+        setShowModal(true);
+        // Limpiar el parámetro de la URL
+        const url = new URL(window.location.href);
+        url.searchParams.delete('registered');
+        window.history.replaceState({}, document.title, url.pathname);
+      }
+    }
+  }, []);
 
   const handleSubmit = async (data: any) => {
     setIsLoading(true);
@@ -63,7 +81,11 @@ export default function LoginPage() {
           return;
         }
         // After registration redirect to login with success query
-        router.push('/login?registered=true')
+        if (window.location.pathname === '/login') {
+          window.location.href = '/login?registered=true';
+        } else {
+          router.push('/login?registered=true');
+        }
         return
       }
     } catch (err) {
@@ -97,17 +119,25 @@ export default function LoginPage() {
           onBack={() => router.push("/")}
         />
 
+
         <AuthForm
           isLogin={isLogin}
           onSubmit={handleSubmit}
           onSocialLogin={handleSocialLogin}
           onToggleMode={() => {
             setError("");
+            setInfo("");
             setIsLogin(!isLogin);
           }}
           loading={isLoading}
           error={error}
         />
+
+        <Modal open={showModal} onClose={() => setShowModal(false)} title="¡Cuenta creada!">
+          <div className="text-blue-700">
+            {info}
+          </div>
+        </Modal>
 
         <div className="px-8 pb-8">
           <AuthFooter
