@@ -26,7 +26,7 @@ Qué puedes hacer en la ficha de producto:
 
 ## 3. Carrito de compras
 - Añadir productos: desde la ficha de producto pulsa "Añadir al carrito".
-- Revisar carrito: haz clic en el icono del carrito (normalmente en la esquina superior) para ver los productos seleccionados.
+- Revisar carrito: haz clic en el icono del carrito (normalmente en la esquina inferior) para ver los productos seleccionados.
 - Editar cantidades: cambia las unidades de cada producto directamente en el carrito.
 - Eliminar productos: usa el botón "Eliminar" junto a cada artículo.
 
