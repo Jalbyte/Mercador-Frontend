@@ -4,6 +4,7 @@ import "./globals.css";
 import { Cart } from "@/components/cart/Cart";
 import { CartProvider } from "@/hooks";
 import { AccessibilitySidebar } from "@/components/accessibility/page";
+import { AuthProvider } from "@/components/auth/AuthProvider";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -25,15 +26,17 @@ export default function RootLayout({
           Saltar al contenido principal
         </a>
 
-        <CartProvider>
-          <main id="main-content" className="min-h-screen bg-base-200/50">
-            {children}
-            <Cart />
-          </main>
+        <AuthProvider>
+          <CartProvider>
+            <main id="main-content" className="min-h-screen bg-base-200/50">
+              {children}
+              <Cart />
+            </main>
 
-          {/* Componente de accesibilidad */}
-          <AccessibilitySidebar />
-        </CartProvider>
+            {/* Componente de accesibilidad */}
+            <AccessibilitySidebar />
+          </CartProvider>
+        </AuthProvider>
       </body>
     </html>
   );
