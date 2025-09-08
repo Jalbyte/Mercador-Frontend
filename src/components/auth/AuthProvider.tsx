@@ -219,8 +219,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     try {
       setError(null);
 
-      const response = await fetch(`${API_BASE}/auth/me`, {
-        method: "PUT",
+      const response = await fetch(`${API_BASE}/profile/update`, {
+        method: "POST",
         credentials: "include",
         headers: {
           "Content-Type": "application/json",

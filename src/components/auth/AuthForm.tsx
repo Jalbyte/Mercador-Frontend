@@ -64,9 +64,12 @@ export const AuthForm: React.FC<AuthFormProps> = ({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    const { confirmPassword, acceptTerms, rememberMe, ...submitData } =
-      formData;
-    onSubmit(submitData);
+    const { confirmPassword, acceptTerms, ...submitData } = formData;
+    // Include rememberMe in the submission
+    onSubmit({
+      ...submitData,
+      rememberMe: formData.rememberMe
+    });
   };
 
   const handleSocialLogin = (provider: "google" | "facebook") => {

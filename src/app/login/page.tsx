@@ -19,10 +19,67 @@ function LoginContent() {
   const [info, setInfo] = useState("");
   const [showModal, setShowModal] = useState(false);
 
+  const handleFormSubmit = async (formData: {
+    email: string;
+    password: string;
+    rememberMe?: boolean;
+  }) => {
+    setIsLoading(true);
+    setError("");
+
+    try {
+      const API_BASE =
+        process.env.NEXT_PUBLIC_API_URL ??
+        (typeof window !== "undefined"
+          ? `${window.location.protocol}//${window.location.hostname}:3010`
+          : "");
+
+      const endpoint = isLogin ? "/auth/login" : "/auth/register";
+      const response = await fetch(`${API_BASE}${endpoint}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          email: formData.email,
+          password: formData.password,
+          ...(formData.rememberMe !== undefined && {
+            rememberMe: formData.rememberMe,
+          }),
+        }),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.message || "Error en la autenticación");
+      }
+
+      // Guardar el email en localStorage para recordarlo si rememberMe está activado
+      if (isLogin && formData.rememberMe) {
+        localStorage.setItem("last-login-email", formData.email);
+      } else if (isLogin) {
+        localStorage.removeItem("last-login-email");
+      }
+
+      // Actualizar el estado de autenticación
+      window.dispatchEvent(new CustomEvent("auth-changed"));
+
+      // Redirigir al dashboard después de iniciar sesión exitosamente
+      router.push("/");
+    } catch (err) {
+      const errorMessage =
+        err instanceof Error ? err.message : "Error en la autenticación";
+      setError(errorMessage);
+      setShowModal(true);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   // Handle magic link verification and other URL parameters
   useEffect(() => {
     const verifyMagicLink = async () => {
-      const token = searchParams.get('token');
+      const token = searchParams.get("token");
       if (!token) return;
 
       setIsVerifying(true);
@@ -30,35 +87,40 @@ function LoginContent() {
       setShowModal(true);
 
       try {
-        const API_BASE = process.env.NEXT_PUBLIC_API_URL ??
+        const API_BASE =
+          process.env.NEXT_PUBLIC_API_URL ??
           (typeof window !== "undefined"
             ? `${window.location.protocol}//${window.location.hostname}:3010`
             : "");
 
         const response = await fetch(`${API_BASE}/auth/verify-magiclink`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          credentials: 'include',
-          body: JSON.stringify({ token })
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({ token }),
         });
 
         if (response.ok) {
           // Clear the token from URL
           const url = new URL(window.location.href);
-          url.searchParams.delete('token');
+          url.searchParams.delete("token");
           window.history.replaceState({}, document.title, url.pathname);
-          
+
           // Refresh the auth state
           window.dispatchEvent(new CustomEvent("auth-changed"));
-          
+
           // Redirect to dashboard or home
-          router.push('/dashboard');
+          router.push("/dashboard");
         } else {
           const error = await response.json().catch(() => ({}));
-          throw new Error(error.message || 'Error al verificar el enlace');
+          throw new Error(error.message || "Error al verificar el enlace");
         }
       } catch (err) {
-        setError(err instanceof Error ? err.message : 'Error al verificar el enlace mágico');
+        setError(
+          err instanceof Error
+            ? err.message
+            : "Error al verificar el enlace mágico"
+        );
         setShowModal(true);
       } finally {
         setIsVerifying(false);
@@ -85,7 +147,7 @@ function LoginContent() {
       // Clean up URL parameters
       const url = new URL(window.location.href);
       let shouldUpdate = false;
-      
+
       if (params.has("registered")) {
         url.searchParams.delete("registered");
         shouldUpdate = true;
@@ -94,7 +156,7 @@ function LoginContent() {
         url.searchParams.delete("message");
         shouldUpdate = true;
       }
-      
+
       if (shouldUpdate) {
         window.history.replaceState({}, document.title, url.toString());
       }
@@ -218,26 +280,27 @@ function LoginContent() {
 
   return (
     <AuthLayout>
-      <AuthHeader 
+      <AuthHeader
         title={isLogin ? "Iniciar sesión" : "Crear cuenta"}
-        subtitle={isLogin ? "Ingresa a tu cuenta para continuar" : "Crea una cuenta para comenzar"}
+        subtitle={
+          isLogin
+            ? "Ingresa a tu cuenta para continuar"
+            : "Crea una cuenta para comenzar"
+        }
         icon={<FiUser size={32} />}
       />
       <AuthForm
         isLogin={isLogin}
-        onSubmit={async (data) => {
-          // Handle form submission here
-          console.log('Form submitted:', data);
-        }}
-        onToggleMode={() => setIsLogin(!isLogin)}
+        onSubmit={handleFormSubmit}
+        onToggleMode={() => !isLoading && setIsLogin(!isLogin)}
+        loading={isLoading}
         error={error}
       />
-      <AuthFooter 
-        isLogin={isLogin} 
-        onToggleMode={() => setIsLogin(!isLogin)} 
+      <AuthFooter
+        isLogin={isLogin}
+        onToggleMode={() => !isLoading && setIsLogin(!isLogin)}
       />
-
-<Modal
+      <Modal
         open={showModal}
         onClose={() => {
           setShowModal(false);
@@ -265,11 +328,13 @@ function LoginContent() {
 
 export default function LoginPage() {
   return (
-    <Suspense fallback={
-      <div className="min-h-screen flex items-center justify-center">
-        <FiLoader className="animate-spin text-3xl text-blue-500" />
-      </div>
-    }>
+    <Suspense
+      fallback={
+        <div className="min-h-screen flex items-center justify-center">
+          <FiLoader className="animate-spin text-3xl text-blue-500" />
+        </div>
+      }
+    >
       <LoginContent />
     </Suspense>
   );
