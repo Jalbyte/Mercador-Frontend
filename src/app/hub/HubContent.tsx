@@ -65,7 +65,16 @@ export default function HubContent() {
             document.cookie = `sb_access_token=${encodeURIComponent(urlToken)}; path=/;`
           }
         } catch (e) {}
+        // Notificar al resto de la app que cambió el estado de autenticación
+        try {
+          window.dispatchEvent(new CustomEvent('auth-changed', { detail: { loggedIn: true } }))
+        } catch {}
         router.replace('/hub')
+      }
+
+      // Si no hubo token en URL pero validamos cookie y otros aún no saben, disparar evento una sola vez
+      if (!urlToken) {
+        try { window.dispatchEvent(new CustomEvent('auth-changed', { detail: { loggedIn: true } })) } catch {}
       }
 
       setLoading(false)
