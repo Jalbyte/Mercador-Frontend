@@ -79,7 +79,7 @@ function LoginContent() {
   // Handle magic link verification and other URL parameters
   useEffect(() => {
     const verifyMagicLink = async () => {
-      const token = searchParams.get("token");
+      const token = searchParams?.get("token");
       if (!token) return;
 
       setIsVerifying(true);

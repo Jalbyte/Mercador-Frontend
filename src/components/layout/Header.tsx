@@ -16,6 +16,7 @@ export function Header() {
   const [isAdmin, setIsAdmin] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [userName, setUserName] = useState<string | null>(null);
+  const [userImage, setUserImage] = useState<string | null>(null);
   const [checkingAdmin, setCheckingAdmin] = useState(true);
 
   const handleCartClick = () => {
@@ -34,14 +35,17 @@ export function Header() {
           setIsAdmin(false)
           setIsAuthenticated(false)
           setUserName(null)
+          setUserImage(null)
         } else {
           const j = await res.json().catch(() => null)
           // Backend returns { success: true, data: { role: string, ... } }
           const role = j?.data?.role ?? j?.data?.user_metadata?.role ?? null
           const name = j?.data?.full_name ?? j?.data?.user_metadata?.full_name ?? j?.data?.email ?? null
+          const image = j?.data?.image ?? null
           setIsAdmin(role === 'admin')
           setIsAuthenticated(true)
           setUserName(name)
+          setUserImage(image)
         }
       } catch (err) {
         setIsAdmin(false)
@@ -87,6 +91,13 @@ export function Header() {
               </Link>
             ) : (
               <div className="flex items-center gap-3">
+                {userImage && (
+                  <img
+                    src={userImage}
+                    alt="Avatar"
+                    className="w-8 h-8 rounded-full object-cover border border-gray-300"
+                  />
+                )}
                 <Link href="/profile" className="text-gray-700 hover:text-blue-600">
                   Editar perfil
                 </Link>
@@ -101,6 +112,7 @@ export function Header() {
                     setIsAuthenticated(false)
                     setIsAdmin(false)
                     setUserName(null)
+                    setUserImage(null)
                     window.location.href = '/'
                   }}
                   className="px-3 py-1 rounded bg-gray-100 text-sm hover:bg-gray-200"
