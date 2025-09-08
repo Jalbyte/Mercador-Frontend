@@ -10,6 +10,7 @@ import {
 import { Header } from "@/components/layout/Header";
 import { useCart } from "@/hooks";
 import { useEffect, useState } from "react";
+import Image from "next/image";
 
 type LicenseCardProps = {
   id: string;
@@ -46,6 +47,16 @@ const LicenseCard = ({
 
   return (
     <div className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow duration-300">
+      {image && (
+        <div className="h-48 relative">
+          <Image
+            src={image}
+            alt={title}
+            fill
+            className="object-cover"
+          />
+        </div>
+      )}
       <div className="p-6">
         <span className="text-sm text-blue-600 font-medium">{category}</span>
         <h3 className="text-xl font-semibold mt-2 mb-1">{title}</h3>
