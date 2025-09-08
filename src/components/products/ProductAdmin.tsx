@@ -1,6 +1,25 @@
 "use client"
 
 import React, { useEffect, useState } from 'react'
+// Tipo para product_key a crear
+type ProductKeyInput = {
+  license_key: string
+  status?: string
+  expiration_date?: string
+  activation_limit?: number
+}
+// Tipo para product_key existente
+type ProductKey = {
+  id: string
+  product_id: string
+  license_key: string
+  user_id?: string
+  status?: string
+  expiration_date?: string
+  activation_limit?: number
+  created_at?: string
+  updated_at?: string
+}
 import { convertFileToBase64 } from '../../lib/utils.client'
 
 type Product = {
@@ -19,6 +38,154 @@ type Product = {
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? (typeof window !== 'undefined' ? `${window.location.protocol}//${window.location.hostname}:3010` : '')
 
 export default function ProductAdmin(): JSX.Element {
+  // Estado para product_keys a crear
+  const [productKeys, setProductKeys] = useState<ProductKeyInput[]>([])
+  const [newKey, setNewKey] = useState('')
+  const [randomCount, setRandomCount] = useState<number>(1)
+  // Estado para product_keys existentes
+  const [existingKeys, setExistingKeys] = useState<ProductKey[]>([])
+  const [loadingKeys, setLoadingKeys] = useState(false)
+
+  // Generador simple de claves aleatorias. Si se pasa seq, lo añadimos al final para mantener orden legible.
+  function generateRandomKey(length = 16, seq?: number) {
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+    let key = '';
+    for (let i = 0; i < length; i++) {
+      key += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    if (typeof seq === 'number') {
+      // formatear secuencia a 4 dígitos para orden lexical
+      const s = String(seq).padStart(4, '0')
+      return `${key}-${s}`
+    }
+    return key;
+  }
+
+  // Añadir una o varias claves random en orden (count)
+  async function handleAddRandomKey(count = 1) {
+    if (count <= 0) return
+
+    // Si estamos editando un producto existente, persistir en backend
+    if (editingId) {
+      setLoadingKeys(true)
+      setError(null)
+      try {
+        const created: ProductKey[] = []
+        // crear secuencialmente para mantener orden en el sufijo
+        const startIdx = (existingKeys?.length || 0) + 1
+        for (let i = 0; i < count; i++) {
+          const seq = startIdx + i
+          const license = generateRandomKey(16, seq)
+          const resp = await fetch(`${API_BASE}/products/${editingId}/keys`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ license_key: license })
+          })
+          let json: any
+          try {
+            json = await resp.json()
+          } catch (e) {
+            const text = await resp.text().catch(() => '')
+            throw new Error(`Server returned ${resp.status} ${resp.statusText}: ${text || 'non-JSON response'}`)
+          }
+          if (!resp.ok || !json?.success) {
+            const msg = json?.error ?? json?.message ?? 'Failed to create key'
+            throw new Error(Array.isArray(msg) ? msg.map((m: any) => m?.message ?? JSON.stringify(m)).join('\n') : (typeof msg === 'string' ? msg : JSON.stringify(msg)))
+          }
+          created.push(json.data)
+        }
+        // anexar al inicio para verlas primero
+        setExistingKeys(prev => [...created, ...(prev || [])])
+      } catch (e: any) {
+        setError(e?.message ?? String(e))
+      } finally {
+        setLoadingKeys(false)
+      }
+      return
+    }
+
+    // Comportamiento para creación de producto (local) — seguir guardando en memoria
+    setProductKeys(prev => {
+      const startIdx = prev.length + 1
+      const newKeys: ProductKeyInput[] = []
+      for (let i = 0; i < count; i++) {
+        const seq = startIdx + i
+        newKeys.push({ license_key: generateRandomKey(16, seq) })
+      }
+      return [...prev, ...newKeys]
+    })
+  }
+
+  async function handleAddManualKey() {
+    if (!newKey.trim()) return
+
+    // Si estamos editando, persistir en backend
+    if (editingId) {
+      setLoadingKeys(true)
+      setError(null)
+      try {
+        const resp = await fetch(`${API_BASE}/products/${editingId}/keys`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ license_key: newKey.trim() })
+        })
+        let json: any
+        try {
+          json = await resp.json()
+        } catch (e) {
+          const text = await resp.text().catch(() => '')
+          throw new Error(`Server returned ${resp.status} ${resp.statusText}: ${text || 'non-JSON response'}`)
+        }
+        if (!resp.ok || !json?.success) {
+          const msg = json?.error ?? json?.message ?? 'Failed to create key'
+          throw new Error(Array.isArray(msg) ? msg.map((m: any) => m?.message ?? JSON.stringify(m)).join('\n') : (typeof msg === 'string' ? msg : JSON.stringify(msg)))
+        }
+        setExistingKeys(prev => [json.data, ...(prev || [])])
+        setNewKey('')
+      } catch (e: any) {
+        setError(e?.message ?? String(e))
+      } finally {
+        setLoadingKeys(false)
+      }
+      return
+    }
+
+    // comportamiento local si estamos creando el producto
+    setProductKeys(prev => [...prev, { license_key: newKey.trim() }])
+    setNewKey('')
+  }
+
+  function handleRemoveKey(idx: number) {
+    // Solo afecta a claves locales (a crear junto al producto)
+    setProductKeys(prev => prev.filter((_, i) => i !== idx));
+  }
+
+  // Eliminar una key ya persistida en el servidor
+  async function handleDeleteExistingKey(keyId: string) {
+    if (!editingId) return
+    if (!confirm('Eliminar esta clave?')) return
+    setLoadingKeys(true)
+    setError(null)
+    try {
+      const resp = await fetch(`${API_BASE}/products/${editingId}/keys/${keyId}`, { method: 'DELETE' })
+      let json: any
+      try {
+        json = await resp.json()
+      } catch (e) {
+        const text = await resp.text().catch(() => '')
+        throw new Error(`Server returned ${resp.status} ${resp.statusText}: ${text || 'non-JSON response'}`)
+      }
+      if (!resp.ok || !json?.success) {
+        const msg = json?.error ?? json?.message ?? 'Failed to delete key'
+        throw new Error(Array.isArray(msg) ? msg.map((m: any) => m?.message ?? JSON.stringify(m)).join('\n') : (typeof msg === 'string' ? msg : JSON.stringify(msg)))
+      }
+      setExistingKeys(prev => (prev || []).filter(k => k.id !== keyId))
+    } catch (e: any) {
+      setError(e?.message ?? String(e))
+    } finally {
+      setLoadingKeys(false)
+    }
+  }
   const [products, setProducts] = useState<Product[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -68,6 +235,23 @@ export default function ProductAdmin(): JSX.Element {
     }
   }
 
+  async function fetchProductKeys(productId: string) {
+    setLoadingKeys(true)
+    try {
+      const resp = await fetch(`${API_BASE}/products/${productId}/keys`)
+      const json = await resp.json()
+      if (resp.ok && json?.success) {
+        setExistingKeys(json.data || [])
+      } else {
+        setExistingKeys([])
+      }
+    } catch {
+      setExistingKeys([])
+    } finally {
+      setLoadingKeys(false)
+    }
+  }
+
   function startEdit(p: Product) {
     setEditingId(p.id)
     setName(p.name)
@@ -77,6 +261,9 @@ export default function ProductAdmin(): JSX.Element {
     setStockQuantity(p.stock_quantity)
     setImagePreview(p.image_url ?? null)
     setImageFile(null)
+    setProductKeys([]) // No cargamos keys para crear
+    setExistingKeys([])
+    fetchProductKeys(p.id)
   }
 
   function resetForm() {
@@ -88,6 +275,9 @@ export default function ProductAdmin(): JSX.Element {
     setStockQuantity('')
     setImageFile(null)
     setImagePreview(null)
+    setProductKeys([])
+    setNewKey('')
+    setExistingKeys([])
   }
 
   async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
@@ -136,6 +326,10 @@ export default function ProductAdmin(): JSX.Element {
         price: typeof price === 'number' ? price : Number(price),
         category,
         stock_quantity: typeof stockQuantity === 'number' ? stockQuantity : Number(stockQuantity)
+      }
+      // Si hay productKeys y es creación, añadirlas
+      if (!editingId && productKeys.length > 0) {
+        payload.product_keys = productKeys;
       }
 
       if (imageFile) {
@@ -271,6 +465,82 @@ export default function ProductAdmin(): JSX.Element {
         <div className="w-1/3">
           <h3 className="text-lg font-medium mb-2">{editingId ? 'Edit product' : 'Create product'}</h3>
           <form onSubmit={handleSubmit} className="space-y-2">
+            {/* Product Keys UI */}
+            {!editingId ? (
+              <div className="mb-2">
+                <label className="block text-sm mb-1">Claves de producto</label>
+                <div className="flex gap-2 mb-2">
+                  <input
+                    className="border rounded p-2 flex-1"
+                    placeholder="Agregar clave manual"
+                    value={newKey}
+                    onChange={e => setNewKey(e.target.value)}
+                  />
+                  <button type="button" className="px-2 py-1 bg-blue-500 text-white rounded" onClick={handleAddManualKey}>Añadir</button>
+                  <input
+                    type="number"
+                    min={1}
+                    className="w-20 border rounded p-2"
+                    value={randomCount}
+                    onChange={e => setRandomCount(Number(e.target.value) || 1)}
+                    title="Cantidad de claves a generar"
+                  />
+                  <button type="button" className="px-2 py-1 bg-green-600 text-white rounded" onClick={() => handleAddRandomKey(randomCount)}>Random</button>
+                </div>
+                {productKeys.length > 0 && (
+                  <ul className="mb-2 max-h-32 overflow-auto border rounded p-2 bg-gray-50">
+                    {productKeys.map((k, idx) => (
+                      <li key={idx} className="flex items-center justify-between py-1">
+                        <span className="font-mono text-xs">{k.license_key}</span>
+                        <button type="button" className="ml-2 text-red-500 hover:underline text-xs" onClick={() => handleRemoveKey(idx)}>Eliminar</button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+                <div className="text-xs text-gray-500">Puedes añadir varias claves antes de crear el producto.</div>
+              </div>
+            ) : (
+              <div className="mb-2">
+                <label className="block text-sm mb-1">Claves de producto existentes</label>
+                {loadingKeys ? (
+                  <div className="text-xs text-gray-500">Cargando claves...</div>
+                ) : existingKeys.length === 0 ? (
+                  <div className="text-xs text-gray-500">Este producto no tiene claves.</div>
+                ) : (
+                  <div>
+                    <div className="mb-2 flex gap-2">
+                      <input
+                        className="border rounded p-2 flex-1"
+                        placeholder="Agregar clave manual"
+                        value={newKey}
+                        onChange={e => setNewKey(e.target.value)}
+                      />
+                      <button type="button" className="px-2 py-1 bg-blue-500 text-white rounded" onClick={handleAddManualKey}>Añadir</button>
+                      <input
+                        type="number"
+                        min={1}
+                        className="w-20 border rounded p-2"
+                        value={randomCount}
+                        onChange={e => setRandomCount(Number(e.target.value) || 1)}
+                        title="Cantidad de claves a generar"
+                      />
+                      <button type="button" className="px-2 py-1 bg-green-600 text-white rounded" onClick={() => handleAddRandomKey(randomCount)}>Random</button>
+                    </div>
+
+                    <ul className="mb-2 max-h-32 overflow-auto border rounded p-2 bg-gray-50">
+                      {existingKeys.map((k) => (
+                        <li key={k.id} className="flex items-center justify-between py-1">
+                          <span className="font-mono text-xs">{k.license_key}</span>
+                          <div className="flex items-center gap-2">
+                            <button type="button" className="text-red-500 hover:underline text-xs" onClick={() => handleDeleteExistingKey(k.id)}>Eliminar</button>
+                          </div>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </div>
+            )}
             <div>
               <label className="block text-sm">Nombre</label>
               <input className="w-full border rounded p-2" value={name} onChange={e => setName(e.target.value)} required />
