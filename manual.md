@@ -1,131 +1,73 @@
-## Manual de usuario — Mercador
+# Manual de Usuario — Mercador
 
-Este documento describe cómo preparar, ejecutar y usar los componentes del proyecto Mercador (Backend, Frontend e Infra). Está pensado para desarrolladores que quieren levantar el proyecto localmente o con Docker.
-
-### 1. Visión general
-- Backend: `Mercador-Backend/` (TypeScript, Node). Punto de entrada: `src/index.ts`.
-- Frontend: `Mercador-Frontend/` (Next.js + TypeScript). App en `src/app/`.
-- Infra: `mercador-infra/` (docker-compose, Prometheus template).
-
-El backend expone una API REST que consume el frontend. La infraestructura incluye plantillas para monitorización y servicios auxiliares.
-
-### 2. Requisitos del sistema
-- Node.js (LTS recomendado, por ejemplo 18.x o 20.x).
-- npm (v8+).
-- Docker y Docker Compose (si vas a usar contenedores).
-- Windows PowerShell (los comandos incluidos están en PowerShell).
-
-### 3. Variables de entorno (configuración)
-1. Copia `Mercador-Backend/.env.example` a `Mercador-Backend/.env` y completa los valores.
-2. Revisa `src/config/env.ts` y los archivos en `src/config/` (`supabase.ts`, `redis.ts`) para entender las variables obligatorias.
-3. Ajusta CORS/ORIGIN para permitir el origen del frontend si trabajas localmente.
-
-Variables típicas a configurar:
-- `PORT` — puerto del backend.
-- `SUPABASE_URL`, `SUPABASE_KEY` — si usas Supabase.
-- `REDIS_URL` — para cache/sesiones.
-
-### 4. Instalación y ejecución (desarrollo)
-
-Backend (desde `Mercador-Backend`):
-```powershell
-cd Mercador-Backend
-npm install
-npm run dev
-
-# para producción local
-npm run build; npm start
-```
-
-Frontend (desde `Mercador-Frontend`):
-```powershell
-cd Mercador-Frontend
-npm install
-npm run dev
-
-# para producción local
-npm run build; npm run start
-```
-
-Notas:
-- Levanta el backend antes que el frontend para que la API esté disponible.
-- Sustituye puertos y orígenes según tus variables en `.env`.
-
-### 5. Ejecutar con Docker (opciones)
-
-Levantar el backend con Docker Compose (desde `Mercador-Backend`):
-```powershell
-cd Mercador-Backend
-docker compose up --build
-```
-
-Levantar la infraestructura (Prometheus, Redis, etc.) (desde `mercador-infra`):
-```powershell
-cd mercador-infra
-docker compose up -d
-```
-
-Antes de ejecutar, revisa los `docker-compose.yml` y los `.env` referenciados para asegurar que los servicios se enlazan por los host/nombres correctos.
-
-### 6. Estructura principal y propósito
-- `src/index.ts` — arranque de la app, configuración global de middlewares.
-- `src/config/` — configuración (env, redis, metrics, supabase).
-- `src/middlewares/` — auth, CSRF, logging, rate-limit, error handler, metrics.
-- `src/routes/` — definición de endpoints (`auth.ts`, `products.ts`, `cart.ts`, `orders.ts`, `health.ts`).
-- `src/services/` — lógica de negocio (productos, carrito, pedidos, usuarios, redis).
-- `src/utils/` — utilidades (errores, validación, logger).
-
-### 7. Endpoints esperados (resumen)
-Revisa `Mercador-Backend/src/routes/` para las rutas exactas. Ejemplos típicos:
-- `GET /health` — healthcheck.
-- `POST /auth/login` — iniciar sesión.
-- `POST /auth/logout` — cerrar sesión.
-- `GET /products` — listar productos.
-- `GET /products/:id` — detalle de producto.
-- `POST /cart` — añadir al carrito.
-- `GET /cart` — ver carrito.
-- `POST /orders` — crear pedido.
-
-Para documentación exacta de payloads y respuestas, abre los archivos en `src/routes/` y `src/services/`.
-
-### 8. Ejemplos rápidos de uso (PowerShell)
-
-Healthcheck:
-```powershell
-curl http://localhost:PORT/health
-```
-
-Listar productos:
-```powershell
-curl http://localhost:PORT/products
-```
-
-Login (ejemplo JSON):
-```powershell
-curl -Method POST -ContentType 'application/json' -Body '{"email":"user@example.com","password":"secret"}' http://localhost:PORT/auth/login
-```
-
-Recuerda reemplazar `PORT` por el puerto configurado en tu `.env` (por ejemplo 3000).
-
-### 9. Autenticación y headers
-- El proyecto tiene middlewares `auth.ts`, `authMiddleware.ts`, `supabaseAuth.ts` y `cookieToAuthHeader.ts` que marcan cómo se gestionan sesiones/headers.
-- Usa `Authorization: Bearer <token>` o cookies según la configuración del backend.
-
-### 10. Logs y métricas
-- Métricas: integraciones en `src/config/metrics.ts` y `src/middlewares/metrics.ts` para Prometheus.
-- Si usas `mercador-infra`, adapta `prometheus.yml.template`.
-- Logs estructurados vía `src/utils/logger.ts`.
-
-### 11. Troubleshooting (problemas comunes)
-- npm run dev falla por variables: Copia `.env.example` → `.env` y completa valores.
-- CORS: añade el origen del frontend a la configuración CORS del backend.
-- Redis/Supabase inaccesibles en Docker: revisa nombres de servicio en `docker-compose` y las variables de `.env`.
-
-### 12. Buenas prácticas y próximos pasos sugeridos
-- Añadir documentación exacta de la API con OpenAPI/Swagger.
-- Añadir tests (Jest + supertest) para rutas críticas.
-- Añadir CI (lint, build, test) en GitHub Actions.
-- Documentar detalle de variables en `Mercador-Backend/.env.example` y ampliar `README.md` por carpeta.
+Bienvenido a **Mercador**, tu aplicación para explorar productos, gestionarlos en un carrito y realizar compras de manera fácil y segura.
 
 ---
-Este `manual.md` está pensado como guía rápida. ¿Quieres que extraiga automáticamente las rutas y payloads directamente desde `Mercador-Backend/src/routes/` y añada ejemplos exactos a este manual? Si sí, lo hago y actualizo el documento con la lista de endpoints reales.
+
+## 1. Acceso a la aplicación
+1. Abre tu navegador web y entra en la dirección de Mercador (mercador.app).
+2. Si no tienes cuenta, regístrate con tu correo electrónico y una contraseña.
+3. Si ya tienes cuenta, ingresa con tu correo y contraseña en la pantalla de **Inicio de sesión**.
+
+---
+
+## 2. Registro e inicio de sesión
+- **Registro**: completa tu correo, contraseña y confirma tu cuenta siguiendo el enlace enviado al correo electrónico.
+- **Inicio de sesión**: introduce tus credenciales y pulsa **Ingresar**.
+- **Cerrar sesión**: en el menú superior derecho, selecciona **Cerrar sesión**.
+
+---
+
+## 3. Exploración de productos
+1. Accede a la sección **Productos** desde el menú principal.
+2. Puedes navegar por la lista de productos disponibles.
+3. Haz clic sobre un producto para ver más detalles (precio, descripción, disponibilidad).
+
+---
+
+## 4. Carrito de compras
+- Para añadir un producto al carrito:
+  1. Abre el detalle del producto.
+  2. Pulsa el botón **Añadir al carrito**.
+- Para ver tu carrito:
+  - Haz clic en el icono del carrito en la parte superior.
+- Dentro del carrito puedes:
+  - Ver los productos seleccionados.
+  - Modificar cantidades.
+  - Eliminar productos que no desees comprar.
+
+---
+
+## 5. Realizar un pedido
+1. Abre tu **carrito de compras**.
+2. Revisa los productos, cantidades y el precio total.
+3. Pulsa en **Realizar pedido**.
+4. Completa los datos solicitados para envío y pago.
+5. Confirma tu compra. Recibirás un mensaje de confirmación.
+
+---
+
+## 6. Gestión de cuenta
+- Desde el menú de usuario puedes:
+  - Cambiar tu contraseña.
+  - Actualizar datos personales.
+  - Consultar tus pedidos anteriores.
+
+---
+
+## 7. Ayuda y soporte
+- Si tienes problemas para ingresar o usar la aplicación:
+  - Usa la opción **¿Olvidaste tu contraseña?** en la pantalla de inicio de sesión.
+  - Contacta al equipo de soporte desde la sección **Ayuda** del menú principal.
+  - Verifica tu conexión a internet y que estés usando un navegador actualizado.
+
+---
+
+## 8. Consejos de seguridad
+- No compartas tu contraseña con nadie.
+- Cierra sesión al terminar de usar la aplicación, especialmente en computadores compartidos.
+- Si notas actividad sospechosa, cambia tu contraseña inmediatamente y contacta al soporte.
+
+---
+
+¡Listo! Ahora puedes explorar, comprar y gestionar tus pedidos fácilmente con **Mercador** 🎉.
