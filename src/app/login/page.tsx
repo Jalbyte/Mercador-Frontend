@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { Suspense, useState, useEffect } from "react";
 import { Modal } from "@/components/ui/modal";
 import { useRouter, useSearchParams } from "next/navigation";
 import { FiUser, FiShoppingCart, FiLoader } from "react-icons/fi";
@@ -9,7 +9,8 @@ import { AuthHeader } from "@/components/auth/AuthHeader";
 import { AuthForm } from "@/components/auth/AuthForm";
 import { AuthFooter } from "@/components/auth/AuthFooter";
 
-export default function LoginPage() {
+function LoginContent() {
+  const searchParams = useSearchParams();
   const router = useRouter();
   const [isLogin, setIsLogin] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
@@ -17,7 +18,6 @@ export default function LoginPage() {
   const [error, setError] = useState("");
   const [info, setInfo] = useState("");
   const [showModal, setShowModal] = useState(false);
-  const searchParams = useSearchParams();
 
   // Handle magic link verification and other URL parameters
   useEffect(() => {
@@ -218,29 +218,59 @@ export default function LoginPage() {
 
   return (
     <AuthLayout>
-      <div className="relative bg-white rounded-2xl shadow-xl overflow-hidden">
-        <AuthHeader
-          title={isLogin ? "Iniciar Sesión" : "Crear Cuenta"}
-          subtitle={
-            isLogin
-              ? "Accede a las mejores licencias de software"
-              : "Únete a miles de usuarios satisfechos"
-          }
-          icon={isLogin ? <FiUser size={32} /> : <FiShoppingCart size={32} />}
-          onBack={() => router.push("/")}
-        />
+      <AuthHeader 
+        title={isLogin ? "Iniciar sesión" : "Crear cuenta"}
+        subtitle={isLogin ? "Ingresa a tu cuenta para continuar" : "Crea una cuenta para comenzar"}
+        icon={<FiUser size={32} />}
+      />
+      <AuthForm
+        isLogin={isLogin}
+        onSubmit={async (data) => {
+          // Handle form submission here
+          console.log('Form submitted:', data);
+        }}
+        onToggleMode={() => setIsLogin(!isLogin)}
+        error={error}
+      />
+      <AuthFooter 
+        isLogin={isLogin} 
+        onToggleMode={() => setIsLogin(!isLogin)} 
+      />
 
-        <AuthForm
-          isLogin={isLogin}
-          onSubmit={handleSubmit}
-          onSocialLogin={handleSocialLogin}
-          onToggleMode={() => {
-            setError("");
-            setInfo("");
-            setIsLogin(!isLogin);
-          }}
-        />
-      </div>
+<Modal
+        open={showModal}
+        onClose={() => {
+          setShowModal(false);
+          setError("");
+          setInfo("");
+        }}
+        title={error ? "Error" : "Información"}
+      >
+        <div className="text-center p-4">
+          {isVerifying ? (
+            <div className="flex flex-col items-center justify-center space-y-4">
+              <FiLoader className="animate-spin text-3xl text-blue-500" />
+              <p>Verificando tu sesión...</p>
+            </div>
+          ) : error ? (
+            <p className="text-red-500">{error}</p>
+          ) : (
+            <p className="text-green-600">{info}</p>
+          )}
+        </div>
+      </Modal>
     </AuthLayout>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center">
+        <FiLoader className="animate-spin text-3xl text-blue-500" />
+      </div>
+    }>
+      <LoginContent />
+    </Suspense>
   );
 }
