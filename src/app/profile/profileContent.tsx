@@ -142,18 +142,10 @@ export default function ProfileContent() {
       };
       setProfile(initialProfile);
 
-      // Fetch additional profile data if needed
-      const token = localStorage.getItem("access_token");
-      if (!token) {
-        router.push("/login");
-        return;
-      }
-
+      // Fetch additional profile data using cookie-based session (sb_access_token)
       const response = await fetch(`${API_BASE}/auth/me`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
+        credentials: 'include',
+        headers: { "Content-Type": "application/json" },
       });
 
       if (!response.ok) {

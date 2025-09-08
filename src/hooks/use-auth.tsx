@@ -28,40 +28,33 @@ export const useAuth = () => {
 
   const getToken = () => {
     if (typeof window === "undefined") return null;
-    return localStorage.getItem("access_token");
+  // Token is stored in an HttpOnly cookie named sb_access_token; client cannot read it reliably.
+  // Return null to force server-validated flow using credentials: 'include'.
+  return null;
   };
 
   const setToken = (token: string) => {
     if (typeof window === "undefined") return;
-    localStorage.setItem("access_token", token);
+  // Prefer server to set cookie; as a fallback set a non-HttpOnly cookie so client can still work in some envs.
+  try { document.cookie = `sb_access_token=${encodeURIComponent(token)}; path=/;` } catch (e) {}
   };
 
   const removeToken = () => {
     if (typeof window === "undefined") return;
-    localStorage.removeItem("access_token");
+  try { document.cookie = 'sb_access_token=; Max-Age=0; path=/;' } catch (e) {}
   };
 
   const fetchUser = async (showErrors = false) => {
-    const token = getToken();
-
-    if (!token) {
-      setUser(null);
-      setIsAuthenticated(false);
-      setLoading(false);
-      return null;
-    }
-
+    // Use cookie-based auth: call /auth/me with credentials so browser sends sb_access_token cookie
     try {
       const response = await fetch(`${API_BASE}/auth/me`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' }
       });
 
       if (!response.ok) {
         if (response.status === 401) {
-          // Token expirado o inválido
+          // Unauthenticated; ensure any cookie is removed client-side and return
           removeToken();
           setUser(null);
           setIsAuthenticated(false);
@@ -94,16 +87,10 @@ export const useAuth = () => {
   };
 
   const updateProfile = async (profileData: Partial<User>) => {
-    const token = getToken();
-
-    if (!token) {
-      throw new Error("No hay token de autenticación");
-    }
-
     const response = await fetch(`${API_BASE}/auth/me`, {
       method: "PUT",
+      credentials: 'include',
       headers: {
-        Authorization: `Bearer ${token}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify(profileData),
@@ -129,15 +116,13 @@ export const useAuth = () => {
 
   const logout = async () => {
     try {
-      const token = getToken();
-      if (token) {
-        await fetch(`${API_BASE}/auth/logout`, {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        });
-      }
+      await fetch(`${API_BASE}/auth/logout`, {
+        method: "POST",
+        credentials: 'include',
+        headers: {
+          "Content-Type": "application/json",
+        },
+      });
     } catch (error) {
       console.error("Error during logout:", error);
     } finally {

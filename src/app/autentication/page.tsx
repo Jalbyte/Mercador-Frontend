@@ -47,22 +47,14 @@ export default function ProfilePage() {
     setError("");
 
     try {
-      const token = localStorage.getItem("access_token");
-      if (!token) {
-        router.push("/login");
-        return;
-      }
-
+      // Use cookie-based auth
       const response = await fetch(`${API_BASE}/auth/me`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
+        credentials: 'include',
+        headers: { "Content-Type": "application/json" },
       });
 
       if (!response.ok) {
         if (response.status === 401) {
-          router.push("/login");
           return;
         }
         throw new Error("Error al cargar el perfil");
@@ -101,13 +93,10 @@ export default function ProfilePage() {
     setSuccess("");
 
     try {
-      const token = localStorage.getItem("access_token");
       const response = await fetch(`${API_BASE}/auth/profile`, {
         method: "PUT",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
+        credentials: 'include',
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(formData),
       });
 

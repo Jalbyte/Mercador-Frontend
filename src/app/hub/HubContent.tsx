@@ -5,6 +5,12 @@ import { useRouter, useSearchParams } from "next/navigation"
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? (typeof window !== 'undefined' ? `${window.location.protocol}//${window.location.hostname}:3010` : '')
 
+function getCookie(name: string) {
+  if (typeof document === 'undefined') return null
+  const match = document.cookie.match(new RegExp('(^|; )' + name + '=([^;]+)'))
+  return match ? decodeURIComponent(match[2]) : null
+}
+
 export default function HubContent() {
   const router = useRouter()
   const params = useSearchParams()
@@ -14,10 +20,10 @@ export default function HubContent() {
   useEffect(() => {
     let mounted = true
 
-    async function verifyToken(token: string) {
+    async function verifyViaCookie() {
       try {
         const res = await fetch(`${API_BASE}/auth/me`, {
-          headers: { 'Authorization': `Bearer ${token}` }
+          credentials: 'include'
         })
         if (!mounted) return { ok: false, body: null }
         if (!res.ok) return { ok: false, body: await res.text().catch(() => null) }
@@ -31,38 +37,34 @@ export default function HubContent() {
     async function init() {
       setLoading(true)
 
-      // Prefer token in query (from login redirect), fallback to stored token
-      const urlToken = params?.get('token') ?? ''
-      const storedToken = typeof window !== 'undefined' ? localStorage.getItem('access_token') : null
-      let tokenToUse = urlToken || storedToken || ''
+      // Prefer token in query (from login redirect), fallback to cookie
+      const urlToken = params?.get('access_token') ?? ''
+      const cookieToken = getCookie('sb_access_token')
 
-      if (!tokenToUse) {
+      // If no token provided in URL and no cookie present, redirect
+      if (!urlToken && !cookieToken) {
         router.push('/')
         return
       }
 
-      const result = await verifyToken(tokenToUse)
+      // If urlToken present we still call verify via cookie (server should set cookie on redirect)
+      const result = await verifyViaCookie()
       if (!mounted) return
 
       if (!result.ok) {
-        // If urlToken failed but we have a different stored token, try stored one
-        if (urlToken && storedToken && storedToken !== urlToken) {
-          const r2 = await verifyToken(storedToken)
-          if (r2.ok) {
-            setLoading(false)
-            return
-          }
-        }
-
         setError('Token inválido o caducado')
         setTimeout(() => router.push('/'), 1200)
         return
       }
 
-      // If token came from URL, save it to localStorage and clean URL
+      // If token came from URL we expect the server to set the cookie and the redirect to /hub
       if (urlToken) {
-        try { localStorage.setItem('access_token', urlToken) } catch (e) {}
-        // Remove token from URL to avoid leaking it; use replace to not create history entry
+        try {
+          // attempt to set a non-httpOnly cookie client-side if server didn't, fallback
+          if (!cookieToken && typeof document !== 'undefined' && urlToken) {
+            document.cookie = `sb_access_token=${encodeURIComponent(urlToken)}; path=/;`
+          }
+        } catch (e) {}
         router.replace('/hub')
       }
 

@@ -54,28 +54,27 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   // Helper functions
   const getToken = () => {
-    if (typeof window === "undefined") return null;
-    return localStorage.getItem("access_token");
+  // Token is managed via an HttpOnly cookie named sb_access_token. Client cannot read it reliably.
+  return null;
   };
 
   const setToken = (token: string) => {
-    if (typeof window === "undefined") return;
-    localStorage.setItem("access_token", token);
+  if (typeof window === "undefined") return;
+  try { document.cookie = `sb_access_token=${encodeURIComponent(token)}; path=/;` } catch (e) {}
   };
 
   const removeToken = () => {
-    if (typeof window === "undefined") return;
-    localStorage.removeItem("access_token");
+  if (typeof window === "undefined") return;
+  try { document.cookie = 'sb_access_token=; Max-Age=0; path=/;' } catch (e) {}
   };
 
   // Fetch user data from API
   const fetchUserData = async (token: string): Promise<User | null> => {
     try {
+      // Use cookie-based auth: server should set sb_access_token cookie and we include credentials
       const response = await fetch(`${API_BASE}/auth/me`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' }
       });
 
       if (!response.ok) {
@@ -104,15 +103,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       setError(null);
 
       try {
-        const token = getToken();
-
-        if (!token) {
-          setUser(null);
-          setIsAuthenticated(false);
-          return;
-        }
-
-        const userData = await fetchUserData(token);
+  // Try to fetch user via cookie-based session
+  const userData = await fetchUserData('');
 
         if (!mounted) return;
 
@@ -150,15 +142,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   // Listen for auth changes from other parts of the app
   useEffect(() => {
     const handleAuthChange = () => {
-      const token = getToken();
-      if (token && !user) {
-        // User logged in from another component
-        refetchUser();
-      } else if (!token && user) {
-        // User logged out from another component
-        setUser(null);
-        setIsAuthenticated(false);
-      }
+    // On auth-changed, just refetch user state from server
+    refetchUser();
     };
 
     window.addEventListener("auth-changed", handleAuthChange);
@@ -197,21 +182,18 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   // Logout function
   const logout = async (): Promise<void> => {
     try {
-      const token = getToken();
-      if (token) {
-        // Try to call logout endpoint
-        try {
-          await fetch(`${API_BASE}/auth/logout`, {
-            method: "POST",
-            headers: {
-              Authorization: `Bearer ${token}`,
-              "Content-Type": "application/json",
-            },
-          });
-        } catch (err) {
-          console.warn("Error calling logout endpoint:", err);
-          // Continue with local logout even if server logout fails
-        }
+      // Try to call logout endpoint using cookie-based auth
+      try {
+        await fetch(`${API_BASE}/auth/logout`, {
+          method: "POST",
+          credentials: 'include',
+          headers: {
+            "Content-Type": "application/json",
+          },
+        });
+      } catch (err) {
+        console.warn("Error calling logout endpoint:", err);
+        // Continue with local logout even if server logout fails
       }
     } finally {
       // Always perform local cleanup
@@ -229,16 +211,11 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const updateUser = async (userData: Partial<User>): Promise<User | null> => {
     try {
       setError(null);
-      const token = getToken();
-
-      if (!token) {
-        throw new Error("No hay token de autenticación");
-      }
 
       const response = await fetch(`${API_BASE}/auth/me`, {
         method: "PUT",
+        credentials: 'include',
         headers: {
-          Authorization: `Bearer ${token}`,
           "Content-Type": "application/json",
         },
         body: JSON.stringify(userData),
@@ -275,15 +252,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const refetchUser = async (): Promise<void> => {
     try {
       setError(null);
-      const token = getToken();
 
-      if (!token) {
-        setUser(null);
-        setIsAuthenticated(false);
-        return;
-      }
-
-      const userData = await fetchUserData(token);
+      const userData = await fetchUserData('');
 
       if (userData) {
         setUser(userData);

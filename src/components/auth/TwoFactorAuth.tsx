@@ -33,13 +33,10 @@ export const TwoFactorAuth = ({
     setError("");
 
     try {
-      const token = localStorage.getItem("access_token");
       const response = await fetch(`${API_BASE}/auth/2fa/enable`, {
         method: "POST",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
+        credentials: 'include',
+        headers: { "Content-Type": "application/json" },
       });
 
       if (!response.ok) {
@@ -75,16 +72,11 @@ export const TwoFactorAuth = ({
     setError("");
 
     try {
-      const token = localStorage.getItem("access_token");
       const response = await fetch(`${API_BASE}/auth/2fa/verify`, {
         method: "POST",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          code: verificationCode,
-        }),
+        credentials: 'include',
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code: verificationCode }),
       });
 
       if (!response.ok) {
@@ -121,13 +113,10 @@ export const TwoFactorAuth = ({
     setError("");
 
     try {
-      const token = localStorage.getItem("access_token");
       const response = await fetch(`${API_BASE}/auth/2fa/disable`, {
         method: "POST",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
+        credentials: 'include',
+        headers: { "Content-Type": "application/json" },
       });
 
       if (!response.ok) {
