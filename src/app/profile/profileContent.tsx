@@ -9,12 +9,13 @@ import {
   FiArrowLeft,
   FiLoader,
   FiPhone,
+  FiGlobe,
 } from "react-icons/fi";
 import { Header } from "@/components/layout/Header";
 import { FormInput } from "@/components/auth/FormInput";
 import { TwoFactorAuth } from "@/components/auth/TwoFactorAuth";
 import { Button } from "@/components/ui/button";
-import { useAuth } from "@/components/auth/AuthProvider";
+import { useAuth, type User } from "@/components/auth/AuthProvider";
 
 const API_BASE =
   process.env.NEXT_PUBLIC_API_URL ??
@@ -26,24 +27,23 @@ interface UserProfile {
   id: string;
   email: string;
   full_name: string;
-  first_name: string;
-  last_name: string;
+  country?: string;
   two_factor_enabled: boolean;
-  phone: string;
+  avatar_url?: string;
 }
 
 // Helper function to get full name with fallbacks
 function getFullName(profile: any, user: any): string {
   if (profile.full_name) return profile.full_name;
-  
-  const firstName = profile.first_name || user?.first_name || '';
-  const lastName = profile.last_name || user?.last_name || '';
-  
+
+  const firstName = profile.first_name || user?.first_name || "";
+  const lastName = profile.last_name || user?.last_name || "";
+
   if (firstName || lastName) {
     return `${firstName} ${lastName}`.trim();
   }
-  
-  return user?.full_name || '';
+
+  return user?.full_name || "";
 }
 
 // Helper function to get two-factor status with fallbacks
@@ -56,32 +56,41 @@ function getTwoFactorStatus(profile: any, user: any): boolean {
 
 export default function ProfileContent() {
   const router = useRouter();
-  const { isAuthenticated, isLoading: authLoading, user, updateUser } = useAuth();
+  const {
+    isAuthenticated,
+    isLoading: authLoading,
+    user,
+    updateUser,
+  } = useAuth();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   // Initialize with default values that match the UserProfile interface
   const defaultProfile: UserProfile = {
-    id: '',
-    email: '',
-    full_name: '',
-    first_name: '',
-    last_name: '',
+    id: "",
+    email: "",
+    full_name: "",
     two_factor_enabled: false,
-    phone: ''
   };
   const [profile, setProfile] = useState<UserProfile>(defaultProfile);
-  const [formData, setFormData] = useState({
-    first_name: "",
-    last_name: "",
+  const [formData, setFormData] = useState<{
+    full_name: string;
+    country: string;
+    email: string;
+    phone?: string;
+  }>({
+    full_name: "",
+    country: "",
     email: "",
     phone: "",
   });
+  const [avatarFile, setAvatarFile] = useState<File | null>(null);
+  const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
 
   useEffect(() => {
     if (!authLoading && !isAuthenticated) {
-      router.push('/login');
+      router.push("/login");
       return;
     }
 
@@ -93,15 +102,15 @@ export default function ProfileContent() {
   // Helper function to get full name with fallbacks
   const getFullName = (profile: any, userData: any): string => {
     if (profile.full_name) return profile.full_name;
-    
-    const firstName = profile.first_name || userData?.first_name || '';
-    const lastName = profile.last_name || userData?.last_name || '';
-    
+
+    const firstName = profile.first_name || userData?.first_name || "";
+    const lastName = profile.last_name || userData?.last_name || "";
+
     if (firstName || lastName) {
       return `${firstName} ${lastName}`.trim();
     }
-    
-    return userData?.full_name || '';
+
+    return userData?.full_name || "";
   };
 
   // Helper function to get two-factor status with fallbacks
@@ -114,37 +123,33 @@ export default function ProfileContent() {
 
   const loadProfile = async () => {
     if (!user) return;
-    
+
     setLoading(true);
     setError("");
 
     try {
-          // Update form data from auth context user with fallbacks
+      // Set form data from auth context user
       setFormData({
-        first_name: user.first_name || "",
-        last_name: user.last_name || "",
+        full_name: user.full_name || "",
+        country: user.country || "",
         email: user.email || "",
         phone: user.phone || "",
       });
-      
+
       // Set profile from auth context user with fallbacks
-      const userFullName = user.full_name || 
-                         (user.first_name && user.last_name ? `${user.first_name} ${user.last_name}` : "");
-      
       const initialProfile: UserProfile = {
         id: user.id || "",
         email: user.email || "",
-        first_name: user.first_name || "",
-        last_name: user.last_name || "",
-        full_name: userFullName,
-        phone: user.phone || "",
-        two_factor_enabled: user.two_factor_enabled || false
+        full_name: user.full_name || "",
+        country: user.country,
+        two_factor_enabled: user.two_factor_enabled || false,
+        avatar_url: user.avatar_url,
       };
       setProfile(initialProfile);
 
       // Fetch additional profile data using cookie-based session (sb_access_token)
       const response = await fetch(`${API_BASE}/auth/me`, {
-        credentials: 'include',
+        credentials: "include",
         headers: { "Content-Type": "application/json" },
       });
 
@@ -159,16 +164,15 @@ export default function ProfileContent() {
       const data = await response.json();
       const userProfile = data?.data || data;
 
-// Update profile with additional data if needed
+      // Update profile with additional data if needed
       if (userProfile) {
         const updatedProfile: UserProfile = {
-          id: userProfile.id || user?.id || '',
-          email: userProfile.email || user?.email || '',
-          first_name: userProfile.first_name || user?.first_name || '',
-          last_name: userProfile.last_name || user?.last_name || '',
-          full_name: getFullName(userProfile, user),
-          phone: userProfile.phone || user?.phone || '',
-          two_factor_enabled: getTwoFactorStatus(userProfile, user)
+          id: userProfile.id || user?.id || "",
+          email: userProfile.email || user?.email || "",
+          full_name: getFullName(userProfile, user) || "",
+          country: userProfile.country || user?.country,
+          two_factor_enabled: getTwoFactorStatus(userProfile, user),
+          avatar_url: userProfile.image || user?.image,
         };
         setProfile(updatedProfile);
       }
@@ -188,6 +192,24 @@ export default function ProfileContent() {
     setSuccess("");
   };
 
+  const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setAvatarFile(file);
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setAvatarPreview(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleRemoveAvatar = () => {
+    setAvatarFile(null);
+    setAvatarPreview(null);
+    // Aquí podrías agregar lógica para eliminar el avatar del servidor
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
@@ -200,22 +222,44 @@ export default function ProfileContent() {
         return;
       }
 
-      const updatedUser = await updateUser({
-        first_name: formData.first_name,
-        last_name: formData.last_name,
-        phone: formData.phone,
+      const formDataToSend = new FormData();
+      formDataToSend.append("full_name", formData.full_name);
+      formDataToSend.append("country", formData.country);
+
+      if (avatarFile) {
+        formDataToSend.append("image_file", avatarFile);
+      }
+
+      const response = await fetch(`${API_BASE}/profile/update`, {
+        method: "POST",
+        credentials: "include",
+        body: formDataToSend,
       });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || "Error al actualizar el perfil");
+      }
+
+      const updatedUser = await response.json();
 
       if (updatedUser) {
         setSuccess("Perfil actualizado correctamente");
         // Update local profile state with updated data
-        setProfile(prev => ({
+        setProfile((prev) => ({
           ...prev,
-          first_name: updatedUser.first_name || formData.first_name,
-          last_name: updatedUser.last_name || formData.last_name,
-          full_name: updatedUser.full_name || `${formData.first_name} ${formData.last_name}`.trim(),
-          phone: updatedUser.phone || formData.phone,
+          full_name: updatedUser.full_name || formData.full_name,
+          country: updatedUser.country || formData.country,
+          avatar_url: updatedUser.avatar_url || profile.avatar_url,
         }));
+
+        // Update auth context with new user data
+        await updateUser({
+          full_name: updatedUser.full_name,
+          country: updatedUser.country,
+          avatar_url: updatedUser.avatar_url,
+          two_factor_enabled: updatedUser.two_factor_enabled,
+        } as Partial<User>);
       }
       setSuccess("Perfil actualizado correctamente");
 
@@ -278,25 +322,66 @@ export default function ProfileContent() {
                 Información Personal
               </h2>
 
+              {/* Avatar Upload */}
+              <div className="flex flex-col items-center mb-6">
+                <div className="relative w-32 h-32 rounded-full overflow-hidden border-2 border-gray-200 mb-4">
+                  {avatarPreview || profile.avatar_url ? (
+                    <img
+                      src={avatarPreview || profile.avatar_url}
+                      alt="Profile"
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <div className="w-full h-full bg-gray-200 flex items-center justify-center">
+                      <FiUser className="text-gray-400" size={48} />
+                    </div>
+                  )}
+                </div>
+                <div className="flex space-x-2">
+                  <label className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 cursor-pointer transition-colors">
+                    Cambiar foto
+                    <input
+                      type="file"
+                      className="hidden"
+                      accept="image/*"
+                      onChange={handleAvatarChange}
+                    />
+                  </label>
+                  {(avatarPreview || profile.avatar_url) && (
+                    <button
+                      type="button"
+                      onClick={handleRemoveAvatar}
+                      className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors"
+                    >
+                      Eliminar
+                    </button>
+                  )}
+                </div>
+                <p className="mt-2 text-sm text-gray-500">
+                  Formatos: JPG, PNG (Máx. 2MB)
+                </p>
+              </div>
+
               <form onSubmit={handleSubmit} className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 gap-4">
                   <FormInput
-                    label="Nombre"
-                    name="first_name"
+                    label="Nombre completo"
+                    name="full_name"
                     type="text"
-                    value={formData.first_name}
+                    value={formData.full_name}
                     onChange={handleInputChange}
                     icon={<FiUser size={18} />}
-                    placeholder="Tu nombre"
+                    placeholder="Tu nombre completo"
+                    required
                   />
                   <FormInput
-                    label="Apellido"
-                    name="last_name"
+                    label="País"
+                    name="country"
                     type="text"
-                    value={formData.last_name}
+                    value={formData.country}
                     onChange={handleInputChange}
-                    icon={<FiUser size={18} />}
-                    placeholder="Tu apellido"
+                    icon={<FiGlobe size={18} />}
+                    placeholder="Tu país de residencia"
                   />
                 </div>
 

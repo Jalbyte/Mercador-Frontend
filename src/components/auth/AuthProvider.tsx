@@ -16,14 +16,17 @@ const API_BASE =
     : "");
 
 export interface User {
+  image: any;
   id: string;
   email: string;
   full_name?: string;
   first_name?: string;
   last_name?: string;
   phone?: string;
+  country?: string;
   role?: string;
   two_factor_enabled?: boolean;
+  avatar_url?: string;
   user_metadata?: any;
 }
 
@@ -54,18 +57,22 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   // Helper functions
   const getToken = () => {
-  // Token is managed via an HttpOnly cookie named sb_access_token. Client cannot read it reliably.
-  return null;
+    // Token is managed via an HttpOnly cookie named sb_access_token. Client cannot read it reliably.
+    return null;
   };
 
   const setToken = (token: string) => {
-  if (typeof window === "undefined") return;
-  try { document.cookie = `sb_access_token=${encodeURIComponent(token)}; path=/;` } catch (e) {}
+    if (typeof window === "undefined") return;
+    try {
+      document.cookie = `sb_access_token=${encodeURIComponent(token)}; path=/;`;
+    } catch (e) {}
   };
 
   const removeToken = () => {
-  if (typeof window === "undefined") return;
-  try { document.cookie = 'sb_access_token=; Max-Age=0; path=/;' } catch (e) {}
+    if (typeof window === "undefined") return;
+    try {
+      document.cookie = "sb_access_token=; Max-Age=0; path=/;";
+    } catch (e) {}
   };
 
   // Fetch user data from API
@@ -73,8 +80,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     try {
       // Use cookie-based auth: server should set sb_access_token cookie and we include credentials
       const response = await fetch(`${API_BASE}/auth/me`, {
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json' }
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
       });
 
       if (!response.ok) {
@@ -103,8 +110,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       setError(null);
 
       try {
-  // Try to fetch user via cookie-based session
-  const userData = await fetchUserData('');
+        // Try to fetch user via cookie-based session
+        const userData = await fetchUserData("");
 
         if (!mounted) return;
 
@@ -142,8 +149,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   // Listen for auth changes from other parts of the app
   useEffect(() => {
     const handleAuthChange = () => {
-    // On auth-changed, just refetch user state from server
-    refetchUser();
+      // On auth-changed, just refetch user state from server
+      refetchUser();
     };
 
     window.addEventListener("auth-changed", handleAuthChange);
@@ -186,7 +193,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       try {
         await fetch(`${API_BASE}/auth/logout`, {
           method: "POST",
-          credentials: 'include',
+          credentials: "include",
           headers: {
             "Content-Type": "application/json",
           },
@@ -214,7 +221,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
       const response = await fetch(`${API_BASE}/auth/me`, {
         method: "PUT",
-        credentials: 'include',
+        credentials: "include",
         headers: {
           "Content-Type": "application/json",
         },
@@ -253,7 +260,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     try {
       setError(null);
 
-      const userData = await fetchUserData('');
+      const userData = await fetchUserData("");
 
       if (userData) {
         setUser(userData);
