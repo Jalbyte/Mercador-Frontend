@@ -134,7 +134,7 @@ export default function Home() {
           description: p.description,
           price: p.price,
           category: p.category,
-          image: p.image_url ?? `https://via.placeholder.com/400x300?text=${encodeURIComponent(p.name)}`
+          image: p.image_url ?? "/placeholder.png"
         }))
         if (mounted) setProducts(mapped)
       } catch (err: any) {
