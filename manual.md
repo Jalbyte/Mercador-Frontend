@@ -1,73 +1,60 @@
 # Manual de Usuario — Mercador
 
-Bienvenido a **Mercador**, tu aplicación para explorar productos, gestionarlos en un carrito y realizar compras de manera fácil y segura.
+Bienvenido a Mercador: la forma más sencilla de buscar productos, guardarlos en un carrito y completar compras desde tu navegador.
+
+Este manual está dirigido a usuarios finales. Aquí aprenderás qué puedes hacer en la app y cómo hacerlo paso a paso.
 
 ---
 
-## 1. Acceso a la aplicación
-1. Abre tu navegador web y entra en la dirección de Mercador (mercador.app).
-2. Si no tienes cuenta, regístrate con tu correo electrónico y una contraseña.
-3. Si ya tienes cuenta, ingresa con tu correo y contraseña en la pantalla de **Inicio de sesión**.
+## 1. Primeros pasos
+- Acceder: abre tu navegador y entra a la dirección de Mercador proporcionada por el servicio.
+- Crear cuenta: pulsa "Regístrate", completa tu correo y contraseña, y sigue las instrucciones que recibirás por correo para confirmar tu cuenta.
+- Iniciar sesión: selecciona "Iniciar sesión", escribe tu correo y contraseña y pulsa "Ingresar".
+
+Consejo: si olvidaste la contraseña, usa "¿Olvidaste tu contraseña?" para recibir instrucciones de recuperación.
 
 ---
 
-## 2. Registro e inicio de sesión
-- **Registro**: completa tu correo, contraseña y confirma tu cuenta siguiendo el enlace enviado al correo electrónico.
-- **Inicio de sesión**: introduce tus credenciales y pulsa **Ingresar**.
-- **Cerrar sesión**: en el menú superior derecho, selecciona **Cerrar sesión**.
+## 2. Navegar por los productos
+- Ver listado: en la sección "Inicio" verás los productos.
+
+Qué puedes hacer en la ficha de producto:
+- Ver descripción y precio.
+- Añadir al carrito.
 
 ---
 
-## 3. Exploración de productos
-1. Accede a la sección **Productos** desde el menú principal.
-2. Puedes navegar por la lista de productos disponibles.
-3. Haz clic sobre un producto para ver más detalles (precio, descripción, disponibilidad).
+## 3. Carrito de compras
+- Añadir productos: desde la ficha de producto pulsa "Añadir al carrito".
+- Revisar carrito: haz clic en el icono del carrito (normalmente en la esquina inferior) para ver los productos seleccionados.
+- Editar cantidades: cambia las unidades de cada producto directamente en el carrito.
+- Eliminar productos: usa el botón "Eliminar" junto a cada artículo.
 
 ---
 
-## 4. Carrito de compras
-- Para añadir un producto al carrito:
-  1. Abre el detalle del producto.
-  2. Pulsa el botón **Añadir al carrito**.
-- Para ver tu carrito:
-  - Haz clic en el icono del carrito en la parte superior.
-- Dentro del carrito puedes:
-  - Ver los productos seleccionados.
-  - Modificar cantidades.
-  - Eliminar productos que no desees comprar.
+## 4. Perfil y ajustes de cuenta
+Desde "Mi cuenta" puedes:
+- Actualizar tus datos personales (nombre, dirección, teléfono).
+- Cambiar la contraseña.
+- Activar 2FA.
+
 
 ---
 
-## 5. Realizar un pedido
-1. Abre tu **carrito de compras**.
-2. Revisa los productos, cantidades y el precio total.
-3. Pulsa en **Realizar pedido**.
-4. Completa los datos solicitados para envío y pago.
-5. Confirma tu compra. Recibirás un mensaje de confirmación.
+
+## 5. Accesibilidad y compatibilidad
+- Navegadores: Mercador funciona en los navegadores modernos (Chrome, Edge, Firefox, Safari).
+- Móvil: la interfaz está optimizada para móviles; también puedes usar la app web desde tu teléfono.
+- Accesibilidad: la UI incluye elementos de accesibilidad básicos (etiquetas, contraste). Si necesitas adaptaciones especiales, contacta soporte.
 
 ---
 
-## 6. Gestión de cuenta
-- Desde el menú de usuario puedes:
-  - Cambiar tu contraseña.
-  - Actualizar datos personales.
-  - Consultar tus pedidos anteriores.
+## 6. Consejos rápidos
+- Mantén tu sesión cerrada en equipos compartidos.
+- Revisa tu carpeta de correo no deseado si no recibes confirmaciones.
+- Guarda tus métodos de pago de forma segura sólo si confías en el dispositivo.
 
 ---
 
-## 7. Ayuda y soporte
-- Si tienes problemas para ingresar o usar la aplicación:
-  - Usa la opción **¿Olvidaste tu contraseña?** en la pantalla de inicio de sesión.
-  - Contacta al equipo de soporte desde la sección **Ayuda** del menú principal.
-  - Verifica tu conexión a internet y que estés usando un navegador actualizado.
+Gracias por usar Mercador — esperamos que tu experiencia de compra sea rápida y segura.
 
----
-
-## 8. Consejos de seguridad
-- No compartas tu contraseña con nadie.
-- Cierra sesión al terminar de usar la aplicación, especialmente en computadores compartidos.
-- Si notas actividad sospechosa, cambia tu contraseña inmediatamente y contacta al soporte.
-
----
-
-¡Listo! Ahora puedes explorar, comprar y gestionar tus pedidos fácilmente con **Mercador** 🎉.

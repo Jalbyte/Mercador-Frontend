@@ -44,6 +44,16 @@ export const AuthForm: React.FC<AuthFormProps> = ({
     rememberMe: false,
   });
 
+  // Cargar email guardado al montar el componente
+  React.useEffect(() => {
+    if (isLogin && typeof window !== "undefined") {
+      const savedEmail = localStorage.getItem("last-login-email");
+      if (savedEmail) {
+        setFormData((prev) => ({ ...prev, email: savedEmail }));
+      }
+    }
+  }, [isLogin]);
+
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value, type, checked } = e.target;
     setFormData((prev) => ({
@@ -144,16 +154,13 @@ export const AuthForm: React.FC<AuthFormProps> = ({
               />
               <span className="ml-2 text-sm text-gray-600">Recordarme</span>
             </label>
-            <a
-              href="/forgot-password"
+            <button
+              type="button"
+              onClick={() => router.push("/forgot-password")}
               className="text-sm text-blue-600 hover:text-blue-800 transition-colors"
-              onClick={(e) => {
-                e.preventDefault();
-                router.push('/forgot-password');
-              }}
             >
               ¿Olvidaste tu contraseña?
-            </a>
+            </button>
           </div>
         ) : (
           <div className="flex items-start">

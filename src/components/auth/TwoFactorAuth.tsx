@@ -27,15 +27,16 @@ export const TwoFactorAuth = ({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [step, setStep] = useState<"setup" | "verify" | "success">("setup");
+  const [factorId, setFactorId] = useState<string | null>(null);
 
   const handleEnable2FA = async () => {
     setLoading(true);
     setError("");
 
     try {
-      const response = await fetch(`${API_BASE}/auth/2fa/enable`, {
+      const response = await fetch(`${API_BASE}/auth/mfa/enroll`, {
         method: "POST",
-        credentials: 'include',
+        credentials: "include",
         headers: { "Content-Type": "application/json" },
       });
 
@@ -45,14 +46,18 @@ export const TwoFactorAuth = ({
 
       const data = await response.json();
 
-      // Esperamos que el backend retorne { success: true, data: { qr_code_uri: "otpauth://..." } }
-      const uri = data?.data?.qr_code_uri || data?.qr_code_uri;
+      // El backend retorna { ok: true, factorId: "...", uri: "otpauth://..." }
+      const uri = data?.uri;
+      const factorId = data?.factorId;
 
-      if (!uri) {
-        throw new Error("No se recibió la URI del código QR");
+      if (!uri || !factorId) {
+        throw new Error(
+          "No se recibió la información completa para configurar 2FA"
+        );
       }
 
       setQrUri(uri);
+      setFactorId(factorId);
       setShowModal(true);
       setStep("setup");
     } catch (err) {
@@ -72,11 +77,18 @@ export const TwoFactorAuth = ({
     setError("");
 
     try {
-      const response = await fetch(`${API_BASE}/auth/2fa/verify`, {
+      if (!factorId) {
+        throw new Error("No se encontró el ID del factor de autenticación");
+      }
+
+      const response = await fetch(`${API_BASE}/auth/mfa/verify`, {
         method: "POST",
-        credentials: 'include',
+        credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ code: verificationCode }),
+        body: JSON.stringify({
+          code: verificationCode,
+          factorId: factorId,
+        }),
       });
 
       if (!response.ok) {
@@ -115,7 +127,7 @@ export const TwoFactorAuth = ({
     try {
       const response = await fetch(`${API_BASE}/auth/2fa/disable`, {
         method: "POST",
-        credentials: 'include',
+        credentials: "include",
         headers: { "Content-Type": "application/json" },
       });
 
