@@ -241,27 +241,35 @@ export default function ProfileContent() {
         throw new Error(errorData.message || "Error al actualizar el perfil");
       }
 
-      const updatedUser = await response.json();
+      const result = await response.json();
+      const updatedUser = result.data || result;
 
       if (updatedUser) {
-        setSuccess("Perfil actualizado correctamente");
         // Update local profile state with updated data
-        setProfile((prev) => ({
-          ...prev,
+        const newProfileData = {
           full_name: updatedUser.full_name || formData.full_name,
           country: updatedUser.country || formData.country,
-          avatar_url: updatedUser.avatar_url || profile.avatar_url,
+          avatar_url: updatedUser.avatar_url || updatedUser.image_url || profile.avatar_url,
+          two_factor_enabled: updatedUser.two_factor_enabled || profile.two_factor_enabled,
+        };
+
+        setProfile(prev => ({
+          ...prev,
+          ...newProfileData
+        }));
+
+        // Update form data
+        setFormData(prev => ({
+          ...prev,
+          full_name: newProfileData.full_name,
+          country: newProfileData.country || ''
         }));
 
         // Update auth context with new user data
-        await updateUser({
-          full_name: updatedUser.full_name,
-          country: updatedUser.country,
-          avatar_url: updatedUser.avatar_url,
-          two_factor_enabled: updatedUser.two_factor_enabled,
-        } as Partial<User>);
+        await updateUser(newProfileData as Partial<User>);
+        
+        setSuccess("Perfil actualizado correctamente");
       }
-      setSuccess("Perfil actualizado correctamente");
 
       // Disparar evento de cambio de auth para actualizar el header
       window.dispatchEvent(new CustomEvent("auth-changed"));

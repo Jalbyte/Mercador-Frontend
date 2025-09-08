@@ -216,9 +216,16 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   // Update user function
   const updateUser = async (userData: Partial<User>): Promise<User | null> => {
+    if (!user) return null;
+    
     try {
       setError(null);
 
+      // Actualizar el estado local primero para una mejor experiencia de usuario
+      const localUpdatedUser = { ...user, ...userData };
+      setUser(localUpdatedUser);
+
+      // Hacer la petición al servidor
       const response = await fetch(`${API_BASE}/profile/update`, {
         method: "POST",
         credentials: "include",
@@ -229,9 +236,11 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       });
 
       if (!response.ok) {
+        // Revertir los cambios si hay un error
+        setUser(user);
+        
         if (response.status === 401) {
-          // Token expired
-          await logout();
+          // Token expirado
           router.push("/login");
           return null;
         }
@@ -239,14 +248,14 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       }
 
       const data = await response.json();
-      const updatedUser = data?.data || data;
+      const serverUpdatedUser = data?.data || data;
 
-      setUser(updatedUser);
+      setUser(serverUpdatedUser);
 
       // Dispatch auth change event
       window.dispatchEvent(new CustomEvent("auth-changed"));
 
-      return updatedUser;
+      return serverUpdatedUser;
     } catch (err) {
       setError(
         err instanceof Error ? err.message : "Error al actualizar usuario"
