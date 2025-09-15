@@ -1,5 +1,20 @@
 "use client";
 
+/**
+ * Componente Header - Barra de navegación principal de Mercador.
+ *
+ * Este componente implementa la navegación completa de la aplicación incluyendo:
+ * - Logo y enlace a la página principal
+ * - Barra de búsqueda de productos
+ * - Navegación por categorías
+ * - Gestión de autenticación de usuarios
+ * - Carrito de compras con contador
+ * - Panel de administración para usuarios con permisos
+ * - Menú de usuario con opciones de perfil y logout
+ *
+ * @module Header
+ */
+
 import { FiSearch, FiUser, FiChevronDown } from "react-icons/fi";
 import { ShoppingCart } from "lucide-react";
 import Link from "next/link";
@@ -7,9 +22,41 @@ import { useCart } from "@/hooks";
 import { useEffect, useState } from "react";
 import ProductAdmin from "@/components/products/ProductAdmin";
 
-// Prefer explicit env var; if missing, assume backend runs on same host at port 3010 (dev default).
+/**
+ * Constante que define la URL base de la API del backend.
+ * Se utiliza para las peticiones de autenticación y verificación de permisos.
+ * Configurada dinámicamente para funcionar en desarrollo y producción.
+ */
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? (typeof window !== 'undefined' ? `${window.location.protocol}//${window.location.hostname}:3010` : '')
 
+/**
+ * Componente Header - Barra de navegación principal de la aplicación Mercador.
+ *
+ * @component
+ * @returns {JSX.Element} Elemento JSX que representa la barra de navegación completa
+ *
+ * @example
+ * ```tsx
+ * import { Header } from "@/components/layout/Header";
+ *
+ * export default function Layout() {
+ *   return (
+ *     <div>
+ *       <Header />
+ *       <main>{children}</main>
+ *     </div>
+ *   );
+ * }
+ * ```
+ *
+ * @remarks
+ * Funcionalidades principales:
+ * - Autenticación automática al cargar la página
+ * - Verificación de permisos de administrador
+ * - Integración completa con el sistema de carrito
+ * - Navegación responsive con Tailwind CSS
+ * - Panel modal de administración de productos
+ */
 export function Header() {
   const { totalItems, setIsOpen, isOpen } = useCart();
   const [showAdmin, setShowAdmin] = useState(false);
@@ -19,11 +66,24 @@ export function Header() {
   const [userImage, setUserImage] = useState<string | null>(null);
   const [checkingAdmin, setCheckingAdmin] = useState(true);
 
+  /**
+   * Función que maneja el clic en el botón del carrito.
+   * Abre el panel lateral del carrito de compras.
+   */
   const handleCartClick = () => {
     console.log("Cart button clicked, setting isOpen to true");
     setIsOpen?.(true);
   };
 
+  /**
+   * Hook useEffect que verifica el estado de autenticación del usuario.
+   * Realiza una petición al endpoint /auth/me para obtener información del usuario
+   * y determinar si tiene permisos de administrador.
+   *
+   * @effect
+   * @async
+   * @listens auth-changed - Evento personalizado para actualizar el estado de auth
+   */
   useEffect(() => {
     let mounted = true
   async function checkAdmin() {
@@ -65,10 +125,12 @@ export function Header() {
     <header className="bg-white shadow-sm sticky top-0 z-10">
       <div className="container mx-auto px-4 py-4">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+          {/* Logo y enlace a la página principal */}
           <Link href="/" className="text-2xl font-bold text-blue-600">
             Mercador
           </Link>
 
+          {/* Barra de búsqueda de productos */}
           <div className="relative flex-1 max-w-2xl">
             <input
               type="text"
@@ -80,6 +142,7 @@ export function Header() {
             </button>
           </div>
 
+          {/* Sección de acciones del usuario - Login/Carrito/Admin */}
           <div className="flex items-center gap-4">
             {!isAuthenticated ? (
               <Link
@@ -146,6 +209,7 @@ export function Header() {
           </div>
         </div>
 
+        {/* Barra de navegación principal */}
         <nav className="mt-4">
           <ul className="flex gap-6 text-sm font-medium">
             <li>
@@ -178,6 +242,7 @@ export function Header() {
         </nav>
       </div>
 
+      {/* Panel Modal de Administración - Solo visible para usuarios con permisos de admin */}
       {showAdmin && (
         <div className="fixed inset-0 z-50 flex items-start justify-center p-6 bg-black/50">
           <div className="bg-white w-full max-w-6xl h-[90vh] overflow-auto rounded shadow-lg">

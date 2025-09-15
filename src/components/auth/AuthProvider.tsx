@@ -1,5 +1,16 @@
 "use client";
 
+/**
+ * AuthProvider - Proveedor de contexto de autenticación para la aplicación Mercador.
+ *
+ * Este módulo implementa un sistema completo de autenticación basado en cookies HTTP-only
+ * que incluye gestión de estado de usuario, login/logout, actualización de perfil,
+ * y protección de rutas. Utiliza el patrón Context API de React para proporcionar
+ * el estado de autenticación a toda la aplicación.
+ *
+ * @module AuthProvider
+ */
+
 import React, {
   createContext,
   useContext,
@@ -9,12 +20,35 @@ import React, {
 } from "react";
 import { useRouter } from "next/navigation";
 
+/**
+ * Constante que define la URL base de la API del backend.
+ * Se utiliza para todas las peticiones de autenticación y gestión de usuarios.
+ * Configurada dinámicamente para funcionar en desarrollo y producción.
+ */
 const API_BASE =
   process.env.NEXT_PUBLIC_API_URL ??
   (typeof window !== "undefined"
     ? `${window.location.protocol}//${window.location.hostname}:3010`
     : "");
 
+/**
+ * Interfaz que define la estructura de datos de un usuario autenticado.
+ * Representa la información completa del usuario obtenida desde el backend.
+ *
+ * @interface User
+ * @property {string} id - Identificador único del usuario
+ * @property {string} email - Correo electrónico del usuario
+ * @property {string} [full_name] - Nombre completo del usuario
+ * @property {string} [first_name] - Primer nombre del usuario
+ * @property {string} [last_name] - Apellido del usuario
+ * @property {string} [phone] - Número de teléfono del usuario
+ * @property {string} [country] - País de residencia del usuario
+ * @property {string} [role] - Rol del usuario (admin, user, etc.)
+ * @property {boolean} [two_factor_enabled] - Si el usuario tiene 2FA activado
+ * @property {string} [avatar_url] - URL del avatar del usuario
+ * @property {any} [user_metadata] - Metadatos adicionales del usuario
+ * @property {any} image - Imagen del usuario (puede ser URL o File)
+ */
 export interface User {
   image: any;
   id: string;
@@ -30,6 +64,21 @@ export interface User {
   user_metadata?: any;
 }
 
+/**
+ * Interfaz que define el tipo de contexto de autenticación.
+ * Proporciona todas las funciones y estados necesarios para gestionar la autenticación.
+ *
+ * @interface AuthContextType
+ * @property {User | null} user - Datos del usuario autenticado
+ * @property {boolean} isAuthenticated - Indica si el usuario está autenticado
+ * @property {boolean} isLoading - Indica si se está cargando información de auth
+ * @property {string | null} error - Mensaje de error de autenticación
+ * @property {(token: string) => Promise<void>} login - Función para iniciar sesión
+ * @property {() => Promise<void>} logout - Función para cerrar sesión
+ * @property {(userData: Partial<User>) => Promise<User | null>} updateUser - Función para actualizar datos del usuario
+ * @property {() => Promise<void>} refetchUser - Función para recargar datos del usuario
+ * @property {() => void} clearError - Función para limpiar errores
+ */
 interface AuthContextType {
   user: User | null;
   isAuthenticated: boolean;
@@ -42,12 +91,60 @@ interface AuthContextType {
   clearError: () => void;
 }
 
+/**
+ * Contexto de React para compartir el estado de autenticación.
+ * Se crea con createContext y se utiliza en toda la aplicación.
+ */
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+/**
+ * Props del componente AuthProvider.
+ *
+ * @interface AuthProviderProps
+ * @property {ReactNode} children - Componentes hijos que tendrán acceso al contexto
+ */
 interface AuthProviderProps {
   children: ReactNode;
 }
 
+/**
+ * Componente AuthProvider - Proveedor principal del contexto de autenticación.
+ *
+ * Este componente maneja todo el estado de autenticación de la aplicación, incluyendo:
+ * - Inicialización automática del estado de autenticación al cargar la página
+ * - Gestión de cookies HTTP-only para tokens de acceso
+ * - Comunicación con el backend para obtener datos del usuario
+ * - Funciones completas de login, logout y actualización de perfil
+ * - Manejo de errores y estados de carga
+ * - Eventos personalizados para notificar cambios de autenticación
+ *
+ * @component
+ * @param {AuthProviderProps} props - Props del componente
+ * @returns {JSX.Element} Proveedor de contexto que envuelve los componentes hijos
+ *
+ * @example
+ * ```tsx
+ * // En el layout principal de la aplicación
+ * import { AuthProvider } from "@/components/auth/AuthProvider";
+ *
+ * export default function RootLayout({ children }) {
+ *   return (
+ *     <html lang="es">
+ *       <body>
+ *         <AuthProvider>
+ *           {children}
+ *         </AuthProvider>
+ *       </body>
+ *     </html>
+ *   );
+ * }
+ * ```
+ *
+ * @remarks
+ * El AuthProvider debe ser colocado en la raíz de la aplicación para que todos
+ * los componentes tengan acceso al contexto de autenticación. Utiliza cookies
+ * HTTP-only para mayor seguridad y maneja automáticamente la renovación de tokens.
+ */
 export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -55,12 +152,24 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
 
-  // Helper functions
+  /**
+   * Función auxiliar para obtener el token de autenticación.
+   * En esta implementación, el token se maneja vía cookies HTTP-only,
+   * por lo que el cliente no puede leerlo directamente.
+   *
+   * @returns {null} Siempre retorna null ya que usa cookies HTTP-only
+   */
   const getToken = () => {
     // Token is managed via an HttpOnly cookie named sb_access_token. Client cannot read it reliably.
     return null;
   };
 
+  /**
+   * Función auxiliar para establecer el token de autenticación en una cookie.
+   * Establece la cookie sb_access_token con el token proporcionado.
+   *
+   * @param {string} token - Token de autenticación a almacenar
+   */
   const setToken = (token: string) => {
     if (typeof window === "undefined") return;
     try {
@@ -68,6 +177,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     } catch (e) {}
   };
 
+  /**
+   * Función auxiliar para eliminar el token de autenticación.
+   * Remueve la cookie sb_access_token configurando Max-Age=0.
+   */
   const removeToken = () => {
     if (typeof window === "undefined") return;
     try {
@@ -75,7 +188,15 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     } catch (e) {}
   };
 
-  // Fetch user data from API
+  /**
+   * Función asíncrona que obtiene los datos del usuario desde la API.
+   * Realiza una petición GET al endpoint /auth/me usando cookies para autenticación.
+   *
+   * @async
+   * @param {string} token - Token de autenticación (no utilizado en implementación actual)
+   * @returns {Promise<User | null>} Datos del usuario o null si no está autenticado
+   * @throws {Error} Cuando hay problemas de conexión o el servidor retorna error
+   */
   const fetchUserData = async (token: string): Promise<User | null> => {
     try {
       // Use cookie-based auth: server should set sb_access_token cookie and we include credentials
@@ -101,7 +222,14 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
   };
 
-  // Initialize auth state on mount
+  /**
+   * Hook useEffect que inicializa el estado de autenticación al montar el componente.
+   * Verifica automáticamente si el usuario tiene una sesión válida y carga sus datos.
+   *
+   * @effect
+   * @async
+   * @dependency [] - Se ejecuta solo una vez al montar el componente
+   */
   useEffect(() => {
     let mounted = true;
 
@@ -146,7 +274,14 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     };
   }, []);
 
-  // Listen for auth changes from other parts of the app
+  /**
+   * Hook useEffect que escucha cambios en el estado de autenticación.
+   * Se suscribe al evento personalizado 'auth-changed' para recargar datos del usuario.
+   *
+   * @effect
+   * @listens auth-changed - Evento personalizado disparado por cambios de autenticación
+   * @dependency {User | null} user - Estado del usuario para recargar cuando cambie
+   */
   useEffect(() => {
     const handleAuthChange = () => {
       // On auth-changed, just refetch user state from server
@@ -157,7 +292,14 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     return () => window.removeEventListener("auth-changed", handleAuthChange);
   }, [user]);
 
-  // Login function
+  /**
+   * Función asíncrona para iniciar sesión de un usuario.
+   * Establece el token en una cookie y obtiene los datos del usuario desde el servidor.
+   *
+   * @async
+   * @param {string} token - Token de autenticación proporcionado por el servidor
+   * @throws {Error} Cuando no se puede obtener la información del usuario
+   */
   const login = async (token: string): Promise<void> => {
     try {
       setIsLoading(true);
@@ -186,7 +328,12 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
   };
 
-  // Logout function
+  /**
+   * Función asíncrona para cerrar la sesión del usuario.
+   * Limpia el token, el estado local y notifica al servidor del logout.
+   *
+   * @async
+   */
   const logout = async (): Promise<void> => {
     try {
       // Try to call logout endpoint using cookie-based auth
@@ -214,10 +361,18 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
   };
 
-  // Update user function
+  /**
+   * Función asíncrona para actualizar los datos del usuario.
+   * Actualiza el estado local primero y luego sincroniza con el servidor.
+   *
+   * @async
+   * @param {Partial<User>} userData - Datos parciales del usuario a actualizar
+   * @returns {Promise<User | null>} Usuario actualizado o null si no hay usuario
+   * @throws {Error} Cuando hay problemas al actualizar en el servidor
+   */
   const updateUser = async (userData: Partial<User>): Promise<User | null> => {
     if (!user) return null;
-    
+
     try {
       setError(null);
 
@@ -238,7 +393,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       if (!response.ok) {
         // Revertir los cambios si hay un error
         setUser(user);
-        
+
         if (response.status === 401) {
           // Token expirado
           router.push("/login");
@@ -264,7 +419,12 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
   };
 
-  // Refetch user data
+  /**
+   * Función asíncrona para recargar los datos del usuario desde el servidor.
+   * Útil para sincronizar el estado local con el servidor después de cambios.
+   *
+   * @async
+   */
   const refetchUser = async (): Promise<void> => {
     try {
       setError(null);
@@ -287,7 +447,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
   };
 
-  // Clear error
+  /**
+   * Función para limpiar los mensajes de error.
+   * Resetea el estado de error a null.
+   */
   const clearError = () => {
     setError(null);
   };
@@ -307,7 +470,28 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };
 
-// Custom hook to use auth context
+/**
+ * Hook personalizado para acceder al contexto de autenticación.
+ * Proporciona acceso a todas las funciones y estados de autenticación.
+ *
+ * @returns {AuthContextType} Objeto con todas las propiedades y funciones de autenticación
+ * @throws {Error} Cuando se usa fuera de un AuthProvider
+ *
+ * @example
+ * ```tsx
+ * import { useAuth } from "@/components/auth/AuthProvider";
+ *
+ * function MyComponent() {
+ *   const { user, isAuthenticated, login, logout } = useAuth();
+ *
+ *   if (!isAuthenticated) {
+ *     return <button onClick={() => login(token)}>Iniciar sesión</button>;
+ *   }
+ *
+ *   return <div>Bienvenido, {user?.full_name}!</div>;
+ * }
+ * ```
+ */
 export const useAuth = (): AuthContextType => {
   const context = useContext(AuthContext);
 
@@ -318,7 +502,38 @@ export const useAuth = (): AuthContextType => {
   return context;
 };
 
-// HOC for protected routes
+/**
+ * Higher-Order Component (HOC) para proteger rutas que requieren autenticación.
+ * Envuelve un componente y redirige a la página de login si el usuario no está autenticado.
+ *
+ * @template P - Props del componente envuelto
+ * @param {React.ComponentType<P>} Component - Componente a proteger
+ * @param {string} [redirectTo="/login"] - Ruta a la que redirigir si no está autenticado
+ * @returns {React.ComponentType<P>} Componente envuelto con protección de autenticación
+ *
+ * @example
+ * ```tsx
+ * import { withAuth } from "@/components/auth/AuthProvider";
+ *
+ * const ProtectedDashboard = withAuth(Dashboard);
+ *
+ * // O con ruta de redirección personalizada
+ * const ProtectedAdmin = withAuth(AdminPanel, "/admin/login");
+ *
+ * function App() {
+ *   return (
+ *     <Routes>
+ *       <Route path="/dashboard" element={<ProtectedDashboard />} />
+ *       <Route path="/admin" element={<ProtectedAdmin />} />
+ *     </Routes>
+ *   );
+ * }
+ * ```
+ *
+ * @remarks
+ * El HOC muestra un spinner de carga mientras verifica el estado de autenticación
+ * y redirige automáticamente si el usuario no está autenticado.
+ */
 export const withAuth = <P extends object>(
   Component: React.ComponentType<P>,
   redirectTo: string = "/login"

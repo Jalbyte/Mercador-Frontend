@@ -1,5 +1,14 @@
 import React from "react";
 
+/**
+ * Props del componente Modal.
+ *
+ * @interface ModalProps
+ * @property {boolean} open - Controla si el modal está visible
+ * @property {() => void} onClose - Función para cerrar el modal
+ * @property {string} [title] - Título opcional del modal
+ * @property {React.ReactNode} children - Contenido del modal
+ */
 interface ModalProps {
   open: boolean;
   onClose: () => void;
@@ -7,6 +16,58 @@ interface ModalProps {
   children: React.ReactNode;
 }
 
+/**
+ * Componente Modal - Ventana emergente para contenido superpuesto.
+ *
+ * Este componente implementa un modal básico con:
+ * - Overlay oscuro para enfoque
+ * - Posicionamiento centrado en pantalla
+ * - Animación de entrada
+ * - Botón de cierre accesible
+ * - Título opcional
+ * - Contenido personalizado
+ *
+ * @component
+ * @param {ModalProps} props - Props del componente
+ * @returns {JSX.Element | null} Elemento JSX del modal o null si no está abierto
+ *
+ * @example
+ * ```tsx
+ * const [isOpen, setIsOpen] = useState(false);
+ *
+ * return (
+ *   <>
+ *     <Button onClick={() => setIsOpen(true)}>
+ *       Abrir Modal
+ *     </Button>
+ *
+ *     <Modal
+ *       open={isOpen}
+ *       onClose={() => setIsOpen(false)}
+ *       title="Confirmar acción"
+ *     >
+ *       <p>¿Estás seguro de que quieres continuar?</p>
+ *       <div className="flex gap-2 justify-center mt-4">
+ *         <Button variant="outline" onClick={() => setIsOpen(false)}>
+ *           Cancelar
+ *         </Button>
+ *         <Button onClick={handleConfirm}>
+ *           Confirmar
+ *         </Button>
+ *       </div>
+ *     </Modal>
+ *   </>
+ * );
+ * ```
+ *
+ * @remarks
+ * - El modal se renderiza condicionalmente basado en la prop `open`
+ * - Incluye overlay con opacidad para enfocar la atención
+ * - Posicionamiento fijo con z-index alto para superponer contenido
+ * - Botón de cierre accesible con aria-label
+ * - Animación sutil de entrada
+ * - Diseño responsive con max-width
+ */
 export const Modal: React.FC<ModalProps> = ({ open, onClose, title, children }) => {
   if (!open) return null;
   return (
