@@ -134,7 +134,7 @@ export default function Home() {
           description: p.description,
           price: p.price,
           category: p.category,
-          image: p.image_url ?? "/placeholder.png"
+          image: p.image_url ??process.env.NEXT_PUBLIC_PLACEHOLDER_URL ?? "/placeholder.png"
         }))
         if (mounted) setProducts(mapped)
       } catch (err: any) {
