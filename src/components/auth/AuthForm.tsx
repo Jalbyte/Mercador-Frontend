@@ -1,6 +1,6 @@
-import React, { useState } from "react";
+import { forwardRef, useImperativeHandle, useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { FiMail, FiLock, FiUser as UserIcon } from "react-icons/fi";
+import { FiMail, FiLock, FiUser as UserIcon, FiGlobe } from "react-icons/fi";
 import { ShoppingCart } from "lucide-react";
 import { FormInput } from "./FormInput";
 import { SocialLogin } from "./SocialLogin";
@@ -9,11 +9,16 @@ interface FormData {
   email: string;
   password: string;
   confirmPassword?: string;
-  firstName?: string;
-  lastName?: string;
+  full_name?: string;
+  country?: string;
   acceptTerms?: boolean;
   rememberMe?: boolean;
 }
+
+// Lista de países comunes
+const countries = [
+  "Argentina", "Bolivia", "Brasil", "Chile", "Colombia", "Costa Rica", "Cuba", "Ecuador", "El Salvador", "Guatemala", "Honduras", "México", "Nicaragua", "Panamá", "Paraguay", "Perú", "Puerto Rico", "República Dominicana", "Uruguay", "Venezuela", "Estados Unidos", "Canadá", "España", "Francia", "Italia", "Reino Unido", "Alemania", "Portugal", "Otros"
+];
 
 interface AuthFormProps {
   isLogin: boolean;
@@ -24,28 +29,43 @@ interface AuthFormProps {
   error?: string;
 }
 
-export const AuthForm: React.FC<AuthFormProps> = ({
+export const AuthForm = forwardRef<any, AuthFormProps>(({
   isLogin,
   onSubmit,
   onSocialLogin,
   onToggleMode,
   loading = false,
   error,
-}) => {
+}, ref) => {
   const router = useRouter();
   const [showPassword, setShowPassword] = useState(false);
   const [formData, setFormData] = useState<FormData>({
     email: "",
     password: "",
     confirmPassword: "",
-    firstName: "",
-    lastName: "",
+    full_name: "",
+    country: "",
     acceptTerms: false,
     rememberMe: false,
   });
 
+  // Expose resetForm method
+  useImperativeHandle(ref, () => ({
+    resetForm: () => {
+      setFormData({
+        email: "",
+        password: "",
+        confirmPassword: "",
+        full_name: "",
+        country: "",
+        acceptTerms: false,
+        rememberMe: false,
+      });
+    },
+  }));
+
   // Cargar email guardado al montar el componente
-  React.useEffect(() => {
+  useEffect(() => {
     if (isLogin && typeof window !== "undefined") {
       const savedEmail = localStorage.getItem("last-login-email");
       if (savedEmail) {
@@ -54,8 +74,11 @@ export const AuthForm: React.FC<AuthFormProps> = ({
     }
   }, [isLogin]);
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value, type, checked } = e.target;
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+    const target = e.target;
+    const { name, value } = target;
+    const checked = (target as HTMLInputElement).checked;
+    const type = (target as HTMLInputElement).type;
     setFormData((prev) => ({
       ...prev,
       [name]: type === "checkbox" ? checked : value,
@@ -82,28 +105,40 @@ export const AuthForm: React.FC<AuthFormProps> = ({
     <div className="bg-white rounded-2xl shadow-xl overflow-hidden">
       <form onSubmit={handleSubmit} className="space-y-6 p-8">
         {!isLogin && (
-          <div className="grid grid-cols-2 gap-4">
+          <>
             <FormInput
-              label="Nombre"
-              name="firstName"
+              label="Nombre Completo"
+              name="full_name"
               type="text"
-              value={formData.firstName || ""}
+              value={formData.full_name || ""}
               onChange={handleInputChange}
               icon={<UserIcon size={18} />}
-              placeholder="Tu nombre"
+              placeholder="Tu nombre completo"
               required
             />
-            <FormInput
-              label="Apellido"
-              name="lastName"
-              type="text"
-              value={formData.lastName || ""}
-              onChange={handleInputChange}
-              icon={<UserIcon size={18} />}
-              placeholder="Tu apellido"
-              required
-            />
-          </div>
+            <div className="relative">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                País
+              </label>
+              <div className="relative">
+                <FiGlobe className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
+                <select
+                  name="country"
+                  value={formData.country || ""}
+                  onChange={handleInputChange}
+                  className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                  required
+                >
+                  <option value="">Selecciona tu país</option>
+                  {countries.map((country) => (
+                    <option key={country} value={country}>
+                      {country}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+          </>
         )}
 
         <FormInput
@@ -216,4 +251,4 @@ export const AuthForm: React.FC<AuthFormProps> = ({
       </form>
     </div>
   );
-};
+});

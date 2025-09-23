@@ -1,6 +1,6 @@
 "use client";
 
-import React, { Suspense, useState, useEffect } from "react";
+import React, { Suspense, useState, useEffect, useRef } from "react";
 import { Modal } from "@/components/ui/modal";
 import { useRouter, useSearchParams } from "next/navigation";
 import { FiUser, FiShoppingCart, FiLoader } from "react-icons/fi";
@@ -18,10 +18,13 @@ function LoginContent() {
   const [error, setError] = useState("");
   const [info, setInfo] = useState("");
   const [showModal, setShowModal] = useState(false);
+  const formRef = useRef<any>(null);
 
   const handleFormSubmit = async (formData: {
     email: string;
     password: string;
+    full_name?: string;
+    country?: string;
     rememberMe?: boolean;
   }) => {
     setIsLoading(true);
@@ -35,37 +38,53 @@ function LoginContent() {
           : "");
 
       const endpoint = isLogin ? "/auth/login" : "/auth/register";
+      const body = isLogin
+        ? {
+            email: formData.email,
+            password: formData.password,
+            ...(formData.rememberMe !== undefined && {
+              rememberMe: formData.rememberMe,
+            }),
+          }
+        : {
+            email: formData.email,
+            password: formData.password,
+            full_name: formData.full_name,
+            country: formData.country,
+          };
+
       const response = await fetch(`${API_BASE}${endpoint}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({
-          email: formData.email,
-          password: formData.password,
-          ...(formData.rememberMe !== undefined && {
-            rememberMe: formData.rememberMe,
-          }),
-        }),
+        body: JSON.stringify(body),
       });
 
       const result = await response.json();
 
       if (!response.ok) {
-        throw new Error(result.message || "Error en la autenticación");
+        throw new Error(result.error || result.message || "Error en la autenticación");
       }
 
-      // Guardar el email en localStorage para recordarlo si rememberMe está activado
-      if (isLogin && formData.rememberMe) {
-        localStorage.setItem("last-login-email", formData.email);
-      } else if (isLogin) {
-        localStorage.removeItem("last-login-email");
+      if (isLogin) {
+        // Guardar el email en localStorage para recordarlo si rememberMe está activado
+        if (formData.rememberMe) {
+          localStorage.setItem("last-login-email", formData.email);
+        } else {
+          localStorage.removeItem("last-login-email");
+        }
+
+        // Actualizar el estado de autenticación
+        window.dispatchEvent(new CustomEvent("auth-changed"));
+
+        // Redirigir al dashboard después de iniciar sesión exitosamente
+        router.push("/");
+      } else {
+        // Registro exitoso: mostrar mensaje de verificación de email
+        setInfo(`Se ha enviado un correo de verificación a ${formData.email}. Por favor, revisa tu bandeja de entrada y sigue las instrucciones para activar tu cuenta.`);
+        setShowModal(true);
+        formRef.current?.resetForm();
       }
-
-      // Actualizar el estado de autenticación
-      window.dispatchEvent(new CustomEvent("auth-changed"));
-
-      // Redirigir al dashboard después de iniciar sesión exitosamente
-      router.push("/");
     } catch (err) {
       const errorMessage =
         err instanceof Error ? err.message : "Error en la autenticación";
@@ -163,100 +182,6 @@ function LoginContent() {
     }
   }, [searchParams, router]);
 
-  const handleSubmit = async (data: any) => {
-    setIsLoading(true);
-    setError("");
-
-    // Guardar email para autocompletado futuro
-    if (data.email && typeof window !== "undefined") {
-      localStorage.setItem("last-login-email", data.email);
-    }
-
-    try {
-      // Call backend login for real
-      const API_BASE =
-        process.env.NEXT_PUBLIC_API_URL ??
-        (typeof window !== "undefined"
-          ? `${window.location.protocol}//${window.location.hostname}:3010`
-          : "");
-
-      if (isLogin) {
-        const resp = await fetch(`${API_BASE}/auth/login`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          credentials: "include",
-          body: JSON.stringify({ email: data.email, password: data.password }),
-        });
-
-        const json = await resp.json().catch(() => null);
-
-        if (!resp.ok || !json) {
-          const errObj =
-            json?.error ??
-            json?.message ??
-            `Login failed: ${resp.status} ${resp.statusText}`;
-          const errMsg =
-            typeof errObj === "string"
-              ? errObj
-              : errObj?.message ?? JSON.stringify(errObj);
-          setError(errMsg || "Login failed");
-          return;
-        }
-
-        // Notify other parts of the app that auth changed, then go to main page.
-        try {
-          window.dispatchEvent(
-            new CustomEvent("auth-changed", { detail: { loggedIn: true } })
-          );
-        } catch (e) {
-          // noop in non-browser env (shouldn't happen client-side)
-        }
-        router.push("/");
-        return;
-      } else {
-        // registration: call signup endpoint, then redirect to login
-        const API_BASE =
-          process.env.NEXT_PUBLIC_API_URL ??
-          (typeof window !== "undefined"
-            ? `${window.location.protocol}//${window.location.hostname}:3010`
-            : "");
-        const resp = await fetch(`${API_BASE}/auth/signup`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            email: data.email,
-            password: data.password,
-            full_name: `${data.firstName ?? ""} ${data.lastName ?? ""}`.trim(),
-          }),
-        });
-        const json = await resp.json().catch(() => null);
-        if (!resp.ok || !json?.success) {
-          const errObj = json?.error ?? json?.message ?? "Registration failed";
-          const errMsg =
-            typeof errObj === "string"
-              ? errObj
-              : errObj?.message ?? JSON.stringify(errObj);
-          setError(errMsg || "Registration failed");
-          return;
-        }
-        // After registration redirect to login with success query
-        if (window.location.pathname === "/login") {
-          window.location.href = "/login?registered=true";
-        } else {
-          router.push("/login?registered=true");
-        }
-        return;
-      }
-    } catch (err) {
-      console.error("Authentication error:", err);
-      setError(
-        "Ocurrió un error durante la autenticación. Por favor, inténtalo de nuevo."
-      );
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
   const handleSocialLogin = async (provider: string) => {
     console.log(`Iniciando sesión con ${provider}`);
     // TODO: Implement social login logic
@@ -268,12 +193,18 @@ function LoginContent() {
     if (info.includes("actualizada correctamente")) {
       return "¡Contraseña Actualizada!";
     }
+    if (info.includes("correo de verificación")) {
+      return "¡Correo Enviado!";
+    }
     return "¡Cuenta creada!";
   };
 
   const getModalIcon = () => {
     if (info.includes("actualizada correctamente")) {
       return "🔐";
+    }
+    if (info.includes("correo de verificación")) {
+      return "📧";
     }
     return "✅";
   };
@@ -290,6 +221,7 @@ function LoginContent() {
         icon={<FiUser size={32} />}
       />
       <AuthForm
+        ref={formRef}
         isLogin={isLogin}
         onSubmit={handleFormSubmit}
         onToggleMode={() => !isLoading && setIsLogin(!isLogin)}
