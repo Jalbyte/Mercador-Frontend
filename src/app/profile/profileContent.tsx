@@ -11,7 +11,6 @@ import {
   FiPhone,
   FiGlobe,
 } from "react-icons/fi";
-import { Header } from "@/components/layout/Header";
 import { FormInput } from "@/components/auth/FormInput";
 import { TwoFactorAuth } from "@/components/auth/TwoFactorAuth";
 import { Button } from "@/components/ui/button";
@@ -30,7 +29,6 @@ export default function ProfileContent() {
     isAuthenticated,
     isLoading: authLoading,
     updateUser,
-    refreshUser,
   } = useAuth();
 
   const [saving, setSaving] = useState(false);
@@ -185,174 +183,167 @@ export default function ProfileContent() {
   // Loading state
   if (authLoading || !user) {
     return (
-      <div className="min-h-screen bg-gray-50">
-        <Header />
-        <div className="flex items-center justify-center py-12">
-          <FiLoader className="animate-spin text-blue-600" size={32} />
-        </div>
+      <div className="flex items-center justify-center py-12">
+        <FiLoader className="animate-spin text-blue-600" size={32} />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <Header />
+    <div className="container mx-auto px-4 py-8">
+      <div className="max-w-2xl mx-auto">
+        {/* Header */}
+        <div className="flex items-center mb-6">
+          <button
+            onClick={() => router.back()}
+            className="mr-4 p-2 hover:bg-gray-100 rounded-full transition-colors"
+            aria-label="Volver atrás"
+          >
+            <FiArrowLeft size={20} />
+          </button>
+          <h1 className="text-2xl font-bold text-gray-900">Editar Perfil</h1>
+        </div>
 
-      <div className="container mx-auto px-4 py-8">
-        <div className="max-w-2xl mx-auto">
-          {/* Header */}
-          <div className="flex items-center mb-6">
-            <button
-              onClick={() => router.back()}
-              className="mr-4 p-2 hover:bg-gray-100 rounded-full transition-colors"
-              aria-label="Volver atrás"
-            >
-              <FiArrowLeft size={20} />
-            </button>
-            <h1 className="text-2xl font-bold text-gray-900">Editar Perfil</h1>
-          </div>
+        <div className="space-y-6">
+          {/* Información Personal */}
+          <div className="bg-white rounded-lg shadow p-6">
+            <h2 className="text-lg font-semibold text-gray-900 mb-4">
+              Información Personal
+            </h2>
 
-          <div className="space-y-6">
-            {/* Información Personal */}
-            <div className="bg-white rounded-lg shadow p-6">
-              <h2 className="text-lg font-semibold text-gray-900 mb-4">
-                Información Personal
-              </h2>
-
-              {/* Avatar Upload */}
-              <div className="flex flex-col items-center mb-6">
-                <div className="relative w-32 h-32 rounded-full overflow-hidden border-2 border-gray-200 mb-4">
-                  {avatarPreview || user.image || user.avatar_url ? (
-                    <img
-                      src={avatarPreview || user.image || user.avatar_url}
-                      alt="Profile"
-                      className="w-full h-full object-cover"
-                    />
-                  ) : (
-                    <div className="w-full h-full bg-gray-200 flex items-center justify-center">
-                      <FiUser className="text-gray-400" size={48} />
-                    </div>
-                  )}
-                </div>
-                <div className="flex space-x-2">
-                  <label className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 cursor-pointer transition-colors">
-                    Cambiar foto
-                    <input
-                      type="file"
-                      className="hidden"
-                      accept="image/*"
-                      onChange={handleAvatarChange}
-                    />
-                  </label>
-                  {(avatarPreview || user.image || user.avatar_url) && (
-                    <button
-                      type="button"
-                      onClick={handleRemoveAvatar}
-                      className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors"
-                    >
-                      Eliminar
-                    </button>
-                  )}
-                </div>
-                <p className="mt-2 text-sm text-gray-500">
-                  Formatos: JPG, PNG (Máx. 2MB)
-                </p>
+            {/* Avatar Upload */}
+            <div className="flex flex-col items-center mb-6">
+              <div className="relative w-32 h-32 rounded-full overflow-hidden border-2 border-gray-200 mb-4">
+                {avatarPreview || user.image || user.avatar_url ? (
+                  <img
+                    src={avatarPreview || user.image || user.avatar_url}
+                    alt="Profile"
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <div className="w-full h-full bg-gray-200 flex items-center justify-center">
+                    <FiUser className="text-gray-400" size={48} />
+                  </div>
+                )}
               </div>
-
-              <form onSubmit={handleSubmit} className="space-y-4">
-                <div className="grid grid-cols-1 gap-4">
-                  <FormInput
-                    label="Nombre completo"
-                    name="full_name"
-                    type="text"
-                    value={formData.full_name}
-                    onChange={handleInputChange}
-                    icon={<FiUser size={18} />}
-                    placeholder="Tu nombre completo"
-                    required
+              <div className="flex space-x-2">
+                <label className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 cursor-pointer transition-colors">
+                  Cambiar foto
+                  <input
+                    type="file"
+                    className="hidden"
+                    accept="image/*"
+                    onChange={handleAvatarChange}
                   />
-                  <FormInput
-                    label="País"
-                    name="country"
-                    type="text"
-                    value={formData.country}
-                    onChange={handleInputChange}
-                    icon={<FiGlobe size={18} />}
-                    placeholder="Tu país de residencia"
-                  />
-                </div>
-
-                <FormInput
-                  label="Correo Electrónico"
-                  name="email"
-                  type="email"
-                  value={user.email}
-                  onChange={() => {}} // Read only
-                  icon={<FiMail size={18} />}
-                  placeholder="tu@email.com"
-                  disabled
-                />
-
-                <FormInput
-                  label="Teléfono (Opcional)"
-                  name="phone"
-                  type="tel"
-                  value={formData.phone}
-                  onChange={handleInputChange}
-                  icon={<FiPhone size={18} />}
-                  placeholder="+57 300 123 4567"
-                />
-
-                <Button
-                  type="submit"
-                  disabled={saving}
-                  className="w-full md:w-auto"
-                >
-                  {saving ? (
-                    <FiLoader className="animate-spin h-4 w-4 mr-2" />
-                  ) : (
-                    <FiSave className="h-4 w-4 mr-2" />
-                  )}
-                  Guardar Cambios
-                </Button>
-              </form>
+                </label>
+                {(avatarPreview || user.image || user.avatar_url) && (
+                  <button
+                    type="button"
+                    onClick={handleRemoveAvatar}
+                    className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors"
+                  >
+                    Eliminar
+                  </button>
+                )}
+              </div>
+              <p className="mt-2 text-sm text-gray-500">
+                Formatos: JPG, PNG (Máx. 2MB)
+              </p>
             </div>
 
-            {/* Seguridad */}
-            <div className="bg-white rounded-lg shadow p-6">
-              <h2 className="text-lg font-semibold text-gray-900 mb-4">
-                Seguridad
-              </h2>
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div className="grid grid-cols-1 gap-4">
+                <FormInput
+                  label="Nombre completo"
+                  name="full_name"
+                  type="text"
+                  value={formData.full_name}
+                  onChange={handleInputChange}
+                  icon={<FiUser size={18} />}
+                  placeholder="Tu nombre completo"
+                  required
+                />
+                <FormInput
+                  label="País"
+                  name="country"
+                  type="text"
+                  value={formData.country}
+                  onChange={handleInputChange}
+                  icon={<FiGlobe size={18} />}
+                  placeholder="Tu país de residencia"
+                />
+              </div>
 
-              <TwoFactorAuth
-                isEnabled={user.two_factor_enabled}
-                onStatusChange={handle2FAStatusChange}
+              <FormInput
+                label="Correo Electrónico"
+                name="email"
+                type="email"
+                value={user.email}
+                onChange={() => {}} // Read only
+                icon={<FiMail size={18} />}
+                placeholder="tu@email.com"
+                disabled
               />
 
-              <div className="mt-6 pt-6 border-t border-gray-200">
-                <Button
-                  variant="outline"
-                  onClick={() => router.push("/change-password")}
-                  className="w-full md:w-auto"
-                >
-                  Cambiar Contraseña
-                </Button>
-              </div>
-            </div>
+              <FormInput
+                label="Teléfono (Opcional)"
+                name="phone"
+                type="tel"
+                value={formData.phone}
+                onChange={handleInputChange}
+                icon={<FiPhone size={18} />}
+                placeholder="+57 300 123 4567"
+              />
 
-            {/* Mensajes de estado */}
-            {error && (
-              <div className="bg-red-100 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
-                {error}
-              </div>
-            )}
-
-            {success && (
-              <div className="bg-green-100 border border-green-200 text-green-700 px-4 py-3 rounded-lg">
-                {success}
-              </div>
-            )}
+              <Button
+                type="submit"
+                disabled={saving}
+                className="w-full md:w-auto"
+              >
+                {saving ? (
+                  <FiLoader className="animate-spin h-4 w-4 mr-2" />
+                ) : (
+                  <FiSave className="h-4 w-4 mr-2" />
+                )}
+                Guardar Cambios
+              </Button>
+            </form>
           </div>
+
+          {/* Seguridad */}
+          <div className="bg-white rounded-lg shadow p-6">
+            <h2 className="text-lg font-semibold text-gray-900 mb-4">
+              Seguridad
+            </h2>
+
+            <TwoFactorAuth
+              isEnabled={user.two_factor_enabled}
+              onStatusChange={handle2FAStatusChange}
+            />
+
+            <div className="mt-6 pt-6 border-t border-gray-200">
+              <Button
+                variant="outline"
+                onClick={() => router.push("/change-password")}
+                className="w-full md:w-auto"
+              >
+                Cambiar Contraseña
+              </Button>
+            </div>
+          </div>
+
+          {/* Mensajes de estado */}
+          {error && (
+            <div className="bg-red-100 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
+              {error}
+            </div>
+          )}
+
+          {success && (
+            <div className="bg-green-100 border border-green-200 text-green-700 px-4 py-3 rounded-lg">
+              {success}
+            </div>
+          )}
         </div>
       </div>
     </div>

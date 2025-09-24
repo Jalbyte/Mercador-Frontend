@@ -1,145 +1,56 @@
 "use client";
 
 /**
- * Componente Header - Barra de navegación principal de Mercador.
- *
- * Este componente implementa la navegación completa de la aplicación incluyendo:
- * - Logo y enlace a la página principal
- * - Barra de búsqueda de productos
- * - Navegación por categorías
- * - Gestión de autenticación de usuarios
- * - Carrito de compras con contador
- * - Panel de administración para usuarios con permisos
- * - Menú de usuario con opciones de perfil y logout
- *
- * @module Header
+ * Header optimizado que usa AuthProvider como fuente única de verdad
+ * Elimina llamadas duplicadas a la API y mejora el performance
  */
 
 import { FiSearch, FiUser, FiChevronDown } from "react-icons/fi";
 import { ShoppingCart } from "lucide-react";
 import Link from "next/link";
 import { useCart } from "@/hooks";
-import { useEffect, useState } from "react";
-import { usePathname } from "next/navigation";
+import { useAuth } from "@/components/auth/AuthProvider";
+import { useState, useRef, useEffect } from "react";
 
-/**
- * Constante que define la URL base de la API del backend.
- * Se utiliza para las peticiones de autenticación y verificación de permisos.
- * Configurada dinámicamente para funcionar en desarrollo y producción.
- */
-const API_BASE =
-  process.env.NEXT_PUBLIC_API_URL ??
-  (typeof window !== "undefined"
-    ? `${window.location.protocol}//${window.location.hostname}:3010`
-    : "");
-
-/**
- * Componente Header - Barra de navegación principal de la aplicación Mercador.
- *
- * @component
- * @returns {JSX.Element} Elemento JSX que representa la barra de navegación completa
- *
- * @example
- * ```tsx
- * import { Header } from "@/components/layout/Header";
- *
- * export default function Layout() {
- *   return (
- *     <div>
- *       <Header />
- *       <main>{children}</main>
- *     </div>
- *   );
- * }
- * ```
- *
- * @remarks
- * Funcionalidades principales:
- * - Autenticación automática al cargar la página
- * - Verificación de permisos de administrador
- * - Integración completa con el sistema de carrito
- * - Navegación responsive con Tailwind CSS
- * - Panel modal de administración de productos
- */
 export function Header() {
-  const { totalItems, setIsOpen, isOpen } = useCart();
-  const [isAdmin, setIsAdmin] = useState(false);
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [userName, setUserName] = useState<string | null>(null);
-  const [userImage, setUserImage] = useState<string | null>(null);
-  const [checkingAdmin, setCheckingAdmin] = useState(true);
-  const [showAdmin, setShowAdmin] = useState(false);
-  const pathname = usePathname();
-  const isAdminDashboard = pathname?.startsWith("/dashboard");
+  const { totalItems, setIsOpen } = useCart();
+  const { user, isAuthenticated, isLoading, logout } = useAuth();
+  const [showUserMenu, setShowUserMenu] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
 
-  /**
-   * Función que maneja el clic en el botón del carrito.
-   * Abre el panel lateral del carrito de compras.
-   */
+  // Determinar si es admin usando el contexto de auth
+  const isAdmin = user?.role === "admin";
+
+  // Cerrar menú cuando se hace click fuera
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+        setShowUserMenu(false);
+      }
+    }
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
   const handleCartClick = () => {
     console.log("Cart button clicked, setting isOpen to true");
     setIsOpen?.(true);
   };
 
-  /**
-   * Hook useEffect que verifica el estado de autenticación del usuario.
-   * Realiza una petición al endpoint /auth/me para obtener información del usuario
-   * y determinar si tiene permisos de administrador.
-   *
-   * @effect
-   * @async
-   * @listens auth-changed - Evento personalizado para actualizar el estado de auth
-   */
-  useEffect(() => {
-    let mounted = true;
-    async function checkAdmin() {
-      setCheckingAdmin(true);
-      try {
-        const res = await fetch(`${API_BASE}/auth/me`, {
-          credentials: "include",
-        });
-        if (!mounted) return;
-        if (!res.ok) {
-          setIsAdmin(false);
-          setIsAuthenticated(false);
-          setUserName(null);
-          setUserImage(null);
-        } else {
-          const j = await res.json().catch(() => null);
-          // Backend returns { success: true, data: { role: string, ... } }
-          const role = j?.data?.role ?? j?.data?.user_metadata?.role ?? null;
-          const name =
-            j?.data?.full_name ??
-            j?.data?.user_metadata?.full_name ??
-            j?.data?.email ??
-            null;
-          const image = j?.data?.image ?? null;
-          setIsAdmin(role === "admin");
-          setIsAuthenticated(true);
-          setUserName(name);
-          setUserImage(image);
-        }
-      } catch (err) {
-        setIsAdmin(false);
-        setIsAuthenticated(false);
-        setUserName(null);
-      } finally {
-        if (mounted) setCheckingAdmin(false);
-      }
+  const handleLogout = async () => {
+    setShowUserMenu(false);
+    try {
+      await logout();
+      // AuthProvider maneja la redirección automáticamente
+    } catch (error) {
+      console.error("Error during logout:", error);
     }
-    checkAdmin();
-    const onAuthChanged = () => {
-      if (mounted) checkAdmin();
-    };
-    window.addEventListener("auth-changed", onAuthChanged as EventListener);
-    return () => {
-      mounted = false;
-      window.removeEventListener(
-        "auth-changed",
-        onAuthChanged as EventListener
-      );
-    };
-  }, []);
+  };
+
+  const toggleUserMenu = () => {
+    setShowUserMenu((prev) => !prev);
+  };
 
   return (
     <header className="fixed w-full top-0 left-0 z-50 backdrop-blur-md bg-white/70 dark:bg-gray-900/70 border-b border-white/20 shadow-sm transition-colors duration-300">
@@ -216,14 +127,24 @@ export function Header() {
               </li>
 
               {/* Perfil de usuario */}
-              <li>
-                {isAuthenticated ? (
-                  <div className="relative group">
-                    <button className="flex items-center space-x-2">
-                      {userImage ? (
+              <li className="relative" ref={menuRef}>
+                {isLoading ? (
+                  <div className="flex items-center space-x-2">
+                    <div className="w-8 h-8 rounded-full bg-gray-200 animate-pulse"></div>
+                    <div className="hidden md:block w-20 h-4 bg-gray-200 animate-pulse rounded"></div>
+                  </div>
+                ) : isAuthenticated && user ? (
+                  <div>
+                    <button
+                      onClick={toggleUserMenu}
+                      className="flex items-center space-x-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 rounded-md p-1"
+                      aria-haspopup="true"
+                      aria-expanded={showUserMenu}
+                    >
+                      {user.image || user.avatar_url ? (
                         <img
-                          src={userImage}
-                          alt={userName || "Usuario"}
+                          src={user.image || user.avatar_url}
+                          alt={user.full_name || "Usuario"}
                           className="w-8 h-8 rounded-full object-cover"
                         />
                       ) : (
@@ -231,40 +152,61 @@ export function Header() {
                           <FiUser className="text-gray-600" />
                         </div>
                       )}
-                      <span className="hidden md:inline">
-                        {userName || "Mi cuenta"}
+                      <span className="hidden md:inline text-sm">
+                        {user.full_name ||
+                          user.email?.split("@")[0] ||
+                          "Mi cuenta"}
                       </span>
-                      <FiChevronDown size={16} className="hidden md:block" />
+                      <FiChevronDown
+                        size={16}
+                        className={`hidden md:block transition-transform duration-200 ${
+                          showUserMenu ? "rotate-180" : ""
+                        }`}
+                      />
                     </button>
 
-                    <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 z-50 hidden group-hover:block">
-                      <Link
-                        href="/profile"
-                        className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors"
+                    {/* Dropdown Menu */}
+                    {showUserMenu && (
+                      <div
+                        className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 z-50 border border-gray-100"
+                        role="menu"
+                        aria-orientation="vertical"
                       >
-                        Mi perfil
-                      </Link>
-                      {isAdmin && (
+                        <div className="px-4 py-2 text-sm text-gray-500 border-b border-gray-100">
+                          {user.email}
+                        </div>
+
                         <Link
-                          href="/dashboard"
+                          href="/profile"
                           className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors"
+                          onClick={() => setShowUserMenu(false)}
+                          role="menuitem"
                         >
-                          Panel de control
+                          Mi perfil
                         </Link>
-                      )}
-                      <button
-                        className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors"
-                        onClick={async () => {
-                          await fetch(`${API_BASE}/auth/logout`, {
-                            method: "POST",
-                            credentials: "include",
-                          });
-                          window.dispatchEvent(new Event("auth-changed"));
-                        }}
-                      >
-                        Cerrar sesión
-                      </button>
-                    </div>
+
+                        {isAdmin && (
+                          <Link
+                            href="/dashboard"
+                            className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors"
+                            onClick={() => setShowUserMenu(false)}
+                            role="menuitem"
+                          >
+                            Panel de control
+                          </Link>
+                        )}
+
+                        <div className="border-t border-gray-100 mt-1 pt-1">
+                          <button
+                            className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors"
+                            onClick={handleLogout}
+                            role="menuitem"
+                          >
+                            Cerrar sesión
+                          </button>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 ) : (
                   <Link
