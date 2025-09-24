@@ -15,7 +15,7 @@ import { Header } from "@/components/layout/Header";
 import { FormInput } from "@/components/auth/FormInput";
 import { TwoFactorAuth } from "@/components/auth/TwoFactorAuth";
 import { Button } from "@/components/ui/button";
-import { useAuth, type User } from "@/components/auth/AuthProvider";
+import { useAuth } from "@/components/auth/AuthProvider";
 
 const API_BASE =
   process.env.NEXT_PUBLIC_API_URL ??
@@ -23,167 +23,47 @@ const API_BASE =
     ? `${window.location.protocol}//${window.location.hostname}:3010`
     : "");
 
-interface UserProfile {
-  id: string;
-  email: string;
-  full_name: string;
-  country?: string;
-  two_factor_enabled: boolean;
-  avatar_url?: string;
-}
-
-// Helper function to get full name with fallbacks
-function getFullName(profile: any, user: any): string {
-  if (profile.full_name) return profile.full_name;
-
-  const firstName = profile.first_name || user?.first_name || "";
-  const lastName = profile.last_name || user?.last_name || "";
-
-  if (firstName || lastName) {
-    return `${firstName} ${lastName}`.trim();
-  }
-
-  return user?.full_name || "";
-}
-
-// Helper function to get two-factor status with fallbacks
-function getTwoFactorStatus(profile: any, user: any): boolean {
-  if (profile.two_factor_enabled !== undefined) {
-    return Boolean(profile.two_factor_enabled);
-  }
-  return Boolean(user?.two_factor_enabled);
-}
-
 export default function ProfileContent() {
   const router = useRouter();
   const {
+    user,
     isAuthenticated,
     isLoading: authLoading,
-    user,
     updateUser,
+    refreshUser,
   } = useAuth();
-  const [loading, setLoading] = useState(true);
+
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
-  // Initialize with default values that match the UserProfile interface
-  const defaultProfile: UserProfile = {
-    id: "",
-    email: "",
-    full_name: "",
-    two_factor_enabled: false,
-  };
-  const [profile, setProfile] = useState<UserProfile>(defaultProfile);
-  const [formData, setFormData] = useState<{
-    full_name: string;
-    country: string;
-    email: string;
-    phone?: string;
-  }>({
+
+  const [formData, setFormData] = useState({
     full_name: "",
     country: "",
-    email: "",
     phone: "",
   });
+
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
 
+  // Redirect if not authenticated
   useEffect(() => {
     if (!authLoading && !isAuthenticated) {
       router.push("/login");
       return;
     }
+  }, [isAuthenticated, authLoading, router]);
 
-    if (isAuthenticated) {
-      loadProfile();
-    }
-  }, [isAuthenticated, authLoading]);
-
-  // Helper function to get full name with fallbacks
-  const getFullName = (profile: any, userData: any): string => {
-    if (profile.full_name) return profile.full_name;
-
-    const firstName = profile.first_name || userData?.first_name || "";
-    const lastName = profile.last_name || userData?.last_name || "";
-
-    if (firstName || lastName) {
-      return `${firstName} ${lastName}`.trim();
-    }
-
-    return userData?.full_name || "";
-  };
-
-  // Helper function to get two-factor status with fallbacks
-  const getTwoFactorStatus = (profile: any, userData: any): boolean => {
-    if (profile.two_factor_enabled !== undefined) {
-      return Boolean(profile.two_factor_enabled);
-    }
-    return Boolean(userData?.two_factor_enabled);
-  };
-
-  const loadProfile = async () => {
-    if (!user) return;
-
-    setLoading(true);
-    setError("");
-
-    try {
-      // Set form data from auth context user
+  // Initialize form data when user is loaded
+  useEffect(() => {
+    if (user) {
       setFormData({
         full_name: user.full_name || "",
         country: user.country || "",
-        email: user.email || "",
         phone: user.phone || "",
       });
-
-      // Set profile from auth context user with fallbacks
-      const initialProfile: UserProfile = {
-        id: user.id || "",
-        email: user.email || "",
-        full_name: user.full_name || "",
-        country: user.country,
-        two_factor_enabled: user.two_factor_enabled || false,
-        avatar_url: user.avatar_url,
-      };
-      setProfile(initialProfile);
-
-      // Fetch additional profile data using cookie-based session (sb_access_token)
-      const response = await fetch(`${API_BASE}/auth/me`, {
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-      });
-
-      if (!response.ok) {
-        if (response.status === 401) {
-          router.push("/login");
-          return;
-        }
-        throw new Error("Error al cargar el perfil");
-      }
-
-      const data = await response.json();
-      const userProfile = data?.data || data;
-
-      // Update profile with additional data if needed
-      if (userProfile) {
-        const updatedProfile: UserProfile = {
-          id: userProfile.id || user?.id || "",
-          email: userProfile.email || user?.email || "",
-          full_name: getFullName(userProfile, user) || "",
-          country: userProfile.country || user?.country,
-          two_factor_enabled: getTwoFactorStatus(userProfile, user),
-          avatar_url: userProfile.image || user?.image,
-        };
-        setProfile(updatedProfile);
-      }
-    } catch (err) {
-      setError(
-        err instanceof Error ? err.message : "Error al cargar el perfil"
-      );
-    } finally {
-      setLoading(false);
     }
-  };
+  }, [user]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -195,36 +75,50 @@ export default function ProfileContent() {
   const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
+      // Validate file size (max 2MB)
+      if (file.size > 2 * 1024 * 1024) {
+        setError("La imagen debe ser menor a 2MB");
+        return;
+      }
+
+      // Validate file type
+      if (!file.type.startsWith("image/")) {
+        setError("Solo se permiten archivos de imagen");
+        return;
+      }
+
       setAvatarFile(file);
       const reader = new FileReader();
       reader.onloadend = () => {
         setAvatarPreview(reader.result as string);
       };
       reader.readAsDataURL(file);
+      setError("");
     }
   };
 
   const handleRemoveAvatar = () => {
     setAvatarFile(null);
     setAvatarPreview(null);
-    // Aquí podrías agregar lógica para eliminar el avatar del servidor
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (!user) {
+      setError("No se pudo obtener la información del usuario");
+      return;
+    }
+
     setSaving(true);
     setError("");
     setSuccess("");
 
     try {
-      if (!user) {
-        router.push("/login");
-        return;
-      }
-
       const formDataToSend = new FormData();
       formDataToSend.append("full_name", formData.full_name);
       formDataToSend.append("country", formData.country);
+      formDataToSend.append("phone", formData.phone);
 
       if (avatarFile) {
         formDataToSend.append("image_file", avatarFile);
@@ -242,36 +136,28 @@ export default function ProfileContent() {
       }
 
       const result = await response.json();
-      const updatedUser = result.data || result;
+      const updatedData = result.data || result;
 
-      if (updatedUser) {
-        // Update local profile state with updated data
-        const newProfileData = {
-          full_name: updatedUser.full_name || formData.full_name,
-          country: updatedUser.country || formData.country,
-          avatar_url: updatedUser.avatar_url || updatedUser.image_url || profile.avatar_url,
-          two_factor_enabled: updatedUser.two_factor_enabled || profile.two_factor_enabled,
-        };
+      // Update the auth context
+      await updateUser({
+        full_name: formData.full_name,
+        country: formData.country,
+        phone: formData.phone,
+        ...(updatedData.image && {
+          image: updatedData.image,
+          avatar_url: updatedData.image,
+        }),
+      });
 
-        setProfile(prev => ({
-          ...prev,
-          ...newProfileData
-        }));
+      setSuccess("Perfil actualizado correctamente");
 
-        // Update form data
-        setFormData(prev => ({
-          ...prev,
-          full_name: newProfileData.full_name,
-          country: newProfileData.country || ''
-        }));
-
-        // Update auth context with new user data
-        await updateUser(newProfileData as Partial<User>);
-        
-        setSuccess("Perfil actualizado correctamente");
+      // Clear avatar preview after successful upload
+      if (avatarFile) {
+        setAvatarFile(null);
+        setAvatarPreview(null);
       }
 
-      // Disparar evento de cambio de auth para actualizar el header
+      // Trigger auth refresh to sync header
       window.dispatchEvent(new CustomEvent("auth-changed"));
     } catch (err) {
       setError(
@@ -283,18 +169,21 @@ export default function ProfileContent() {
   };
 
   const handle2FAStatusChange = (enabled: boolean) => {
-    if (profile) {
-      setProfile({ ...profile, two_factor_enabled: enabled });
-    }
     if (enabled) {
       setSuccess("Autenticación de dos factores activada correctamente");
     } else {
       setSuccess("Autenticación de dos factores desactivada");
     }
     setError("");
+
+    // Update user state
+    if (user) {
+      updateUser({ two_factor_enabled: enabled }).catch(console.error);
+    }
   };
 
-  if (loading) {
+  // Loading state
+  if (authLoading || !user) {
     return (
       <div className="min-h-screen bg-gray-50">
         <Header />
@@ -333,9 +222,9 @@ export default function ProfileContent() {
               {/* Avatar Upload */}
               <div className="flex flex-col items-center mb-6">
                 <div className="relative w-32 h-32 rounded-full overflow-hidden border-2 border-gray-200 mb-4">
-                  {avatarPreview || profile.avatar_url ? (
+                  {avatarPreview || user.image || user.avatar_url ? (
                     <img
-                      src={avatarPreview || profile.avatar_url}
+                      src={avatarPreview || user.image || user.avatar_url}
                       alt="Profile"
                       className="w-full h-full object-cover"
                     />
@@ -355,7 +244,7 @@ export default function ProfileContent() {
                       onChange={handleAvatarChange}
                     />
                   </label>
-                  {(avatarPreview || profile.avatar_url) && (
+                  {(avatarPreview || user.image || user.avatar_url) && (
                     <button
                       type="button"
                       onClick={handleRemoveAvatar}
@@ -397,8 +286,8 @@ export default function ProfileContent() {
                   label="Correo Electrónico"
                   name="email"
                   type="email"
-                  value={formData.email}
-                  onChange={handleInputChange}
+                  value={user.email}
+                  onChange={() => {}} // Read only
                   icon={<FiMail size={18} />}
                   placeholder="tu@email.com"
                   disabled
@@ -436,7 +325,7 @@ export default function ProfileContent() {
               </h2>
 
               <TwoFactorAuth
-                isEnabled={profile?.two_factor_enabled || false}
+                isEnabled={user.two_factor_enabled}
                 onStatusChange={handle2FAStatusChange}
               />
 

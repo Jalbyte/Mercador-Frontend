@@ -54,6 +54,9 @@ const inter = Inter({ subsets: ["latin"] });
 export const metadata: Metadata = {
   title: "Mercador - Licencias de Software",
   description: "Encuentra las mejores licencias de software al mejor precio",
+  icons: {
+    icon: "/logo.ico",
+  },
 };
 
 /**
@@ -77,9 +80,7 @@ interface RootLayoutProps {
  * @param props - Props del componente
  * @returns Elemento JSX con la estructura completa de la aplicación
  */
-export default function RootLayout({
-  children,
-}: RootLayoutProps) {
+export default function RootLayout({ children }: RootLayoutProps) {
   return (
     <html lang="es" className="h-full">
       <body className={`${inter.className} min-h-screen bg-background`}>

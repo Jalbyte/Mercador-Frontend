@@ -3,15 +3,24 @@
 import React, { Suspense, useState, useEffect, useRef } from "react";
 import { Modal } from "@/components/ui/modal";
 import { useRouter, useSearchParams } from "next/navigation";
-import { FiUser, FiShoppingCart, FiLoader } from "react-icons/fi";
+import { FiUser, FiLoader } from "react-icons/fi";
 import { AuthLayout } from "@/components/auth/AuthLayout";
 import { AuthHeader } from "@/components/auth/AuthHeader";
 import { AuthForm } from "@/components/auth/AuthForm";
 import { AuthFooter } from "@/components/auth/AuthFooter";
+import { useAuth } from "@/components/auth/AuthProvider";
+
+const API_BASE =
+  process.env.NEXT_PUBLIC_API_URL ??
+  (typeof window !== "undefined"
+    ? `${window.location.protocol}//${window.location.hostname}:3010`
+    : "");
 
 function LoginContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
+  const { login, isAuthenticated, isLoading: authLoading } = useAuth();
+
   const [isLogin, setIsLogin] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
   const [isVerifying, setIsVerifying] = useState(false);
@@ -19,6 +28,13 @@ function LoginContent() {
   const [info, setInfo] = useState("");
   const [showModal, setShowModal] = useState(false);
   const formRef = useRef<any>(null);
+
+  // Redirect if already authenticated
+  useEffect(() => {
+    if (!authLoading && isAuthenticated) {
+      router.push("/");
+    }
+  }, [isAuthenticated, authLoading, router]);
 
   const handleFormSubmit = async (formData: {
     email: string;
@@ -31,57 +47,36 @@ function LoginContent() {
     setError("");
 
     try {
-      const API_BASE =
-        process.env.NEXT_PUBLIC_API_URL ??
-        (typeof window !== "undefined"
-          ? `${window.location.protocol}//${window.location.hostname}:3010`
-          : "");
-
-      const endpoint = isLogin ? "/auth/login" : "/auth/register";
-      const body = isLogin
-        ? {
-            email: formData.email,
-            password: formData.password,
-            ...(formData.rememberMe !== undefined && {
-              rememberMe: formData.rememberMe,
-            }),
-          }
-        : {
+      if (isLogin) {
+        // Use AuthProvider login
+        await login(formData.email, formData.password, formData.rememberMe);
+        // AuthProvider handles redirect automatically
+      } else {
+        // Registration logic
+        const response = await fetch(`${API_BASE}/auth/register`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({
             email: formData.email,
             password: formData.password,
             full_name: formData.full_name,
             country: formData.country,
-          };
+          }),
+        });
 
-      const response = await fetch(`${API_BASE}${endpoint}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify(body),
-      });
+        const result = await response.json();
 
-      const result = await response.json();
-
-      if (!response.ok) {
-        throw new Error(result.error || result.message || "Error en la autenticación");
-      }
-
-      if (isLogin) {
-        // Guardar el email en localStorage para recordarlo si rememberMe está activado
-        if (formData.rememberMe) {
-          localStorage.setItem("last-login-email", formData.email);
-        } else {
-          localStorage.removeItem("last-login-email");
+        if (!response.ok) {
+          throw new Error(
+            result.error || result.message || "Error en el registro"
+          );
         }
 
-        // Actualizar el estado de autenticación
-        window.dispatchEvent(new CustomEvent("auth-changed"));
-
-        // Redirigir al dashboard después de iniciar sesión exitosamente
-        router.push("/");
-      } else {
-        // Registro exitoso: mostrar mensaje de verificación de email
-        setInfo(`Se ha enviado un correo de verificación a ${formData.email}. Por favor, revisa tu bandeja de entrada y sigue las instrucciones para activar tu cuenta.`);
+        // Registration successful
+        setInfo(
+          `Se ha enviado un correo de verificación a ${formData.email}. Por favor, revisa tu bandeja de entrada y sigue las instrucciones para activar tu cuenta.`
+        );
         setShowModal(true);
         formRef.current?.resetForm();
       }
@@ -106,12 +101,6 @@ function LoginContent() {
       setShowModal(true);
 
       try {
-        const API_BASE =
-          process.env.NEXT_PUBLIC_API_URL ??
-          (typeof window !== "undefined"
-            ? `${window.location.protocol}//${window.location.hostname}:3010`
-            : "");
-
         const response = await fetch(`${API_BASE}/auth/verify-magiclink`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -125,11 +114,11 @@ function LoginContent() {
           url.searchParams.delete("token");
           window.history.replaceState({}, document.title, url.pathname);
 
-          // Refresh the auth state
+          // Trigger auth refresh
           window.dispatchEvent(new CustomEvent("auth-changed"));
 
-          // Redirect to dashboard or home
-          router.push("/dashboard");
+          // Redirect to home
+          router.push("/");
         } else {
           const error = await response.json().catch(() => ({}));
           throw new Error(error.message || "Error al verificar el enlace");
@@ -182,13 +171,6 @@ function LoginContent() {
     }
   }, [searchParams, router]);
 
-  const handleSocialLogin = async (provider: string) => {
-    console.log(`Iniciando sesión con ${provider}`);
-    // TODO: Implement social login logic
-    // This would typically redirect to the provider's OAuth page
-    // or use a library like next-auth
-  };
-
   const getModalTitle = () => {
     if (info.includes("actualizada correctamente")) {
       return "¡Contraseña Actualizada!";
@@ -208,6 +190,24 @@ function LoginContent() {
     }
     return "✅";
   };
+
+  // Show loading while checking auth status
+  if (authLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <FiLoader className="animate-spin text-3xl text-blue-500" />
+      </div>
+    );
+  }
+
+  // Don't render if already authenticated (will redirect)
+  if (isAuthenticated) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <FiLoader className="animate-spin text-3xl text-blue-500" />
+      </div>
+    );
+  }
 
   return (
     <AuthLayout>
