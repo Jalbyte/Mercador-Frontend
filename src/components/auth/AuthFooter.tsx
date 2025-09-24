@@ -1,5 +1,5 @@
 import React from "react";
-import { FiShield, FiShoppingCart, FiUser } from "react-icons/fi";
+import { FiShield, FiShoppingCart } from "react-icons/fi";
 
 interface AuthFooterProps {
   isLogin: boolean;
@@ -22,18 +22,16 @@ export const AuthFooter = ({ isLogin, onToggleMode }: AuthFooterProps) => (
     </div>
 
     {/* Features */}
-    <div className="mt-8 grid grid-cols-3 gap-4 text-center">
-      <div className="bg-white/70 backdrop-blur-sm p-4 rounded-lg">
-        <FiShield className="mx-auto mb-2 text-green-600" size={24} />
-        <div className="text-xs text-gray-600">Pagos Seguros</div>
-      </div>
-      <div className="bg-white/70 backdrop-blur-sm p-4 rounded-lg">
-        <FiShoppingCart className="mx-auto mb-2 text-blue-600" size={24} />
-        <div className="text-xs text-gray-600">Licencias Originales</div>
-      </div>
-      <div className="bg-white/70 backdrop-blur-sm p-4 rounded-lg">
-        <FiUser className="mx-auto mb-2 text-purple-600" size={24} />
-        <div className="text-xs text-gray-600">Soporte 24/7</div>
+    <div className="mt-8 flex justify-center">
+      <div className="grid grid-cols-2 gap-4 text-center">
+        <div className="bg-white/70 backdrop-blur-sm p-4 rounded-lg">
+          <FiShield className="mx-auto mb-2 text-green-600" size={24} />
+          <div className="text-xs text-gray-600">Pagos Seguros</div>
+        </div>
+        <div className="bg-white/70 backdrop-blur-sm p-4 rounded-lg">
+          <FiShoppingCart className="mx-auto mb-2 text-blue-600" size={24} />
+          <div className="text-xs text-gray-600">Licencias Originales</div>
+        </div>
       </div>
     </div>
   </>

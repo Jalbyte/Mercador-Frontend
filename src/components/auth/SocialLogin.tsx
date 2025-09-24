@@ -17,15 +17,16 @@ export const SocialLogin = ({
     <div className="flex justify-center">
       <button
         type="button"
-        onClick={onGoogleLogin}
-        className="flex items-center justify-center px-6 py-3 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors w-full max-w-xs"
+        disabled
+        className="flex items-center justify-center px-6 py-3 border border-gray-200 rounded-lg w-full max-w-xs cursor-not-allowed opacity-50"
+        aria-disabled="true"
       >
         <img
           src="https://developers.google.com/identity/images/g-logo.png"
           alt="Google"
           className="w-5 h-5 mr-2"
         />
-        <span className="text-sm font-medium text-gray-700">Continuar con Google</span>
+        <span className="text-sm font-medium text-gray-400">Continuar con Google</span>
       </button>
     </div>
   </>

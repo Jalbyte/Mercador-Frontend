@@ -36,7 +36,6 @@ export function useAuthRoute() {
       "/account",
       "/checkout",
       "/payment",
-      // Add more routes as needed
     ];
 
     // Check exact matches and route prefixes

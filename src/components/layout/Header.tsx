@@ -70,7 +70,7 @@ export function Header() {
   const [checkingAdmin, setCheckingAdmin] = useState(true);
   const [showAdmin, setShowAdmin] = useState(false);
   const pathname = usePathname();
-  const isAdminDashboard = pathname?.startsWith('/dashboard');
+  const isAdminDashboard = pathname?.startsWith("/dashboard");
 
   /**
    * Función que maneja el clic en el botón del carrito.
@@ -142,129 +142,143 @@ export function Header() {
   }, []);
 
   return (
-    <header className="bg-white shadow-sm sticky top-0 z-10">
-      <div className="container mx-auto px-4 py-4">
+    <header className="fixed w-full top-0 left-0 z-50 backdrop-blur-md bg-white/70 dark:bg-gray-900/70 border-b border-white/20 shadow-sm transition-colors duration-300">
+      <div className="container mx-auto px-4 py-3">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           {/* Logo y enlace a la página principal */}
           <Link href="/" className="text-2xl font-bold text-blue-600">
             Mercador
           </Link>
 
-          {/* Barra de búsqueda de productos */}
-          <div className="relative flex-1 max-w-2xl">
+          {/* Barra de búsqueda */}
+          <div className="relative flex-1 max-w-2xl mx-4">
             <input
               type="text"
-              placeholder="Buscar licencias..."
+              placeholder="Buscar productos..."
               className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
-            <button className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-500">
-              <FiSearch size={20} />
-            </button>
+            <FiSearch className="absolute right-3 top-2.5 text-gray-400" />
           </div>
 
-          {/* Sección de acciones del usuario - Login/Carrito/Admin */}
-          <div className="flex items-center gap-4">
-            {!isAuthenticated ? (
-              <Link
-                href="/login"
-                className="flex items-center gap-1 text-gray-700 hover:text-blue-600"
-              >
-                <FiUser size={20} />
-                <span>Iniciar sesión</span>
-              </Link>
-            ) : (
-              <div className="flex items-center gap-3">
-                {userImage && (
-                  <img
-                    src={userImage}
-                    alt="Avatar"
-                    className="w-8 h-8 rounded-full object-cover border border-gray-300"
-                  />
-                )}
+          {/* Navegación */}
+          <nav className="flex items-center space-x-6">
+            <ul className="flex items-center space-x-6">
+              <li>
                 <Link
-                  href="/profile"
-                  className="text-gray-700 hover:text-blue-600"
+                  href="/"
+                  className="hover:text-blue-600 transition-colors"
                 >
-                  Editar perfil
+                  Inicio
                 </Link>
-                <button
-                  onClick={async () => {
-                    try {
-                      await fetch(`${API_BASE}/auth/logout`, {
-                        method: "POST",
-                        credentials: "include",
-                      });
-                    } catch (e) {
-                      // ignore
-                    }
-                    // Refresh auth state: simple approach is reload
-                    setIsAuthenticated(false);
-                    setIsAdmin(false);
-                    setUserName(null);
-                    setUserImage(null);
-                    window.location.href = "/";
-                  }}
-                  className="px-3 py-1 rounded bg-gray-100 text-sm hover:bg-gray-200"
-                >
-                  Cerrar sesión
-                </button>
-              </div>
-            )}
-            {!isAdminDashboard && (
-              <button
-                onClick={handleCartClick}
-                className="relative flex items-center gap-1 text-gray-700 hover:text-blue-600"
-              >
-                <ShoppingCart size={20} />
-                {totalItems > 0 && (
-                  <span className="absolute -top-1 -right-1 bg-blue-600 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
-                    {totalItems}
-                  </span>
-                )}
-              </button>
-            )}
-            {isAuthenticated && isAdmin && (
-              <Link
-                href="/dashboard"
-                className="px-3 py-1 rounded bg-blue-600 text-white text-sm hover:bg-blue-700 transition-colors"
-              >
-                Dashboard
-              </Link>
-            )}
-          </div>
-        </div>
+              </li>
 
-        {/* Barra de navegación principal */}
-        <nav className="mt-4">
-          <ul className="flex gap-6 text-sm font-medium">
-            <li>
-              <Link href="/" className="hover:text-blue-600">
-                Inicio
-              </Link>
-            </li>
-            <li className="flex items-center gap-1">
-              <a href="#" className="hover:text-blue-600">
-                Categorías
-              </a>
-              <FiChevronDown size={16} />
-            </li>
-            <li>
-              <a href="#" className="hover:text-blue-600">
-                Ofertas
-              </a>
-            </li>
-            <li>
-              <a href="#" className="hover:text-blue-600">
-                Nuevo
-              </a>
-            </li>
-            <li>
-              <a href="#" className="hover:text-blue-600">
-                Soporte
-              </a>
-            </li>
-          </ul>
-        </nav>
+              <li className="relative group">
+                <button className="flex items-center hover:text-blue-600 transition-colors">
+                  <span>Categorías</span>
+                  <FiChevronDown size={16} className="ml-1" />
+                </button>
+                <div className="absolute left-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 z-50 hidden group-hover:block">
+                  <a
+                    href="/"
+                    className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors"
+                  >
+                    Licencias
+                  </a>
+                  <a
+                    href="/"
+                    className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors"
+                  >
+                    Tarjetas de Regalo
+                  </a>
+                </div>
+              </li>
+
+              <li>
+                <a href="#" className="hover:text-blue-600 transition-colors">
+                  Soporte
+                </a>
+              </li>
+
+              {/* Carrito de compras */}
+              <li>
+                <button
+                  onClick={handleCartClick}
+                  className="relative p-2 hover:text-blue-600 transition-colors"
+                  aria-label="Carrito de compras"
+                >
+                  <ShoppingCart size={20} />
+                  {totalItems > 0 && (
+                    <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
+                      {totalItems}
+                    </span>
+                  )}
+                </button>
+              </li>
+
+              {/* Perfil de usuario */}
+              <li>
+                {isAuthenticated ? (
+                  <div className="relative group">
+                    <button className="flex items-center space-x-2">
+                      {userImage ? (
+                        <img
+                          src={userImage}
+                          alt={userName || "Usuario"}
+                          className="w-8 h-8 rounded-full object-cover"
+                        />
+                      ) : (
+                        <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center">
+                          <FiUser className="text-gray-600" />
+                        </div>
+                      )}
+                      <span className="hidden md:inline">
+                        {userName || "Mi cuenta"}
+                      </span>
+                      <FiChevronDown size={16} className="hidden md:block" />
+                    </button>
+
+                    <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 z-50 hidden group-hover:block">
+                      <Link
+                        href="/perfil"
+                        className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors"
+                      >
+                        Mi perfil
+                      </Link>
+                      {isAdmin && (
+                        <Link
+                          href="/dashboard"
+                          className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors"
+                        >
+                          Panel de control
+                        </Link>
+                      )}
+                      <button
+                        className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors"
+                        onClick={async () => {
+                          await fetch(`${API_BASE}/auth/logout`, {
+                            method: "POST",
+                            credentials: "include",
+                          });
+                          window.dispatchEvent(new Event("auth-changed"));
+                        }}
+                      >
+                        Cerrar sesión
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <Link
+                    href="/login"
+                    className="flex items-center space-x-1 hover:text-blue-600 transition-colors"
+                  >
+                    <FiUser size={18} />
+                    <span className="hidden md:inline">Iniciar sesión</span>
+                  </Link>
+                )}
+              </li>
+            </ul>
+          </nav>
+        </div>
       </div>
     </header>
   );
