@@ -24,7 +24,9 @@ type LicenseCardProps = {
 // Client-side API base (can be set via NEXT_PUBLIC_API_URL)
 const API_BASE =
   process.env.NEXT_PUBLIC_API_URL ??
-  (typeof window !== "undefined" ? `${window.location.protocol}//${window.location.hostname}:3010` : "");
+  (typeof window !== "undefined"
+    ? `${window.location.protocol}//${window.location.hostname}:3010`
+    : "");
 
 const LicenseCard = ({
   id,
@@ -49,12 +51,7 @@ const LicenseCard = ({
     <div className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow duration-300">
       {image && (
         <div className="h-48 relative">
-          <Image
-            src={image}
-            alt={title}
-            fill
-            className="object-cover"
-          />
+          <Image src={image} alt={title} fill className="object-cover" />
         </div>
       )}
       <div className="p-6">
@@ -83,7 +80,7 @@ export default function Home() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // 🔥 Agregar datos quemados al carrito SOLO la primera vez
+  // Agregar datos quemados al carrito SOLO la primera vez
   useEffect(() => {
     // Verificar si ya hemos inicializado los datos de prueba
     const hasInitialized = localStorage.getItem("cart-initialized");
@@ -118,35 +115,40 @@ export default function Home() {
   }, [addItem, items.length]);
 
   useEffect(() => {
-    let mounted = true
+    let mounted = true;
     async function load() {
-      setLoading(true)
-      setError(null)
+      setLoading(true);
+      setError(null);
       try {
-        const res = await fetch(`${API_BASE}/products`)
-        if (!res.ok) throw new Error(`API error ${res.status}`)
-        const body = await res.json()
+        const res = await fetch(`${API_BASE}/products`);
+        if (!res.ok) throw new Error(`API error ${res.status}`);
+        const body = await res.json();
         // Backend returns { success: true, data: { products: [...], pagination: {...} } }
-        const items = body?.data?.products ?? []
+        const items = body?.data?.products ?? [];
         const mapped = items.map((p: any) => ({
           id: p.id,
           title: p.name,
           description: p.description,
           price: p.price,
           category: p.category,
-          image: p.image_url ??process.env.NEXT_PUBLIC_PLACEHOLDER_URL ?? "/placeholder.png"
-        }))
-        if (mounted) setProducts(mapped)
+          image:
+            p.image_url ??
+            process.env.NEXT_PUBLIC_PLACEHOLDER_URL ??
+            "/placeholder.png",
+        }));
+        if (mounted) setProducts(mapped);
       } catch (err: any) {
-        if (mounted) setError(err.message ?? 'Failed to load products')
+        if (mounted) setError(err.message ?? "Failed to load products");
       } finally {
-        if (mounted) setLoading(false)
+        if (mounted) setLoading(false);
       }
     }
 
-    load()
-    return () => { mounted = false }
-  }, [])
+    load();
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   return (
     <div className="min-h-screen">
@@ -183,15 +185,27 @@ export default function Home() {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          {loading && <div className="col-span-full text-center">Cargando productos...</div>}
-          {error && <div className="col-span-full text-center text-red-500">{error}</div>}
+          {loading && (
+            <div className="col-span-full text-center">
+              Cargando productos...
+            </div>
+          )}
+          {error && (
+            <div className="col-span-full text-center text-red-500">
+              {error}
+            </div>
+          )}
           {!loading && !error && products.length === 0 && (
-            <div className="col-span-full text-center">No hay productos disponibles.</div>
+            <div className="col-span-full text-center">
+              No hay productos disponibles.
+            </div>
           )}
 
-          {!loading && !error && products.map((license) => (
-            <LicenseCard key={license.id} {...license} />
-          ))}
+          {!loading &&
+            !error &&
+            products.map((license) => (
+              <LicenseCard key={license.id} {...license} />
+            ))}
         </div>
 
         {/* 🔥 Sección para probar funciones del carrito */}
@@ -283,11 +297,6 @@ export default function Home() {
                 </li>
                 <li>
                   <a href="#" className="text-gray-400 hover:text-white">
-                    Trabaja con Nosotros
-                  </a>
-                </li>
-                <li>
-                  <a href="#" className="text-gray-400 hover:text-white">
                     Términos y Condiciones
                   </a>
                 </li>
@@ -327,7 +336,7 @@ export default function Home() {
               <h4 className="font-semibold mb-4">Contacto</h4>
               <ul className="space-y-2 text-gray-400">
                 <li>contacto@mercador.com</li>
-                <li>+1 234 567 890</li>
+                <li>+57 312 567 890</li>
                 <li>Armenia, Colombia</li>
               </ul>
             </div>

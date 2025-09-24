@@ -2,83 +2,1037 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { FiLoader, FiArrowLeft } from "react-icons/fi";
-import { Header } from "@/components/layout/Header";
-import ProductAdmin from "@/components/products/ProductAdmin";
+import {
+  FiLoader,
+  FiArrowLeft,
+  FiPlus,
+  FiEdit,
+  FiTrash2,
+  FiUpload,
+} from "react-icons/fi";
+import { Modal } from "@/components/ui/modal";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { convertFileToBase64 } from "@/lib/utils.client";
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? (typeof window !== 'undefined' ? `${window.location.protocol}//${window.location.hostname}:3010` : '');
+const API_BASE =
+  process.env.NEXT_PUBLIC_API_URL ??
+  (typeof window !== "undefined"
+    ? `${window.location.protocol}//${window.location.hostname}:3010`
+    : "");
+
+// Tipos existentes del ProductAdmin
+type ProductKeyInput = {
+  license_key: string;
+  status?: string;
+  expiration_date?: string;
+  activation_limit?: number;
+};
+
+type ProductKey = {
+  id: string;
+  product_id: string;
+  license_key: string;
+  user_id?: string;
+  status?: string;
+  expiration_date?: string;
+  activation_limit?: number;
+  created_at?: string;
+  updated_at?: string;
+};
+
+type User = {
+  id: string;
+  name: string;
+  email: string;
+  phone?: string;
+  status: "active" | "inactive";
+  created_at?: string;
+  updated_at?: string;
+};
+
+type Product = {
+  id: string;
+  name: string;
+  description: string;
+  price: number;
+  category: string;
+  image_url?: string | null;
+  stock_quantity: number;
+  created_at?: string;
+  updated_at?: string;
+};
 
 export default function DashboardPage() {
   const router = useRouter();
   const [isAdmin, setIsAdmin] = useState(false);
   const [loading, setLoading] = useState(true);
   const [userName, setUserName] = useState<string | null>(null);
+  const [activeSection, setActiveSection] = useState<
+    "products" | "users" | "orders" | "reports"
+  >("products");
+  const [users, setUsers] = useState<User[]>([]);
+  const [loadingUsers, setLoadingUsers] = useState(false);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [editingUser, setEditingUser] = useState<User | null>(null);
+
+  // Estados para modales
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [showUserModal, setShowUserModal] = useState(false);
+
+  // Estados del ProductAdmin existente
+  const [products, setProducts] = useState<Product[]>([]);
+  const [loadingProducts, setLoadingProducts] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  // Estados del formulario
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [name, setName] = useState("");
+  const [description, setDescription] = useState("");
+  const [price, setPrice] = useState<number | "">("");
+  const [category, setCategory] = useState("");
+  const [stockQuantity, setStockQuantity] = useState<number | "">("");
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [imageError, setImageError] = useState<string | null>(null);
+
+  // Estados para product keys
+  const [productKeys, setProductKeys] = useState<ProductKeyInput[]>([]);
+  const [newKey, setNewKey] = useState("");
+  const [randomCount, setRandomCount] = useState<number>(1);
+  const [existingKeys, setExistingKeys] = useState<ProductKey[]>([]);
+  const [loadingKeys, setLoadingKeys] = useState(false);
 
   useEffect(() => {
     let mounted = true;
 
     async function checkAdminAccess() {
       try {
-        const res = await fetch(`${API_BASE}/auth/me`, { credentials: 'include' });
+        const res = await fetch(`${API_BASE}/auth/me`, {
+          credentials: "include",
+        });
         if (!mounted) return;
-        
+
         if (!res.ok) {
-          // No autenticado, redirigir al login
-          router.push('/login');
+          router.push("/login");
           return;
         }
 
         const j = await res.json().catch(() => null);
         const role = j?.data?.role ?? j?.data?.user_metadata?.role ?? null;
-        const name = j?.data?.full_name ?? j?.data?.user_metadata?.full_name ?? j?.data?.email ?? null;
-        
-        if (role !== 'admin') {
-          // No es admin, redirigir al home
-          router.push('/');
+        const name =
+          j?.data?.full_name ??
+          j?.data?.user_metadata?.full_name ??
+          j?.data?.email ??
+          null;
+
+        if (role !== "admin") {
+          router.push("/");
           return;
         }
 
         setIsAdmin(true);
         setUserName(name);
+        fetchProducts();
       } catch (err) {
-        console.error('Error checking admin access:', err);
-        router.push('/');
+        console.error("Error checking admin access:", err);
+        router.push("/");
       } finally {
         if (mounted) setLoading(false);
       }
     }
 
     checkAdminAccess();
-    return () => { mounted = false };
+    return () => {
+      mounted = false;
+    };
   }, [router]);
+
+  // Funciones para gestión de usuarios
+  async function fetchUsers() {
+    try {
+      setLoadingUsers(true);
+      // TODO: Reemplazar con el endpoint real de la API
+      // const response = await fetch(`${API_BASE}/api/users?page=${currentPage}&search=${searchTerm}`, {
+      //   credentials: 'include',
+      // });
+      // const data = await response.json();
+      // setUsers(data.users);
+      // setTotalPages(data.totalPages);
+
+      // Datos de ejemplo - Eliminar cuando se tenga el endpoint real
+      setTimeout(() => {
+        const mockUsers: User[] = [
+          {
+            id: "1",
+            name: "Juan Pérez",
+            email: "juan@example.com",
+            phone: "1234567890",
+            status: "active",
+            created_at: "2023-01-01",
+            updated_at: "2023-01-01",
+          },
+          {
+            id: "2",
+            name: "María García",
+            email: "maria@example.com",
+            phone: "0987654321",
+            status: "inactive",
+            created_at: "2023-01-02",
+            updated_at: "2023-01-02",
+          },
+          {
+            id: "3",
+            name: "Carlos López",
+            email: "carlos@example.com",
+            phone: "5551234567",
+            status: "active",
+            created_at: "2023-01-03",
+            updated_at: "2023-01-03",
+          },
+        ];
+
+        // Filtrar usuarios basado en el término de búsqueda
+        const filteredUsers = searchTerm
+          ? mockUsers.filter(
+              (user) =>
+                user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                user.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                (user.phone && user.phone.includes(searchTerm))
+            )
+          : mockUsers;
+
+        setUsers(filteredUsers);
+        setTotalPages(Math.ceil(filteredUsers.length / 10)); // 10 items por página
+        setLoadingUsers(false);
+      }, 500);
+    } catch (error) {
+      console.error("Error al cargar usuarios:", error);
+      setLoadingUsers(false);
+    }
+  }
+
+  useEffect(() => {
+    if (activeSection === "users") {
+      fetchUsers();
+    }
+  }, [activeSection, currentPage, searchTerm]);
+
+  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setSearchTerm(e.target.value);
+    setCurrentPage(1); // Resetear a la primera página al buscar
+  };
+
+  const handleEditUser = (user: User) => {
+    setEditingUser(user);
+    setShowUserModal(true);
+  };
+
+  const handleDeleteUser = async (userId: string) => {
+    if (window.confirm("¿Estás seguro de que deseas eliminar este usuario?")) {
+      try {
+        // TODO: Implementar eliminación de usuario
+        // await fetch(`${API_BASE}/api/users/${userId}`, {
+        //   method: 'DELETE',
+        //   credentials: 'include',
+        // });
+        // fetchUsers(); // Recargar la lista de usuarios
+
+        // Simulación de eliminación
+        setUsers(users.filter((user) => user.id !== userId));
+        alert("Usuario eliminado correctamente");
+      } catch (error) {
+        console.error("Error al eliminar usuario:", error);
+        alert("Error al eliminar el usuario");
+      }
+    }
+  };
+
+  const handleSaveUser = async (
+    userData: Omit<User, "id" | "created_at" | "updated_at">
+  ) => {
+    try {
+      // TODO: Implementar creación/actualización de usuario
+      // const method = editingUser ? 'PUT' : 'POST';
+      // const url = editingUser
+      //   ? `${API_BASE}/api/users/${editingUser.id}`
+      //   : `${API_BASE}/api/users`;
+      //
+      // await fetch(url, {
+      //   method,
+      //   headers: { 'Content-Type': 'application/json' },
+      //   credentials: 'include',
+      //   body: JSON.stringify(userData),
+      // });
+
+      // Simulación de guardado
+      if (editingUser) {
+        // Actualizar usuario existente
+        setUsers(
+          users.map((u) =>
+            u.id === editingUser.id ? { ...u, ...userData } : u
+          )
+        );
+      } else {
+        // Crear nuevo usuario
+        const newUser: User = {
+          ...userData,
+          id: Math.random().toString(36).substr(2, 9),
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        };
+        setUsers([newUser, ...users]);
+      }
+
+      setShowUserModal(false);
+      setEditingUser(null);
+      alert(
+        editingUser
+          ? "Usuario actualizado correctamente"
+          : "Usuario creado correctamente"
+      );
+    } catch (error) {
+      console.error("Error al guardar usuario:", error);
+      alert(`Error al ${editingUser ? "actualizar" : "crear"} el usuario`);
+    }
+  };
+
+  // Funciones del ProductAdmin existente
+  async function fetchProducts() {
+    setLoadingProducts(true);
+    setError(null);
+    try {
+      const resp = await fetch(`${API_BASE}/products`);
+      let json: any = undefined;
+      try {
+        json = await resp.json();
+      } catch (parseErr) {
+        const text = await resp.text().catch(() => "");
+        throw new Error(
+          `Server returned ${resp.status} ${resp.statusText}: ${
+            text || "non-JSON response"
+          }`
+        );
+      }
+
+      if (!resp.ok || !json?.success) {
+        const errObj =
+          json?.error ?? json?.message ?? "Failed to fetch products";
+        const errMsg = Array.isArray(errObj)
+          ? errObj
+              .map((it: any) => it?.message ?? JSON.stringify(it))
+              .join("\n")
+          : typeof errObj === "string"
+          ? errObj
+          : errObj?.message ?? JSON.stringify(errObj);
+        setError(errMsg || "Failed to fetch products");
+        setProducts([]);
+      } else {
+        setProducts(json.data.products ?? []);
+      }
+    } catch (e: any) {
+      setError(e?.message ?? String(e));
+    } finally {
+      setLoadingProducts(false);
+    }
+  }
+
+  async function fetchProductKeys(productId: string) {
+    setLoadingKeys(true);
+    try {
+      const resp = await fetch(`${API_BASE}/products/${productId}/keys`);
+      const json = await resp.json();
+      if (resp.ok && json?.success) {
+        setExistingKeys(json.data || []);
+      } else {
+        setExistingKeys([]);
+      }
+    } catch {
+      setExistingKeys([]);
+    } finally {
+      setLoadingKeys(false);
+    }
+  }
+
+  // Generador de claves aleatorias
+  function generateRandomKey(length = 16, seq?: number) {
+    const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+    let key = "";
+    for (let i = 0; i < length; i++) {
+      key += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    if (typeof seq === "number") {
+      const s = String(seq).padStart(4, "0");
+      return `${key}-${s}`;
+    }
+    return key;
+  }
+
+  // Función para añadir claves aleatorias
+  async function handleAddRandomKey(count = 1) {
+    if (count <= 0) return;
+
+    if (editingId) {
+      setLoadingKeys(true);
+      setError(null);
+      try {
+        const created: ProductKey[] = [];
+        const startIdx = (existingKeys?.length || 0) + 1;
+        for (let i = 0; i < count; i++) {
+          const seq = startIdx + i;
+          const license = generateRandomKey(16, seq);
+          const resp = await fetch(`${API_BASE}/products/${editingId}/keys`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ license_key: license }),
+          });
+          let json: any;
+          try {
+            json = await resp.json();
+          } catch (e) {
+            const text = await resp.text().catch(() => "");
+            throw new Error(
+              `Server returned ${resp.status} ${resp.statusText}: ${
+                text || "non-JSON response"
+              }`
+            );
+          }
+          if (!resp.ok || !json?.success) {
+            const msg = json?.error ?? json?.message ?? "Failed to create key";
+            throw new Error(
+              Array.isArray(msg)
+                ? msg
+                    .map((m: any) => m?.message ?? JSON.stringify(m))
+                    .join("\n")
+                : typeof msg === "string"
+                ? msg
+                : JSON.stringify(msg)
+            );
+          }
+          created.push(json.data);
+        }
+        setExistingKeys((prev) => [...created, ...(prev || [])]);
+      } catch (e: any) {
+        setError(e?.message ?? String(e));
+      } finally {
+        setLoadingKeys(false);
+      }
+      return;
+    }
+
+    setProductKeys((prev) => {
+      const startIdx = prev.length + 1;
+      const newKeys: ProductKeyInput[] = [];
+      for (let i = 0; i < count; i++) {
+        const seq = startIdx + i;
+        newKeys.push({ license_key: generateRandomKey(16, seq) });
+      }
+      return [...prev, ...newKeys];
+    });
+  }
+
+  // Función para añadir clave manual
+  async function handleAddManualKey() {
+    if (!newKey.trim()) return;
+
+    if (editingId) {
+      setLoadingKeys(true);
+      setError(null);
+      try {
+        const resp = await fetch(`${API_BASE}/products/${editingId}/keys`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ license_key: newKey.trim() }),
+        });
+        let json: any;
+        try {
+          json = await resp.json();
+        } catch (e) {
+          const text = await resp.text().catch(() => "");
+          throw new Error(
+            `Server returned ${resp.status} ${resp.statusText}: ${
+              text || "non-JSON response"
+            }`
+          );
+        }
+        if (!resp.ok || !json?.success) {
+          const msg = json?.error ?? json?.message ?? "Failed to create key";
+          throw new Error(
+            Array.isArray(msg)
+              ? msg.map((m: any) => m?.message ?? JSON.stringify(m)).join("\n")
+              : typeof msg === "string"
+              ? msg
+              : JSON.stringify(msg)
+          );
+        }
+        setExistingKeys((prev) => [json.data, ...(prev || [])]);
+        setNewKey("");
+      } catch (e: any) {
+        setError(e?.message ?? String(e));
+      } finally {
+        setLoadingKeys(false);
+      }
+      return;
+    }
+
+    setProductKeys((prev) => [...prev, { license_key: newKey.trim() }]);
+    setNewKey("");
+  }
+
+  function handleRemoveKey(idx: number) {
+    setProductKeys((prev) => prev.filter((_, i) => i !== idx));
+  }
+
+  async function handleDeleteExistingKey(keyId: string) {
+    if (!editingId) return;
+    if (!confirm("¿Eliminar esta clave?")) return;
+    setLoadingKeys(true);
+    setError(null);
+    try {
+      const resp = await fetch(
+        `${API_BASE}/products/${editingId}/keys/${keyId}`,
+        { method: "DELETE" }
+      );
+      let json: any;
+      try {
+        json = await resp.json();
+      } catch (e) {
+        const text = await resp.text().catch(() => "");
+        throw new Error(
+          `Server returned ${resp.status} ${resp.statusText}: ${
+            text || "non-JSON response"
+          }`
+        );
+      }
+      if (!resp.ok || !json?.success) {
+        const msg = json?.error ?? json?.message ?? "Failed to delete key";
+        throw new Error(
+          Array.isArray(msg)
+            ? msg.map((m: any) => m?.message ?? JSON.stringify(m)).join("\n")
+            : typeof msg === "string"
+            ? msg
+            : JSON.stringify(msg)
+        );
+      }
+      setExistingKeys((prev) => (prev || []).filter((k) => k.id !== keyId));
+    } catch (e: any) {
+      setError(e?.message ?? String(e));
+    } finally {
+      setLoadingKeys(false);
+    }
+  }
+
+  // Manejo de archivos
+  async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const f = e.target.files?.[0] ?? null;
+    setImageError(null);
+
+    if (!f) {
+      setImageFile(null);
+      setImagePreview(null);
+      return;
+    }
+
+    const ALLOWED_TYPES = ["image/png", "image/jpeg", "image/webp"];
+    const MAX_SIZE_BYTES = 2 * 1024 * 1024; // 2 MB
+
+    if (!ALLOWED_TYPES.includes(f.type)) {
+      setImageError("Tipo de imagen no permitido. Usa PNG, JPEG, WEBP.");
+      setImageFile(null);
+      setImagePreview(null);
+      return;
+    }
+
+    if (f.size > MAX_SIZE_BYTES) {
+      setImageError("Imagen demasiado grande. Máximo 2 MB.");
+      setImageFile(null);
+      setImagePreview(null);
+      return;
+    }
+
+    setImageFile(f);
+    const url = URL.createObjectURL(f);
+    setImagePreview(url);
+  }
+
+  // Envío del formulario
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setLoadingProducts(true);
+    setError(null);
+
+    try {
+      const payload: any = {
+        name,
+        description,
+        price: typeof price === "number" ? price : Number(price),
+        category,
+        stock_quantity:
+          typeof stockQuantity === "number"
+            ? stockQuantity
+            : Number(stockQuantity),
+      };
+
+      if (!editingId && productKeys.length > 0) {
+        payload.product_keys = productKeys;
+      }
+
+      if (imageFile) {
+        const ALLOWED_TYPES = ["image/png", "image/jpeg", "image/webp"];
+        const MAX_SIZE_BYTES = 2 * 1024 * 1024;
+        if (!ALLOWED_TYPES.includes(imageFile.type))
+          throw new Error("Tipo de imagen no permitido (cliente)");
+        if (imageFile.size > MAX_SIZE_BYTES)
+          throw new Error("Imagen demasiado grande (cliente)");
+
+        const dataUrl = await convertFileToBase64(imageFile);
+        payload.image_url = dataUrl;
+      } else if (
+        imagePreview &&
+        !imagePreview.startsWith("blob:") &&
+        !imagePreview.startsWith("data:")
+      ) {
+        payload.image_url = imagePreview;
+      }
+
+      if (!payload.image_url) delete payload.image_url;
+
+      let resp;
+      if (editingId) {
+        resp = await fetch(`${API_BASE}/products/${editingId}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+      } else {
+        resp = await fetch(`${API_BASE}/products`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+      }
+
+      let json: any = undefined;
+      try {
+        json = await resp.json();
+      } catch (parseErr) {
+        const text = await resp.text().catch(() => "");
+        throw new Error(
+          `Server returned ${resp.status} ${resp.statusText}: ${
+            text || "non-JSON response"
+          }`
+        );
+      }
+
+      if (!resp.ok || !json?.success) {
+        const errObj =
+          json?.error ??
+          json?.message ??
+          `Failed to save product (status ${resp.status})`;
+        const errMsg = Array.isArray(errObj)
+          ? errObj
+              .map((it: any) => it?.message ?? JSON.stringify(it))
+              .join("\n")
+          : typeof errObj === "string"
+          ? errObj
+          : errObj?.message ?? JSON.stringify(errObj);
+        setError(errMsg || `Failed to save product (status ${resp.status})`);
+      } else {
+        await fetchProducts();
+        resetForm();
+        setShowCreateModal(false);
+        setShowEditModal(false);
+      }
+    } catch (e: any) {
+      setError(e?.message ?? String(e));
+    } finally {
+      setLoadingProducts(false);
+    }
+  }
+
+  async function handleDelete(id: string) {
+    if (!confirm("¿Eliminar producto?")) return;
+    setLoadingProducts(true);
+    setError(null);
+    try {
+      const resp = await fetch(`${API_BASE}/products/${id}`, {
+        method: "DELETE",
+      });
+      let json: any = undefined;
+      try {
+        json = await resp.json();
+      } catch (parseErr) {
+        const text = await resp.text().catch(() => "");
+        throw new Error(
+          `Server returned ${resp.status} ${resp.statusText}: ${
+            text || "non-JSON response"
+          }`
+        );
+      }
+
+      if (!resp.ok || !json?.success) {
+        const errObj = json?.error ?? json?.message ?? "Failed to delete";
+        const errMsg = Array.isArray(errObj)
+          ? errObj
+              .map((it: any) => it?.message ?? JSON.stringify(it))
+              .join("\n")
+          : typeof errObj === "string"
+          ? errObj
+          : errObj?.message ?? JSON.stringify(errObj);
+        setError(errMsg || "Failed to delete");
+      } else {
+        await fetchProducts();
+      }
+    } catch (e: any) {
+      setError(e?.message ?? String(e));
+    } finally {
+      setLoadingProducts(false);
+    }
+  }
+
+  function startEdit(p: Product) {
+    setEditingId(p.id);
+    setName(p.name);
+    setDescription(p.description);
+    setPrice(p.price);
+    setCategory(p.category);
+    setStockQuantity(p.stock_quantity);
+    setImagePreview(p.image_url ?? null);
+    setImageFile(null);
+    setProductKeys([]);
+    setExistingKeys([]);
+    fetchProductKeys(p.id);
+    setShowEditModal(true);
+  }
+
+  function resetForm() {
+    setEditingId(null);
+    setName("");
+    setDescription("");
+    setPrice("");
+    setCategory("");
+    setStockQuantity("");
+    setImageFile(null);
+    setImagePreview(null);
+    setProductKeys([]);
+    setNewKey("");
+    setExistingKeys([]);
+    setError(null);
+    setImageError(null);
+  }
+
+  function openCreateModal() {
+    resetForm();
+    setShowCreateModal(true);
+  }
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50">
-        <Header />
-        <div className="flex items-center justify-center py-12">
-          <FiLoader className="animate-spin text-blue-600" size={32} />
-          <span className="ml-2 text-gray-600">Verificando permisos...</span>
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="flex items-center">
+          <FiLoader className="animate-spin text-blue-600 mr-2" size={32} />
+          <span className="text-gray-600">Verificando permisos...</span>
         </div>
       </div>
     );
   }
 
   if (!isAdmin) {
-    return null; // El useEffect ya maneja la redirección
+    return null;
   }
+
+  // Componente del formulario mejorado para el modal
+  const ProductFormModal = () => (
+    <div className="max-w-2xl mx-auto">
+      <form onSubmit={handleSubmit} className="space-y-6">
+        {/* Product Keys Section */}
+        <div className="bg-gray-50 p-4 rounded-lg">
+          <label className="block text-sm font-medium text-gray-700 mb-3">
+            Claves de Producto
+          </label>
+
+          {!editingId ? (
+            // Crear producto - claves locales
+            <div className="space-y-3">
+              <div className="flex gap-2">
+                <input
+                  className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="Agregar clave manual"
+                  value={newKey}
+                  onChange={(e) => setNewKey(e.target.value)}
+                />
+                <Button type="button" onClick={handleAddManualKey} size="sm">
+                  Añadir
+                </Button>
+                <input
+                  type="number"
+                  min={1}
+                  className="w-20 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  value={randomCount}
+                  onChange={(e) => setRandomCount(Number(e.target.value) || 1)}
+                  title="Cantidad de claves a generar"
+                />
+                <Button
+                  type="button"
+                  onClick={() => handleAddRandomKey(randomCount)}
+                  variant="secondary"
+                  size="sm"
+                >
+                  Random
+                </Button>
+              </div>
+
+              {productKeys.length > 0 && (
+                <div className="max-h-32 overflow-auto border border-gray-200 rounded-md p-3 bg-white">
+                  {productKeys.map((k, idx) => (
+                    <div
+                      key={idx}
+                      className="flex items-center justify-between py-1"
+                    >
+                      <span className="font-mono text-xs text-gray-700">
+                        {k.license_key}
+                      </span>
+                      <button
+                        type="button"
+                        className="ml-2 text-red-500 hover:text-red-700 text-xs"
+                        onClick={() => handleRemoveKey(idx)}
+                      >
+                        Eliminar
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+              <p className="text-xs text-gray-500">
+                Puedes añadir varias claves antes de crear el producto.
+              </p>
+            </div>
+          ) : (
+            // Editar producto - claves existentes
+            <div className="space-y-3">
+              <div className="flex gap-2">
+                <input
+                  className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="Agregar clave manual"
+                  value={newKey}
+                  onChange={(e) => setNewKey(e.target.value)}
+                />
+                <Button type="button" onClick={handleAddManualKey} size="sm">
+                  Añadir
+                </Button>
+                <input
+                  type="number"
+                  min={1}
+                  className="w-20 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  value={randomCount}
+                  onChange={(e) => setRandomCount(Number(e.target.value) || 1)}
+                />
+                <Button
+                  type="button"
+                  onClick={() => handleAddRandomKey(randomCount)}
+                  variant="secondary"
+                  size="sm"
+                >
+                  Random
+                </Button>
+              </div>
+
+              {loadingKeys ? (
+                <div className="text-sm text-gray-500 flex items-center">
+                  <FiLoader className="animate-spin mr-2" size={16} />
+                  Cargando claves...
+                </div>
+              ) : existingKeys.length === 0 ? (
+                <div className="text-sm text-gray-500">
+                  Este producto no tiene claves.
+                </div>
+              ) : (
+                <div className="max-h-32 overflow-auto border border-gray-200 rounded-md p-3 bg-white">
+                  {existingKeys.map((k) => (
+                    <div
+                      key={k.id}
+                      className="flex items-center justify-between py-1"
+                    >
+                      <span className="font-mono text-xs text-gray-700">
+                        {k.license_key}
+                      </span>
+                      <button
+                        type="button"
+                        className="text-red-500 hover:text-red-700 text-xs"
+                        onClick={() => handleDeleteExistingKey(k.id)}
+                      >
+                        Eliminar
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Información del producto */}
+        <div className="grid grid-cols-1 gap-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Nombre del Producto
+            </label>
+            <input
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              required
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Descripción
+            </label>
+            <textarea
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              rows={3}
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              required
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Precio ($)
+              </label>
+              <input
+                type="number"
+                step="0.01"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                value={price as any}
+                onChange={(e) =>
+                  setPrice(e.target.value === "" ? "" : Number(e.target.value))
+                }
+                required
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Stock
+              </label>
+              <input
+                type="number"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                value={stockQuantity as any}
+                onChange={(e) =>
+                  setStockQuantity(
+                    e.target.value === "" ? "" : Number(e.target.value)
+                  )
+                }
+                required
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Categoría
+            </label>
+            <input
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              value={category}
+              onChange={(e) => setCategory(e.target.value)}
+              required
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Imagen
+            </label>
+            <div className="flex items-center gap-3">
+              <input
+                type="file"
+                accept="image/*"
+                onChange={handleFileChange}
+                className="hidden"
+                id="image-upload"
+              />
+              <label
+                htmlFor="image-upload"
+                className="flex items-center gap-2 px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-md cursor-pointer transition-colors"
+              >
+                <FiUpload size={16} />
+                Seleccionar imagen
+              </label>
+              {imageFile && (
+                <span className="text-sm text-gray-600">{imageFile.name}</span>
+              )}
+            </div>
+
+            {imageError && (
+              <div className="text-sm text-red-600 mt-1">{imageError}</div>
+            )}
+
+            {imagePreview && (
+              <div className="mt-3">
+                <img
+                  src={imagePreview}
+                  alt="Vista previa"
+                  className="w-full h-40 object-contain border border-gray-200 rounded-md bg-gray-50"
+                />
+              </div>
+            )}
+          </div>
+        </div>
+
+        {error && (
+          <div className="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-md text-sm">
+            {error}
+          </div>
+        )}
+
+        {/* Botones de acción */}
+        <div className="flex gap-3 justify-end pt-4">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => {
+              setShowCreateModal(false);
+              setShowEditModal(false);
+              resetForm();
+            }}
+          >
+            Cancelar
+          </Button>
+          <Button type="submit" disabled={loadingProducts}>
+            {loadingProducts ? (
+              <div className="flex items-center gap-2">
+                <FiLoader className="animate-spin" size={16} />
+                {editingId ? "Guardando..." : "Creando..."}
+              </div>
+            ) : editingId ? (
+              "Guardar Cambios"
+            ) : (
+              "Crear Producto"
+            )}
+          </Button>
+        </div>
+      </form>
+    </div>
+  );
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <Header />
-      
-      {/* Dashboard Header */}
+      {/* Header del Dashboard */}
       <div className="bg-white shadow-sm border-b">
         <div className="container mx-auto px-4 py-6">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
               <button
-                onClick={() => router.push('/')}
+                onClick={() => router.push("/")}
                 className="p-2 hover:bg-gray-100 rounded-full transition-colors"
                 aria-label="Volver al inicio"
               >
@@ -89,35 +1043,100 @@ export default function DashboardPage() {
                   Panel de Administración
                 </h1>
                 <p className="text-gray-600">
-                  Bienvenido, {userName || 'Administrador'}
+                  Bienvenido, {userName || "Administrador"}
                 </p>
               </div>
             </div>
-            
+
             <div className="flex items-center gap-4">
               <div className="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm font-medium">
                 Administrador
               </div>
+              <Button
+                onClick={async () => {
+                  try {
+                    await fetch(`${API_BASE}/auth/logout`, {
+                      method: "POST",
+                      credentials: "include",
+                    });
+                  } catch (e) {
+                    // ignore
+                  }
+                  window.location.href = "/";
+                }}
+                variant="outline"
+                size="sm"
+              >
+                Cerrar sesión
+              </Button>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Dashboard Navigation */}
-      <div className="bg-white border-b">
+      {/* Navegación del Dashboard */}
+      <div className="bg-white border-b shadow-sm">
         <div className="container mx-auto px-4">
-          <nav className="flex space-x-8">
-            <button className="py-4 px-2 border-b-2 border-blue-500 text-blue-600 font-medium">
+          <nav className="flex space-x-1">
+            <button
+              onClick={() => setActiveSection("products")}
+              className={`relative py-4 px-6 font-medium transition-all duration-300 ${
+                activeSection === "products"
+                  ? "text-blue-600"
+                  : "text-gray-500 hover:text-gray-700"
+              }`}
+            >
               Gestión de Productos
+              <span
+                className={`absolute bottom-0 left-0 w-full h-0.5 bg-blue-600 transition-all duration-300 transform ${
+                  activeSection === "products" ? "scale-x-100" : "scale-x-0"
+                }`}
+              ></span>
             </button>
-            <button className="py-4 px-2 text-gray-500 hover:text-gray-700 font-medium">
+            <button
+              onClick={() => setActiveSection("users")}
+              className={`relative py-4 px-6 font-medium transition-all duration-300 ${
+                activeSection === "users"
+                  ? "text-blue-600"
+                  : "text-gray-500 hover:text-gray-700"
+              }`}
+            >
               Usuarios
+              <span
+                className={`absolute bottom-0 left-0 w-full h-0.5 bg-blue-600 transition-all duration-300 transform ${
+                  activeSection === "users" ? "scale-x-100" : "scale-x-0"
+                }`}
+              ></span>
             </button>
-            <button className="py-4 px-2 text-gray-500 hover:text-gray-700 font-medium">
+            <button
+              onClick={() => setActiveSection("orders")}
+              className={`relative py-4 px-6 font-medium transition-all duration-300 ${
+                activeSection === "orders"
+                  ? "text-blue-600"
+                  : "text-gray-500 hover:text-gray-700"
+              }`}
+            >
               Pedidos
+              <span
+                className={`absolute bottom-0 left-0 w-full h-0.5 bg-blue-600 transition-all duration-300 transform ${
+                  activeSection === "orders" ? "scale-x-100" : "scale-x-0"
+                }`}
+              ></span>
             </button>
-            <button className="py-4 px-2 text-gray-500 hover:text-gray-700 font-medium">
+            <button
+              onClick={() => setActiveSection("reports")}
+              className={`relative py-4 px-6 font-medium transition-all duration-300 ${
+                activeSection === "reports"
+                  ? "text-blue-600"
+                  : "text-gray-500 hover:text-gray-700"
+              }`}
+            >
               Reportes
+              <span
+                className={`absolute bottom-0 left-0 w-full h-0.5 bg-blue-600 transition-all duration-300 transform ${
+                  activeSection === "reports" ? "scale-x-100" : "scale-x-0"
+                }`}
+              ></span>
             </button>
             <button className="py-4 px-2 text-gray-500 hover:text-gray-700 font-medium">
               Configuración
@@ -126,12 +1145,412 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* Dashboard Content */}
+      {/* Contenido del Dashboard */}
       <div className="container mx-auto px-4 py-8">
-        <div className="bg-white rounded-lg shadow-sm">
-          <ProductAdmin />
-        </div>
+        {activeSection === "users" ? (
+          <div className="bg-white rounded-lg shadow overflow-hidden">
+            <div className="px-6 py-4 border-b border-gray-200">
+              <div className="flex items-center justify-between">
+                <h2 className="text-lg font-semibold text-gray-800">
+                  Lista de Usuarios
+                </h2>
+                <div className="flex items-center space-x-2">
+                  <div className="relative">
+                    <input
+                      type="text"
+                      placeholder="Buscar usuarios..."
+                      className="pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    />
+                    <svg
+                      className="absolute left-3 top-2.5 h-5 w-5 text-gray-400"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+                      />
+                    </svg>
+                  </div>
+                  <button className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">
+                    + Nuevo Usuario
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th
+                      scope="col"
+                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                    >
+                      Nombre
+                    </th>
+                    <th
+                      scope="col"
+                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                    >
+                      Correo
+                    </th>
+                    <th
+                      scope="col"
+                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                    >
+                      Teléfono
+                    </th>
+                    <th
+                      scope="col"
+                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                    >
+                      Estado
+                    </th>
+                    <th
+                      scope="col"
+                      className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider"
+                    >
+                      Acciones
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {loadingUsers ? (
+                    <tr>
+                      <td
+                        colSpan={5}
+                        className="px-6 py-4 text-center text-sm text-gray-500"
+                      >
+                        <div className="flex justify-center items-center space-x-2">
+                          <svg
+                            className="animate-spin h-5 w-5 text-blue-500"
+                            xmlns="http://www.w3.org/2000/svg"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                          >
+                            <circle
+                              className="opacity-25"
+                              cx="12"
+                              cy="12"
+                              r="10"
+                              stroke="currentColor"
+                              strokeWidth="4"
+                            ></circle>
+                            <path
+                              className="opacity-75"
+                              fill="currentColor"
+                              d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                            ></path>
+                          </svg>
+                          <span>Cargando usuarios...</span>
+                        </div>
+                      </td>
+                    </tr>
+                  ) : users.length === 0 ? (
+                    <tr>
+                      <td
+                        colSpan={5}
+                        className="px-6 py-4 text-center text-sm text-gray-500"
+                      >
+                        No se encontraron usuarios
+                      </td>
+                    </tr>
+                  ) : (
+                    users.map((user) => (
+                      <tr key={user.id} className="hover:bg-gray-50">
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="flex items-center">
+                            <div className="flex-shrink-0 h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center">
+                              <span className="text-blue-600 font-medium">
+                                {user.name.charAt(0).toUpperCase()}
+                              </span>
+                            </div>
+                            <div className="ml-4">
+                              <div className="text-sm font-medium text-gray-900">
+                                {user.name}
+                              </div>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm text-gray-900">
+                            {user.email}
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm text-gray-500">
+                            {user.phone || "No especificado"}
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <span
+                            className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                              user.status === "active"
+                                ? "bg-green-100 text-green-800"
+                                : "bg-red-100 text-red-800"
+                            }`}
+                          >
+                            {user.status === "active" ? "Activo" : "Inactivo"}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                          <button
+                            onClick={() => handleEditUser(user)}
+                            className="text-blue-600 hover:text-blue-900 mr-3"
+                            title="Editar usuario"
+                          >
+                            <FiEdit size={18} />
+                          </button>
+                          <button
+                            onClick={() => handleDeleteUser(user.id)}
+                            className="text-red-600 hover:text-red-900"
+                            title="Eliminar usuario"
+                          >
+                            <FiTrash2 size={18} />
+                          </button>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+            <div className="bg-white px-6 py-4 border-t border-gray-200 flex items-center justify-between">
+              <div className="text-sm text-gray-500">
+                Mostrando{" "}
+                <span className="font-medium">
+                  {(currentPage - 1) * 10 + 1}
+                </span>{" "}
+                a{" "}
+                <span className="font-medium">
+                  {Math.min(currentPage * 10, users.length)}
+                </span>{" "}
+                de <span className="font-medium">{users.length}</span>{" "}
+                resultados
+              </div>
+              <div className="flex space-x-2">
+                <button
+                  onClick={() =>
+                    setCurrentPage((p: number) => Math.max(1, p - 1))
+                  }
+                  disabled={currentPage === 1}
+                  className={`px-3 py-1 border rounded-md text-sm font-medium ${
+                    currentPage === 1
+                      ? "bg-gray-50 text-gray-400 cursor-not-allowed"
+                      : "bg-white text-gray-700 hover:bg-gray-50"
+                  }`}
+                >
+                  Anterior
+                </button>
+                {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                  // Mostrar páginas alrededor de la página actual
+                  let pageNum =
+                    currentPage <= 3
+                      ? i + 1
+                      : currentPage >= totalPages - 2
+                      ? totalPages - 4 + i
+                      : currentPage - 2 + i;
+
+                  // Asegurarse de que no se muestren números de página fuera de rango
+                  if (pageNum < 1 || pageNum > totalPages) return null;
+
+                  return (
+                    <button
+                      key={pageNum}
+                      onClick={() => setCurrentPage(pageNum)}
+                      className={`px-3 py-1 border rounded-md text-sm font-medium ${
+                        currentPage === pageNum
+                          ? "bg-blue-50 text-blue-600 border-blue-300"
+                          : "bg-white text-gray-700 hover:bg-gray-50"
+                      }`}
+                    >
+                      {pageNum}
+                    </button>
+                  );
+                })}
+                <button
+                  onClick={() =>
+                    setCurrentPage((p: number) => Math.min(totalPages, p + 1))
+                  }
+                  disabled={currentPage === totalPages}
+                  className={`px-3 py-1 border rounded-md text-sm font-medium ${
+                    currentPage === totalPages
+                      ? "bg-gray-50 text-gray-400 cursor-not-allowed"
+                      : "bg-white text-gray-700 hover:bg-gray-50"
+                  }`}
+                >
+                  Siguiente
+                </button>
+              </div>
+            </div>
+          </div>
+        ) : (
+          <div className="bg-white rounded-lg shadow-sm">
+            <div className="p-6">
+              {/* Header de la sección de productos */}
+              <div className="flex items-center justify-between mb-6">
+                <div>
+                  <h2 className="text-xl font-semibold text-gray-900">
+                    Gestión de Productos
+                  </h2>
+                  <p className="text-gray-600">
+                    Administra el catálogo de productos y sus claves de licencia
+                  </p>
+                </div>
+                <div className="flex items-center gap-3">
+                  <Button
+                    onClick={fetchProducts}
+                    variant="outline"
+                    disabled={loadingProducts}
+                    className="flex items-center gap-2"
+                  >
+                    {loadingProducts ? (
+                      <FiLoader className="animate-spin" size={16} />
+                    ) : (
+                      "Actualizar"
+                    )}
+                  </Button>
+                  <Button
+                    onClick={openCreateModal}
+                    className="flex items-center gap-2"
+                  >
+                    <FiPlus size={16} />
+                    Crear Producto
+                  </Button>
+                </div>
+              </div>
+
+              {/* Error general */}
+              {error && (
+                <div className="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-md mb-6 text-sm">
+                  {error}
+                </div>
+              )}
+
+              {/* Lista de productos existente del ProductAdmin */}
+              {loadingProducts && !products.length ? (
+                <div className="flex items-center justify-center py-12">
+                  <FiLoader
+                    className="animate-spin text-blue-600 mr-2"
+                    size={24}
+                  />
+                  <span className="text-gray-600">Cargando productos...</span>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {products.length === 0 ? (
+                    <div className="col-span-full text-center py-12 text-gray-500">
+                      <div className="text-lg font-medium mb-2">
+                        No hay productos registrados
+                      </div>
+                      <p className="text-sm">
+                        Comienza creando tu primer producto
+                      </p>
+                    </div>
+                  ) : (
+                    products.map((p) => (
+                      <Card
+                        key={p.id}
+                        className="hover:shadow-md transition-shadow"
+                      >
+                        <CardContent className="p-4">
+                          <div className="w-full h-32 bg-gray-100 flex-shrink-0 overflow-hidden rounded-lg mb-4">
+                            {p.image_url ? (
+                              <img
+                                src={p.image_url}
+                                alt={p.name}
+                                className="w-full h-full object-cover"
+                              />
+                            ) : (
+                              <div className="flex items-center justify-center h-full text-sm text-gray-500">
+                                Sin imagen
+                              </div>
+                            )}
+                          </div>
+
+                          <div className="space-y-3">
+                            <div>
+                              <h4 className="font-semibold text-gray-900 text-lg mb-1">
+                                {p.name}
+                              </h4>
+                              <p className="text-sm text-gray-600 line-clamp-2">
+                                {p.description}
+                              </p>
+                            </div>
+
+                            <div className="flex items-center justify-between">
+                              <span className="text-lg font-bold text-green-600">
+                                ${p.price.toFixed(2)}
+                              </span>
+                              <div className="text-right">
+                                <div className="text-sm text-gray-500">
+                                  {p.category}
+                                </div>
+                                <div className="text-sm text-gray-500">
+                                  Stock: {p.stock_quantity}
+                                </div>
+                              </div>
+                            </div>
+
+                            <div className="flex gap-2 pt-2">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => startEdit(p)}
+                                className="flex-1 flex items-center gap-1 justify-center"
+                              >
+                                <FiEdit size={14} />
+                                Editar
+                              </Button>
+                              <Button
+                                variant="destructive"
+                                size="sm"
+                                onClick={() => handleDelete(p.id)}
+                                className="flex-1 flex items-center gap-1 justify-center"
+                              >
+                                <FiTrash2 size={14} />
+                                Eliminar
+                              </Button>
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ))
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
       </div>
+
+      {/* Modal para crear producto */}
+      <Modal
+        open={showCreateModal}
+        onClose={() => {
+          setShowCreateModal(false);
+          resetForm();
+        }}
+        title="Crear Nuevo Producto"
+      >
+        <ProductFormModal />
+      </Modal>
+
+      {/* Modal para editar producto */}
+      <Modal
+        open={showEditModal}
+        onClose={() => {
+          setShowEditModal(false);
+          resetForm();
+        }}
+        title="Editar Producto"
+      >
+        <ProductFormModal />
+      </Modal>
     </div>
   );
 }
