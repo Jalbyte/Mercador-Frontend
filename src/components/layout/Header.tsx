@@ -20,7 +20,6 @@ import { ShoppingCart } from "lucide-react";
 import Link from "next/link";
 import { useCart } from "@/hooks";
 import { useEffect, useState } from "react";
-import ProductAdmin from "@/components/products/ProductAdmin";
 
 /**
  * Constante que define la URL base de la API del backend.
@@ -59,7 +58,6 @@ const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? (typeof window !== 'undefine
  */
 export function Header() {
   const { totalItems, setIsOpen, isOpen } = useCart();
-  const [showAdmin, setShowAdmin] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [userName, setUserName] = useState<string | null>(null);
@@ -194,13 +192,12 @@ export function Header() {
               </button>
             )}
             <button
-              onClick={handleCartClick}
-              className="relative p-2 text-gray-700 hover:text-blue-600"
-              aria-label="Carrito de compras"
-              type="button"
+            <Link
+              href="/dashboard"
+              className="px-3 py-1 rounded bg-blue-600 text-white text-sm hover:bg-blue-700 transition-colors"
             >
-              <ShoppingCart className="h-6 w-6" />
-              {totalItems > 0 && (
+              Dashboard
+            </Link>
                 <span className="absolute -top-1 -right-1 bg-blue-600 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
                   {totalItems}
                 </span>
@@ -241,28 +238,6 @@ export function Header() {
           </ul>
         </nav>
       </div>
-
-      {/* Panel Modal de Administración - Solo visible para usuarios con permisos de admin */}
-      {showAdmin && (
-        <div className="fixed inset-0 z-50 flex items-start justify-center p-6 bg-black/50">
-          <div className="bg-white w-full max-w-6xl h-[90vh] overflow-auto rounded shadow-lg">
-            <div className="p-3 border-b flex items-center justify-between">
-              <h4 className="font-semibold">Admin - Productos</h4>
-              <div className="flex items-center gap-2">
-                <button
-                  className="px-3 py-1 bg-gray-200 rounded"
-                  onClick={() => setShowAdmin(false)}
-                >
-                  Cerrar
-                </button>
-              </div>
-            </div>
-            <div className="p-4">
-              <ProductAdmin />
-            </div>
-          </div>
-        </div>
-      )}
     </header>
   );
 }

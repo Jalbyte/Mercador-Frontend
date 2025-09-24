@@ -424,37 +424,59 @@ export default function ProductAdmin(): JSX.Element {
   }
 
   return (
-    <div className="p-4">
-      <h2 className="text-2xl font-semibold mb-4">Productos CRUD</h2>
+    <div className="p-6">
+      <div className="mb-6">
+        <h2 className="text-2xl font-semibold text-gray-900 mb-2">Gestión de Productos</h2>
+        <p className="text-gray-600">Administra el catálogo de productos y sus claves de licencia</p>
+      </div>
 
-      <div className="flex gap-6">
-        <div className="w-2/3">
-          <div className="mb-3 flex items-center justify-between">
-            <h3 className="text-lg font-medium">Productos</h3>
-            <button className="btn" onClick={fetchProducts} disabled={loading}>Actualizar</button>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <div className="lg:col-span-2">
+          <div className="mb-6 flex items-center justify-between">
+            <h3 className="text-xl font-semibold text-gray-900">Lista de Productos</h3>
+            <button 
+              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50" 
+              onClick={fetchProducts} 
+              disabled={loading}
+            >
+              {loading ? 'Actualizando...' : 'Actualizar'}
+            </button>
           </div>
 
           {loading && <div>Cargando...</div>}
           {error && <div className="text-red-600 mb-2">{error}</div>}
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {products.map(p => (
-              <div key={p.id} className="border rounded p-3 flex gap-3">
-                <div className="w-24 h-24 bg-gray-100 flex-shrink-0 overflow-hidden rounded">
+              <div key={p.id} className="bg-white border border-gray-200 rounded-lg p-4 shadow-sm hover:shadow-md transition-shadow">
+                <div className="w-full h-32 bg-gray-100 flex-shrink-0 overflow-hidden rounded-lg mb-4">
                   {p.image_url ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img src={p.image_url} alt={p.name} className="w-full h-full object-cover" />
                   ) : (
-                    <div className="text-sm text-gray-500 p-2">No imagen</div>
+                    <div className="flex items-center justify-center h-full text-sm text-gray-500">Sin imagen</div>
                   )}
                 </div>
-                <div className="flex-1">
-                  <div className="font-semibold">{p.name}</div>
-                  <div className="text-sm text-gray-600">{p.category} · ${p.price}</div>
-                  <div className="text-sm text-gray-500 mt-2">Stock: {p.stock_quantity}</div>
-                  <div className="mt-2 flex gap-2">
-                    <button className="px-2 py-1 bg-blue-500 text-white rounded text-sm" onClick={() => startEdit(p)}>Editar</button>
-                    <button className="px-2 py-1 bg-red-500 text-white rounded text-sm" onClick={() => handleDelete(p.id)}>Eliminar</button>
+                <div>
+                  <h4 className="font-semibold text-gray-900 mb-1">{p.name}</h4>
+                  <p className="text-sm text-gray-600 mb-2">{p.category}</p>
+                  <div className="flex justify-between items-center mb-3">
+                    <span className="text-lg font-bold text-green-600">${p.price}</span>
+                    <span className="text-sm text-gray-500">Stock: {p.stock_quantity}</span>
+                  </div>
+                  <div className="flex gap-2">
+                    <button 
+                      className="flex-1 px-3 py-2 bg-blue-600 text-white rounded-md text-sm hover:bg-blue-700 transition-colors" 
+                      onClick={() => startEdit(p)}
+                    >
+                      Editar
+                    </button>
+                    <button 
+                      className="flex-1 px-3 py-2 bg-red-600 text-white rounded-md text-sm hover:bg-red-700 transition-colors" 
+                      onClick={() => handleDelete(p.id)}
+                    >
+                      Eliminar
+                    </button>
                   </div>
                 </div>
               </div>
@@ -462,8 +484,12 @@ export default function ProductAdmin(): JSX.Element {
           </div>
         </div>
 
-        <div className="w-1/3">
-          <h3 className="text-lg font-medium mb-2">{editingId ? 'Edit product' : 'Create product'}</h3>
+        <div className="lg:col-span-1">
+          <div className="bg-white border border-gray-200 rounded-lg p-6 shadow-sm">
+            <h3 className="text-xl font-semibold text-gray-900 mb-4">
+              {editingId ? 'Editar Producto' : 'Crear Producto'}
+            </h3>
+            
           <form onSubmit={handleSubmit} className="space-y-2">
             {/* Product Keys UI */}
             {!editingId ? (
@@ -579,8 +605,10 @@ export default function ProductAdmin(): JSX.Element {
               <button type="button" className="px-3 py-2 bg-gray-200 rounded" onClick={resetForm}>Limpiar</button>
             </div>
           </form>
+          </div>
+          
           {serverDebug && (
-            <div className="mt-4 p-3 bg-gray-50 border rounded text-sm">
+            <div className="mt-4 p-3 bg-gray-50 border border-gray-200 rounded-lg text-sm">
               <div className="font-medium mb-1">Server debug</div>
               <div>Status: {serverDebug.status} {serverDebug.statusText}</div>
               <pre className="mt-2 max-h-40 overflow-auto text-xs bg-white p-2 border rounded">{serverDebug.body}</pre>
