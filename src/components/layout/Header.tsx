@@ -20,13 +20,14 @@ import { ShoppingCart } from "lucide-react";
 import Link from "next/link";
 import { useCart } from "@/hooks";
 import { useEffect, useState } from "react";
+import ProductAdmin from "@/components/products/ProductAdmin";
 
 /**
  * Constante que define la URL base de la API del backend.
  * Se utiliza para las peticiones de autenticación y verificación de permisos.
  * Configurada dinámicamente para funcionar en desarrollo y producción.
  */
-const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? (typeof window !== 'undefined' ? `${window.location.protocol}//${window.location.hostname}:3010` : '')
+const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? (typeof window !== 'undefined' ? `${window.location.protocol}//${window.location.hostname}:3010` : '');
 
 /**
  * Componente Header - Barra de navegación principal de la aplicación Mercador.
@@ -58,6 +59,7 @@ const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? (typeof window !== 'undefine
  */
 export function Header() {
   const { totalItems, setIsOpen, isOpen } = useCart();
+  const [showAdmin, setShowAdmin] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [userName, setUserName] = useState<string | null>(null);
@@ -83,41 +85,41 @@ export function Header() {
    * @listens auth-changed - Evento personalizado para actualizar el estado de auth
    */
   useEffect(() => {
-    let mounted = true
-  async function checkAdmin() {
-      setCheckingAdmin(true)
+    let mounted = true;
+    async function checkAdmin() {
+      setCheckingAdmin(true);
       try {
-        const res = await fetch(`${API_BASE}/auth/me`, { credentials: 'include' })
-        if (!mounted) return
+        const res = await fetch(`${API_BASE}/auth/me`, { credentials: 'include' });
+        if (!mounted) return;
         if (!res.ok) {
-          setIsAdmin(false)
-          setIsAuthenticated(false)
-          setUserName(null)
-          setUserImage(null)
+          setIsAdmin(false);
+          setIsAuthenticated(false);
+          setUserName(null);
+          setUserImage(null);
         } else {
-          const j = await res.json().catch(() => null)
+          const j = await res.json().catch(() => null);
           // Backend returns { success: true, data: { role: string, ... } }
-          const role = j?.data?.role ?? j?.data?.user_metadata?.role ?? null
-          const name = j?.data?.full_name ?? j?.data?.user_metadata?.full_name ?? j?.data?.email ?? null
-          const image = j?.data?.image ?? null
-          setIsAdmin(role === 'admin')
-          setIsAuthenticated(true)
-          setUserName(name)
-          setUserImage(image)
+          const role = j?.data?.role ?? j?.data?.user_metadata?.role ?? null;
+          const name = j?.data?.full_name ?? j?.data?.user_metadata?.full_name ?? j?.data?.email ?? null;
+          const image = j?.data?.image ?? null;
+          setIsAdmin(role === 'admin');
+          setIsAuthenticated(true);
+          setUserName(name);
+          setUserImage(image);
         }
       } catch (err) {
-        setIsAdmin(false)
-        setIsAuthenticated(false)
-        setUserName(null)
+        setIsAdmin(false);
+        setIsAuthenticated(false);
+        setUserName(null);
       } finally {
-        if (mounted) setCheckingAdmin(false)
+        if (mounted) setCheckingAdmin(false);
       }
     }
-    checkAdmin()
-  const onAuthChanged = () => { if (mounted) checkAdmin() }
-  window.addEventListener('auth-changed', onAuthChanged as EventListener)
-  return () => { mounted = false; window.removeEventListener('auth-changed', onAuthChanged as EventListener) }
-  }, [])
+    checkAdmin();
+    const onAuthChanged = () => { if (mounted) checkAdmin(); };
+    window.addEventListener('auth-changed', onAuthChanged as EventListener);
+    return () => { mounted = false; window.removeEventListener('auth-changed', onAuthChanged as EventListener); };
+  }, []);
 
   return (
     <header className="bg-white shadow-sm sticky top-0 z-10">
@@ -165,16 +167,16 @@ export function Header() {
                 <button
                   onClick={async () => {
                     try {
-                      await fetch(`${API_BASE}/auth/logout`, { method: 'POST', credentials: 'include' })
+                      await fetch(`${API_BASE}/auth/logout`, { method: 'POST', credentials: 'include' });
                     } catch (e) {
                       // ignore
                     }
                     // Refresh auth state: simple approach is reload
-                    setIsAuthenticated(false)
-                    setIsAdmin(false)
-                    setUserName(null)
-                    setUserImage(null)
-                    window.location.href = '/'
+                    setIsAuthenticated(false);
+                    setIsAdmin(false);
+                    setUserName(null);
+                    setUserImage(null);
+                    window.location.href = '/';
                   }}
                   className="px-3 py-1 rounded bg-gray-100 text-sm hover:bg-gray-200"
                 >
@@ -192,17 +194,22 @@ export function Header() {
               </button>
             )}
             <button
+              onClick={handleCartClick}
+              className="relative p-2 text-gray-700 hover:text-blue-600"
+            >
+              <ShoppingCart size={24} />
+              {totalItems > 0 && (
+                <span className="absolute -top-1 -right-1 bg-blue-600 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
+                  {totalItems}
+                </span>
+              )}
+            </button>
             <Link
               href="/dashboard"
               className="px-3 py-1 rounded bg-blue-600 text-white text-sm hover:bg-blue-700 transition-colors"
             >
               Dashboard
             </Link>
-                <span className="absolute -top-1 -right-1 bg-blue-600 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
-                  {totalItems}
-                </span>
-              )}
-            </button>
           </div>
         </div>
 
