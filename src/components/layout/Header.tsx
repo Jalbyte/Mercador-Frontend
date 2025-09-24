@@ -20,7 +20,6 @@ import { ShoppingCart } from "lucide-react";
 import Link from "next/link";
 import { useCart } from "@/hooks";
 import { useEffect, useState } from "react";
-import ProductAdmin from "@/components/products/ProductAdmin";
 
 /**
  * Constante que define la URL base de la API del backend.
@@ -59,12 +58,12 @@ const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? (typeof window !== 'undefine
  */
 export function Header() {
   const { totalItems, setIsOpen, isOpen } = useCart();
-  const [showAdmin, setShowAdmin] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [userName, setUserName] = useState<string | null>(null);
   const [userImage, setUserImage] = useState<string | null>(null);
   const [checkingAdmin, setCheckingAdmin] = useState(true);
+  const [showAdmin, setShowAdmin] = useState(false);
 
   /**
    * Función que maneja el clic en el botón del carrito.
@@ -195,9 +194,9 @@ export function Header() {
             )}
             <button
               onClick={handleCartClick}
-              className="relative p-2 text-gray-700 hover:text-blue-600"
+              className="relative flex items-center gap-1 text-gray-700 hover:text-blue-600"
             >
-              <ShoppingCart size={24} />
+              <ShoppingCart size={20} />
               {totalItems > 0 && (
                 <span className="absolute -top-1 -right-1 bg-blue-600 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
                   {totalItems}
