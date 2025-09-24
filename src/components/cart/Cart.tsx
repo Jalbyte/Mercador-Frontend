@@ -23,7 +23,7 @@ type CartItem = {
 
 export function Cart() {
   const router = useRouter();
-  const { isAuthRoute } = useAuthRoute();
+  const { isCartHiddenRoute } = useAuthRoute();
   const {
     isOpen,
     setIsOpen,
@@ -38,7 +38,8 @@ export function Cart() {
     0
   );
 
-  if (isAuthRoute) {
+  // Hide cart on auth routes, admin routes, and other specified routes
+  if (isCartHiddenRoute) {
     return null;
   }
 
