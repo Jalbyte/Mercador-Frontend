@@ -11,11 +11,19 @@ import {
 export const AccessibilityButton = ({ onClick }: { onClick: () => void }) => (
   <button
     onClick={onClick}
-    className="fixed top-4 right-4 z-40 bg-blue-600 hover:bg-blue-700 text-white p-3 rounded-full shadow-lg transition-all duration-200 focus:ring-4 focus:ring-blue-500/50 accessibility-button"
+    className="size-fit fixed top-1/2 right-0 -translate-y-1/2 z-40 bg-blue-600 hover:bg-blue-700 text-white shadow-lg transition-all duration-200 focus:ring-4 focus:ring-blue-500/50 accessibility-button group"
+    style={{
+      clipPath: 'path("m 0 22 q 0 -7 12 -10 L 60 0 L 60 120 L 12 102.1 Q 0 97.1 0 90.1 z")',
+      width: '60px',
+      height: '120px',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center'
+    }}
     aria-label="Abrir panel de accesibilidad"
     title="Configuración de Accesibilidad (Alt + A)"
   >
-    <Settings className="h-5 w-5" />
+    <Settings className="size-6 group-hover:rotate-90 transition-transform duration-300" />
   </button>
 );
 
