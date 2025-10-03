@@ -9,6 +9,7 @@ import { AuthHeader } from "@/components/auth/AuthHeader";
 import { AuthForm } from "@/components/auth/AuthForm";
 import { AuthFooter } from "@/components/auth/AuthFooter";
 import { useAuth } from "@/components/auth/AuthProvider";
+import { MFAVerification } from "@/components/auth/MFAVerification";
 
 const API_BASE =
   process.env.NEXT_PUBLIC_API_URL ??
@@ -19,7 +20,7 @@ const API_BASE =
 function LoginContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
-  const { login, isAuthenticated, isLoading: authLoading } = useAuth();
+  const { login, isAuthenticated, isLoading: authLoading, mfaRequired, verifyMFA, cancelMFA } = useAuth();
 
   const [isLogin, setIsLogin] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
@@ -48,9 +49,11 @@ function LoginContent() {
 
     try {
       if (isLogin) {
-        // Use AuthProvider login
+        // Use AuthProvider login - handles MFA automatically
         await login(formData.email, formData.password, formData.rememberMe);
-        // AuthProvider handles redirect automatically
+        
+        // If no MFA required, redirect will happen automatically
+        // If MFA required, mfaRequired state will be set in AuthProvider
       } else {
         // Registration logic
         const response = await fetch(`${API_BASE}/auth/register`, {
@@ -206,6 +209,47 @@ function LoginContent() {
       <div className="min-h-screen flex items-center justify-center">
         <FiLoader className="animate-spin text-3xl text-blue-500" />
       </div>
+    );
+  }
+
+  // Si se requiere MFA, mostrar componente de verificación
+  if (mfaRequired && !isVerifying) {
+    return (
+      <AuthLayout>
+        <MFAVerification
+          onVerify={async (code) => {
+            setIsLoading(true);
+            try {
+              await verifyMFA(code);
+              // El redirect se maneja automáticamente en AuthProvider
+            } catch (err) {
+              setError(err instanceof Error ? err.message : "Código inválido");
+              setShowModal(true);
+              throw err; // Re-throw para que MFAVerification maneje el error también
+            } finally {
+              setIsLoading(false);
+            }
+          }}
+          onCancel={() => {
+            cancelMFA();
+            setIsLogin(true);
+          }}
+          loading={isLoading}
+          error={error}
+        />
+        <Modal
+          open={showModal}
+          onClose={() => {
+            setShowModal(false);
+            setError("");
+          }}
+          title="Error"
+        >
+          <div className="text-center p-4">
+            <p className="text-red-500">{error}</p>
+          </div>
+        </Modal>
+      </AuthLayout>
     );
   }
 

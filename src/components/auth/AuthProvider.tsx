@@ -29,15 +29,23 @@ export interface User {
   two_factor_enabled: boolean;
 }
 
+interface MFARequiredData {
+  factorId: string;
+  tempToken: string;
+}
+
 interface AuthContextType {
   user: User | null;
   isAuthenticated: boolean;
   isLoading: boolean;
+  mfaRequired: MFARequiredData | null;
   login: (
     email: string,
     password: string,
     rememberMe?: boolean
   ) => Promise<void>;
+  verifyMFA: (code: string) => Promise<void>;
+  cancelMFA: () => void;
   logout: () => Promise<void>;
   updateUser: (userData: Partial<User>) => Promise<void>;
   refreshUser: () => Promise<void>;
@@ -48,6 +56,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [mfaRequired, setMfaRequired] = useState<MFARequiredData | null>(null);
   const router = useRouter();
 
   const isAuthenticated = !!user;
@@ -114,10 +123,43 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     if (!response.ok) {
       const error = await response.json();
-      throw new Error(error.message || "Error en el login");
+      
+      // Manejar errores de Zod (cuando error.error es un objeto)
+      if (error.error && typeof error.error === "object" && error.error.name === "ZodError") {
+        try {
+          // Si error.error.message es un string JSON, parsearlo
+          const zodErrorsRaw = typeof error.error.message === "string" 
+            ? JSON.parse(error.error.message) 
+            : error.error.message;
+          
+          const messages = zodErrorsRaw.map((e: any) => e.message).join(". ");
+          throw new Error(messages);
+        } catch (parseError) {
+          throw new Error("Error de validación en los datos ingresados");
+        }
+      }
+      
+      // Manejar errores normales (cuando error.error es un string)
+      const errorMessage = typeof error.error === "string" 
+        ? error.error 
+        : error.message || "Error en el login";
+      
+      throw new Error(errorMessage);
     }
 
-    // Guardar email si recordar
+    const data = await response.json();
+
+    // Verificar si requiere MFA
+    if (data.mfaRequired) {
+      setMfaRequired({
+        factorId: data.factorId,
+        tempToken: data.tempToken,
+      });
+      // No completar el login aún, esperar verificación MFA
+      return;
+    }
+
+    // Login completo sin MFA
     if (rememberMe) {
       localStorage.setItem("last-login-email", email);
     } else {
@@ -126,6 +168,38 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     // Obtener datos del usuario después del login
     await fetchUser();
+  };
+
+  // Verificar código MFA durante login
+  const verifyMFA = async (code: string): Promise<void> => {
+    if (!mfaRequired) {
+      throw new Error("No hay verificación MFA pendiente");
+    }
+
+    const response = await fetch(`${API_BASE}/auth/mfa/verify-login`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({
+        factorId: mfaRequired.factorId,
+        code,
+        tempToken: mfaRequired.tempToken,
+      }),
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || "Código MFA inválido");
+    }
+
+    // MFA verificado, completar login
+    setMfaRequired(null);
+    await fetchUser();
+  };
+
+  // Cancelar verificación MFA
+  const cancelMFA = (): void => {
+    setMfaRequired(null);
   };
 
   // Logout function
@@ -213,7 +287,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     user,
     isAuthenticated,
     isLoading,
+    mfaRequired,
     login,
+    verifyMFA,
+    cancelMFA,
     logout,
     updateUser,
     refreshUser,

@@ -1,9 +1,7 @@
-import { forwardRef, useImperativeHandle, useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { FiMail, FiLock, FiUser as UserIcon, FiGlobe } from "react-icons/fi";
-import { ShoppingCart } from "lucide-react";
+import { forwardRef, useEffect, useImperativeHandle, useState } from "react";
+import { FiGlobe, FiLock, FiMail, FiUser as UserIcon } from "react-icons/fi";
 import { FormInput } from "./FormInput";
-import { SocialLogin } from "./SocialLogin";
 
 interface FormData {
   email: string;
@@ -33,7 +31,6 @@ export const AuthForm = forwardRef<any, AuthFormProps>(({
   isLogin,
   onSubmit,
   onSocialLogin,
-  onToggleMode,
   loading = false,
   error,
 }, ref) => {
@@ -93,12 +90,6 @@ export const AuthForm = forwardRef<any, AuthFormProps>(({
       ...submitData,
       rememberMe: formData.rememberMe
     });
-  };
-
-  const handleSocialLogin = (provider: "google" | "facebook") => {
-    if (onSocialLogin) {
-      onSocialLogin(provider);
-    }
   };
 
   return (
@@ -243,11 +234,9 @@ export const AuthForm = forwardRef<any, AuthFormProps>(({
           {loading
             ? "Cargando..."
             : isLogin
-            ? "Iniciar Sesión"
-            : "Crear Cuenta"}
+              ? "Iniciar Sesión"
+              : "Crear Cuenta"}
         </button>
-
-        <SocialLogin onGoogleLogin={() => handleSocialLogin("google")} />
       </form>
     </div>
   );

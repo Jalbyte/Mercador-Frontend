@@ -42,6 +42,7 @@ import { Cart } from "@/components/cart/Cart";
 import { CartProvider } from "@/hooks";
 import { AccessibilitySidebar } from "@/components/accessibility/page";
 import { AuthProvider } from "@/components/auth/AuthProvider";
+import { MFAProvider } from "@/components/auth/MFAProvider";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -90,15 +91,17 @@ export default function RootLayout({ children }: RootLayoutProps) {
         </a>
 
         <AuthProvider>
-          <CartProvider>
-            <main id="main-content" className="min-h-screen bg-base-200/50">
-              {children}
-              <Cart />
-            </main>
+          <MFAProvider>
+            <CartProvider>
+              <main id="main-content" className="min-h-screen bg-base-200/50">
+                {children}
+                <Cart />
+              </main>
 
-            {/* Componente de accesibilidad */}
-            <AccessibilitySidebar />
-          </CartProvider>
+              {/* Componente de accesibilidad */}
+              <AccessibilitySidebar />
+            </CartProvider>
+          </MFAProvider>
         </AuthProvider>
       </body>
     </html>
