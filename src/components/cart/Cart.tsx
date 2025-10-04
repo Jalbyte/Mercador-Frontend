@@ -2,6 +2,10 @@
 
 import { useCart } from "@/hooks";
 import { useAuthRoute } from "@/hooks/use-auth-route";
+import { useAuth } from "@/components/auth/AuthProvider";
+import { Modal } from "@/components/ui/modal";
+import { useState } from "react";
+import SaleDetail from "./SaleDetail";
 import { X, Plus, Minus, ShoppingCart } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useRouter } from "next/navigation";
@@ -37,6 +41,9 @@ export function Cart() {
     (sum, item) => sum + item.price * item.quantity,
     0
   );
+
+  const [isDetailOpen, setIsDetailOpen] = useState(false);
+  const { isAuthenticated, isLoading } = useAuth();
 
   // Hide cart on auth routes, admin routes, and other specified routes
   if (isCartHiddenRoute) {
@@ -142,7 +149,24 @@ export function Cart() {
               <span>Subtotal</span>
               <span className="font-medium">${subtotal.toFixed(2)}</span>
             </div>
-            <Button className="w-full" size="lg">
+            <Button className="w-full" size="lg" onClick={async () => {
+              // If auth is still loading, give simple feedback
+              if (isLoading) {
+                alert("Verificando sesión, por favor espera...");
+                return;
+              }
+
+              if (!isAuthenticated) {
+                // Not authenticated: notify and redirect to login
+                alert("Debes iniciar sesión para proceder al pago");
+                setIsOpen(false);
+                router.push("/login");
+                return;
+              }
+
+              // Authenticated: open sale detail modal
+              setIsDetailOpen(true);
+            }}>
               Proceder al pago
             </Button>
             <Button
@@ -158,6 +182,62 @@ export function Cart() {
           </CardFooter>
         )}
       </Card>
+      {/* Detalle de venta modal: muestra los items del carrito y el total */}
+      <Modal open={isDetailOpen} onClose={() => setIsDetailOpen(false)} title="Detalle de venta">
+        <SaleDetail
+          items={cartItems}
+          subtotal={subtotal}
+          onCancel={() => setIsDetailOpen(false)}
+          onConfirm={async () => {
+            setIsDetailOpen(false);
+            setIsOpen(false);
+            // Crear preferencia de pago en el backend
+            try {
+              const res = await fetch("http://localhost:3010/payments/create", {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json"
+                },
+                credentials: "include", // Incluir cookies de autenticación
+                body: JSON.stringify({
+                  payer: {
+                    email: "cliente@example.com", // TODO: Obtener del usuario autenticado
+                    name: "Juan",
+                    surname: "Pérez"
+                  },
+                  shipping_address: {
+                    street_name: "Calle Principal",
+                    street_number: 123,
+                    zip_code: "12345"
+                  }
+                })
+              });
+
+              if (!res.ok) {
+                if (res.status === 401) {
+                  alert("Debes iniciar sesión para proceder al pago");
+                  setIsOpen(false);
+                  router.push("/login");
+                  return;
+                }
+                throw new Error(`Error: ${res.status}`);
+              }
+
+              const data = await res.json();
+
+              if (data.data?.init_point) {
+                // Redirigir a Mercado Pago Checkout Pro
+                window.location.href = data.data.init_point;
+              } else {
+                alert("No se pudo obtener el enlace de pago");
+              }
+            } catch (err) {
+              console.error('Error al crear preferencia de pago:', err);
+              alert("Error al conectar con el backend");
+            }
+          }}
+        />
+      </Modal>
     </div>
   );
 }
