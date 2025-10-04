@@ -16,7 +16,7 @@ export function Header() {
   const { totalItems, setIsOpen } = useCart();
   const { user, isAuthenticated, isLoading, logout } = useAuth();
   const [showUserMenu, setShowUserMenu] = useState(false);
-  const menuRef = useRef<HTMLDivElement>(null);
+  const menuRef = useRef<HTMLLIElement>(null);
 
   // Determinar si es admin usando el contexto de auth
   const isAdmin = user?.role === "admin";

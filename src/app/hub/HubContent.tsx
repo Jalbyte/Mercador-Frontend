@@ -37,9 +37,59 @@ export default function HubContent() {
     async function init() {
       setLoading(true)
 
-      // Prefer token in query (from login redirect), fallback to cookie
-      const urlToken = params?.get('access_token') ?? ''
+      // Obtener token del hash fragment (signup redirect) o query params (login redirect)
+      let urlToken = params?.get('access_token') ?? ''
+      let refreshToken = params?.get('refresh_token') ?? ''
+      let tokenType = ''
+      
+      // Si no hay token en query params, verificar hash fragment
+      if (!urlToken && typeof window !== 'undefined' && window.location.hash) {
+        const hashParams = new URLSearchParams(window.location.hash.substring(1))
+        const hashToken = hashParams.get('access_token')
+        const hashRefreshToken = hashParams.get('refresh_token')
+        tokenType = hashParams.get('type') || ''
+        
+        // Auto-login tanto para recovery como para signup
+        // Esto permite que el usuario confirme su email desde cualquier dispositivo
+        if (hashToken && (tokenType === 'recovery' || tokenType === 'signup')) {
+          urlToken = hashToken
+          refreshToken = hashRefreshToken || ''
+        }
+      }
+      
       const cookieToken = getCookie('sb_access_token')
+
+      // Si hay token en URL (signup/recovery), primero establecer sesión en el backend
+      if (urlToken && !cookieToken) {
+        try {
+          const sessionResponse = await fetch(`${API_BASE}/auth/session`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify({ 
+              access_token: urlToken,
+              refresh_token: refreshToken
+            })
+          })
+
+          if (!mounted) return
+
+          if (sessionResponse.ok) {
+            // Limpiar el hash de la URL
+            if (typeof window !== 'undefined') {
+              window.history.replaceState({}, document.title, window.location.pathname)
+            }
+          } else {
+            setError('No se pudo establecer la sesión')
+            setTimeout(() => router.push('/'), 1200)
+            return
+          }
+        } catch (err) {
+          setError('Error de conexión con el servidor')
+          setTimeout(() => router.push('/'), 1200)
+          return
+        }
+      }
 
       // If no token provided in URL and no cookie present, redirect
       if (!urlToken && !cookieToken) {
@@ -47,7 +97,7 @@ export default function HubContent() {
         return
       }
 
-      // If urlToken present we still call verify via cookie (server should set cookie on redirect)
+      // Ahora verificar la sesión establecida
       const result = await verifyViaCookie()
       if (!mounted) return
 
@@ -57,24 +107,11 @@ export default function HubContent() {
         return
       }
 
-      // If token came from URL we expect the server to set the cookie and the redirect to /hub
-      if (urlToken) {
-        try {
-          // attempt to set a non-httpOnly cookie client-side if server didn't, fallback
-          if (!cookieToken && typeof document !== 'undefined' && urlToken) {
-            document.cookie = `sb_access_token=${encodeURIComponent(urlToken)}; path=/;`
-          }
-        } catch (e) {}
-        // Notificar al resto de la app que cambió el estado de autenticación
-        try {
-          window.dispatchEvent(new CustomEvent('auth-changed', { detail: { loggedIn: true } }))
-        } catch {}
-        router.replace('/hub')
-      }
-
-      // Si no hubo token en URL pero validamos cookie y otros aún no saben, disparar evento una sola vez
-      if (!urlToken) {
-        try { window.dispatchEvent(new CustomEvent('auth-changed', { detail: { loggedIn: true } })) } catch {}
+      // Notificar al resto de la app que cambió el estado de autenticación
+      try {
+        window.dispatchEvent(new CustomEvent('auth-changed', { detail: { loggedIn: true } }))
+      } catch (e) {
+        // Ignore error
       }
 
       setLoading(false)
@@ -82,8 +119,21 @@ export default function HubContent() {
 
     init()
 
-    return () => { mounted = false }
+    return () => { 
+      mounted = false 
+    }
   }, [])
+
+  // Redirigir automáticamente a la raíz después de verificar la sesión
+  useEffect(() => {
+    if (!loading && !error) {
+      const timer = setTimeout(() => {
+        router.push('/')
+      }, 500)
+      
+      return () => clearTimeout(timer)
+    }
+  }, [loading, error, router])
 
   if (loading) return <div className="p-8">Verificando sesión...</div>
   if (error) return <div className="p-8 text-red-600">{error}</div>
@@ -91,7 +141,7 @@ export default function HubContent() {
   return (
     <div className="p-8">
       <h1 className="text-2xl font-semibold">Hub principal</h1>
-      <p className="mt-2">Autenticación verificada. Bienvenido.</p>
+      <p className="mt-2">Autenticación verificada. Redirigiendo...</p>
     </div>
   )
 }
