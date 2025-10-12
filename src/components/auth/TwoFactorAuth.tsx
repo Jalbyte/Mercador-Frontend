@@ -125,8 +125,8 @@ export const TwoFactorAuth = ({
     setError("");
 
     try {
-      const response = await fetch(`${API_BASE}/auth/2fa/disable`, {
-        method: "POST",
+      const response = await fetch(`${API_BASE}/auth/mfa/unenroll`, {
+        method: "DELETE",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
       });

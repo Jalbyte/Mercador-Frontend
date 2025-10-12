@@ -1,26 +1,30 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
-import {
-  FiUser,
-  FiMail,
-  FiSave,
-  FiArrowLeft,
-  FiLoader,
-  FiPhone,
-  FiGlobe,
-} from "react-icons/fi";
+import { useAuth } from "@/components/auth/AuthProvider";
 import { FormInput } from "@/components/auth/FormInput";
 import { TwoFactorAuth } from "@/components/auth/TwoFactorAuth";
 import { Button } from "@/components/ui/button";
-import { useAuth } from "@/components/auth/AuthProvider";
+import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
+import {
+  FiArrowLeft,
+  FiGlobe,
+  FiLoader,
+  FiMail,
+  FiSave,
+  FiUser,
+} from "react-icons/fi";
 
 const API_BASE =
   process.env.NEXT_PUBLIC_API_URL ??
   (typeof window !== "undefined"
     ? `${window.location.protocol}//${window.location.hostname}:3010`
     : "");
+
+// Lista de países comunes
+const countries = [
+  "Argentina", "Bolivia", "Brasil", "Chile", "Colombia", "Costa Rica", "Cuba", "Ecuador", "El Salvador", "Guatemala", "Honduras", "México", "Nicaragua", "Panamá", "Paraguay", "Perú", "Puerto Rico", "República Dominicana", "Uruguay", "Venezuela", "Estados Unidos", "Canadá", "España", "Francia", "Italia", "Reino Unido", "Alemania", "Portugal", "Otros"
+];
 
 export default function ProfileContent() {
   const router = useRouter();
@@ -38,7 +42,6 @@ export default function ProfileContent() {
   const [formData, setFormData] = useState({
     full_name: "",
     country: "",
-    phone: "",
   });
 
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
@@ -58,12 +61,11 @@ export default function ProfileContent() {
       setFormData({
         full_name: user.full_name || "",
         country: user.country || "",
-        phone: user.phone || "",
       });
     }
   }, [user]);
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
     setError("");
@@ -116,7 +118,6 @@ export default function ProfileContent() {
       const formDataToSend = new FormData();
       formDataToSend.append("full_name", formData.full_name);
       formDataToSend.append("country", formData.country);
-      formDataToSend.append("phone", formData.phone);
 
       if (avatarFile) {
         formDataToSend.append("image_file", avatarFile);
@@ -140,7 +141,6 @@ export default function ProfileContent() {
       await updateUser({
         full_name: formData.full_name,
         country: formData.country,
-        phone: formData.phone,
         ...(updatedData.image && {
           image: updatedData.image,
           avatar_url: updatedData.image,
@@ -174,9 +174,10 @@ export default function ProfileContent() {
     }
     setError("");
 
-    // Update user state
+    // Update user state locally - no need to call updateUser as this comes from backend
     if (user) {
-      updateUser({ two_factor_enabled: enabled }).catch(console.error);
+      // Just update the local state, the backend will return the correct value on next fetch
+      // updateUser({ two_factor_enabled: enabled }).catch(console.error);
     }
   };
 
@@ -263,15 +264,27 @@ export default function ProfileContent() {
                   placeholder="Tu nombre completo"
                   required
                 />
-                <FormInput
-                  label="País"
-                  name="country"
-                  type="text"
-                  value={formData.country}
-                  onChange={handleInputChange}
-                  icon={<FiGlobe size={18} />}
-                  placeholder="Tu país de residencia"
-                />
+                <div className="relative">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    País
+                  </label>
+                  <div className="relative">
+                    <FiGlobe className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
+                    <select
+                      name="country"
+                      value={formData.country}
+                      onChange={handleInputChange}
+                      className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                    >
+                      <option value="">Selecciona tu país</option>
+                      {countries.map((country) => (
+                        <option key={country} value={country}>
+                          {country}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
               </div>
 
               <FormInput
@@ -283,16 +296,6 @@ export default function ProfileContent() {
                 icon={<FiMail size={18} />}
                 placeholder="tu@email.com"
                 disabled
-              />
-
-              <FormInput
-                label="Teléfono (Opcional)"
-                name="phone"
-                type="tel"
-                value={formData.phone}
-                onChange={handleInputChange}
-                icon={<FiPhone size={18} />}
-                placeholder="+57 300 123 4567"
               />
 
               <Button

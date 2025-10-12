@@ -21,7 +21,6 @@ interface UserProfile {
   first_name?: string;
   last_name?: string;
   two_factor_enabled?: boolean;
-  phone?: string;
 }
 
 export default function ProfilePage() {
@@ -35,7 +34,6 @@ export default function ProfilePage() {
     first_name: "",
     last_name: "",
     email: "",
-    phone: "",
   });
 
   useEffect(() => {
@@ -68,7 +66,6 @@ export default function ProfilePage() {
         first_name: userProfile.first_name || "",
         last_name: userProfile.last_name || "",
         email: userProfile.email || "",
-        phone: userProfile.phone || "",
       });
     } catch (err) {
       setError(
@@ -200,16 +197,6 @@ export default function ProfilePage() {
                   icon={<FiMail size={18} />}
                   placeholder="tu@email.com"
                   disabled
-                />
-
-                <FormInput
-                  label="Teléfono (Opcional)"
-                  name="phone"
-                  type="tel"
-                  value={formData.phone}
-                  onChange={handleInputChange}
-                  icon={<FiUser size={18} />}
-                  placeholder="+57 300 123 4567"
                 />
 
                 <Button

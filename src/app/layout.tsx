@@ -84,7 +84,10 @@ interface RootLayoutProps {
 export default function RootLayout({ children }: RootLayoutProps) {
   return (
     <html lang="es" className="h-full">
-      <body className={`${inter.className} min-h-screen bg-background`}>
+      <body 
+        className={`${inter.className} min-h-screen bg-background`}
+        suppressHydrationWarning={true}
+      >
         {/* Skip link para navegación por teclado */}
         <a href="#main-content" className="skip-link focus:outline-none">
           Saltar al contenido principal
