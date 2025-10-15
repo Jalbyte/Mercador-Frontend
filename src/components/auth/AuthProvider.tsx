@@ -21,7 +21,6 @@ export interface User {
   full_name: string;
   first_name?: string;
   last_name?: string;
-  phone?: string;
   country?: string;
   role?: string;
   image?: string;
@@ -74,7 +73,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           setUser(null);
           return null;
         }
-        throw new Error(`Error: ${response.status}`);
+        throw new Error(`Error: ${response}`);
       }
 
       const data = await response.json();
@@ -91,7 +90,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           "",
         first_name: userData.first_name,
         last_name: userData.last_name,
-        phone: userData.phone,
         country: userData.country,
         role: userData.role || userData.user_metadata?.role,
         image: userData.image || userData.avatar_url,
