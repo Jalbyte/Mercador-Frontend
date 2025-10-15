@@ -34,6 +34,8 @@ export default function ProfileContent() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [mfaFactors, setMfaFactors] = useState<any[]>([]);
+  const [mfaLoading, setMfaLoading] = useState(true);
 
   const [formData, setFormData] = useState({
     full_name: "",
@@ -61,6 +63,37 @@ export default function ProfileContent() {
         phone: user.phone || "",
       });
     }
+  }, [user]);
+
+  // Fetch MFA factors when user is loaded
+  useEffect(() => {
+    const fetchMfaFactors = async () => {
+      if (!user) return;
+      
+      setMfaLoading(true);
+      try {
+        const response = await fetch(`${API_BASE}/auth/mfa/factors`, {
+          method: "GET",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          setMfaFactors(data.factors || []);
+        } else {
+          console.error("Error fetching MFA factors");
+          setMfaFactors([]);
+        }
+      } catch (error) {
+        console.error("Error fetching MFA factors:", error);
+        setMfaFactors([]);
+      } finally {
+        setMfaLoading(false);
+      }
+    };
+
+    fetchMfaFactors();
   }, [user]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -166,13 +199,29 @@ export default function ProfileContent() {
     }
   };
 
-  const handle2FAStatusChange = (enabled: boolean) => {
+  const handle2FAStatusChange = async (enabled: boolean) => {
     if (enabled) {
       setSuccess("Autenticación de dos factores activada correctamente");
     } else {
       setSuccess("Autenticación de dos factores desactivada");
     }
     setError("");
+
+    // Refresh MFA factors to get updated state
+    try {
+      const response = await fetch(`${API_BASE}/auth/mfa/factors`, {
+        method: "GET",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setMfaFactors(data.factors || []);
+      }
+    } catch (error) {
+      console.error("Error refreshing MFA factors:", error);
+    }
 
     // Update user state
     if (user) {
@@ -317,8 +366,9 @@ export default function ProfileContent() {
             </h2>
 
             <TwoFactorAuth
-              isEnabled={user.two_factor_enabled}
+              isEnabled={mfaFactors.some(factor => factor.status === "verified")}
               onStatusChange={handle2FAStatusChange}
+              loading={mfaLoading}
             />
 
             <div className="mt-6 pt-6 border-t border-gray-200">

@@ -3,7 +3,7 @@
 import React, { Suspense, useState, useEffect, useRef } from "react";
 import { Modal } from "@/components/ui/modal";
 import { useRouter, useSearchParams } from "next/navigation";
-import { FiUser, FiLoader } from "react-icons/fi";
+import { FiUser, FiLoader, FiLock, FiArrowLeft } from "react-icons/fi";
 import { AuthLayout } from "@/components/auth/AuthLayout";
 import { AuthHeader } from "@/components/auth/AuthHeader";
 import { AuthForm } from "@/components/auth/AuthForm";
@@ -87,7 +87,7 @@ function LoginContent() {
       const errorMessage =
         err instanceof Error ? err.message : "Error en la autenticación";
       setError(errorMessage);
-      setShowModal(true);
+      // No mostrar modal para errores de login, solo usar el mensaje inline
     } finally {
       setIsLoading(false);
     }
@@ -212,51 +212,12 @@ function LoginContent() {
     );
   }
 
-  // Si se requiere MFA, mostrar componente de verificación
-  if (mfaRequired && !isVerifying) {
-    return (
-      <AuthLayout>
-        <MFAVerification
-          onVerify={async (code) => {
-            setIsLoading(true);
-            try {
-              await verifyMFA(code);
-              // El redirect se maneja automáticamente en AuthProvider
-            } catch (err) {
-              setError(err instanceof Error ? err.message : "Código inválido");
-              setShowModal(true);
-              throw err; // Re-throw para que MFAVerification maneje el error también
-            } finally {
-              setIsLoading(false);
-            }
-          }}
-          onCancel={() => {
-            cancelMFA();
-            setIsLogin(true);
-          }}
-          loading={isLoading}
-          error={error}
-        />
-        <Modal
-          open={showModal}
-          onClose={() => {
-            setShowModal(false);
-            setError("");
-          }}
-          title="Error"
-        >
-          <div className="text-center p-4">
-            <p className="text-red-500">{error}</p>
-          </div>
-        </Modal>
-      </AuthLayout>
-    );
-  }
+
 
   return (
     <AuthLayout>
       <AuthHeader
-        title={isLogin ? "Iniciar sesión" : "Crear cuenta"}
+        title={isLogin ? "Inicio de sesión" : "Crea tu cuenta"}
         subtitle={
           isLogin
             ? "Ingresa a tu cuenta para continuar"
@@ -276,14 +237,68 @@ function LoginContent() {
         isLogin={isLogin}
         onToggleMode={() => !isLoading && setIsLogin(!isLogin)}
       />
+      {/* Modal de Verificación MFA */}
       <Modal
-        open={showModal}
+        open={!!mfaRequired}
+        onClose={() => {
+          cancelMFA();
+          setError("");
+        }}
+        title="Verificación de Seguridad"
+      >
+        <div className="p-6">
+          {mfaRequired && (
+            <MFAVerification
+              onVerify={async (code) => {
+                setIsLoading(true);
+                try {
+                  await verifyMFA(code);
+                  // El redirect se maneja automáticamente en AuthProvider
+                } catch (err) {
+                  setError(err instanceof Error ? err.message : "Código inválido");
+                } finally {
+                  setIsLoading(false);
+                }
+              }}
+              onCancel={() => {
+                cancelMFA();
+                setError("");
+              }}
+              loading={isLoading}
+              error={error}
+            />
+          )}
+
+          {error && (
+            <div className="mt-4 p-3 text-sm text-red-700 bg-red-100 rounded-lg">
+              <p>{error}</p>
+            </div>
+          )}
+
+          <div className="mt-6 pt-4 border-t border-gray-200">
+            <button
+              onClick={() => {
+                cancelMFA();
+                setError("");
+              }}
+              className="w-full text-sm text-gray-600 hover:text-blue-600 transition-colors flex items-center justify-center gap-2"
+            >
+              <FiArrowLeft size={16} />
+              Volver al inicio de sesión
+            </button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Modal solo para mensajes informativos y verificación */}
+      <Modal
+        open={showModal && (!!info || isVerifying)}
         onClose={() => {
           setShowModal(false);
           setError("");
           setInfo("");
         }}
-        title={error ? "Error" : "Información"}
+        title="Información"
       >
         <div className="text-center p-4">
           {isVerifying ? (
@@ -291,8 +306,6 @@ function LoginContent() {
               <FiLoader className="animate-spin text-3xl text-blue-500" />
               <p>Verificando tu sesión...</p>
             </div>
-          ) : error ? (
-            <p className="text-red-500">{error}</p>
           ) : (
             <p className="text-green-600">{info}</p>
           )}

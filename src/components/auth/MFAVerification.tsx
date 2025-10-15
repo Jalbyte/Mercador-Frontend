@@ -201,19 +201,6 @@ export function MFAVerification({
             Volver al inicio de sesión
           </button>
         </form>
-
-        {/* Help text */}
-        <div className="mt-6 text-center">
-          <p className="text-sm text-gray-500">
-            ¿No puedes acceder a tu aplicación autenticadora?
-          </p>
-          <button
-            type="button"
-            className="text-sm text-blue-600 hover:text-blue-700 font-medium mt-1"
-          >
-            Usar código de respaldo
-          </button>
-        </div>
       </div>
     </div>
   );

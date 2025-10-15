@@ -124,6 +124,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (!response.ok) {
       const error = await response.json();
       
+      // Manejar diferentes tipos de errores con mensajes específicos
+      if (response.status === 401) {
+        throw new Error("Credenciales incorrectas. Por favor verifica tu email y contraseña.");
+      }
+      
+      if (response.status === 429) {
+        throw new Error("Demasiados intentos de inicio de sesión. Por favor intenta nuevamente en unos minutos.");
+      }
+      
+      if (response.status >= 500) {
+        throw new Error("Error del servidor. Por favor intenta nuevamente más tarde.");
+      }
+      
       // Manejar errores de Zod (cuando error.error es un objeto)
       if (error.error && typeof error.error === "object" && error.error.name === "ZodError") {
         try {
@@ -135,16 +148,36 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           const messages = zodErrorsRaw.map((e: any) => e.message).join(". ");
           throw new Error(messages);
         } catch (parseError) {
-          throw new Error("Error de validación en los datos ingresados");
+          throw new Error("Los datos ingresados no son válidos. Por favor revisa la información.");
         }
       }
       
-      // Manejar errores normales (cuando error.error es un string)
-      const errorMessage = typeof error.error === "string" 
-        ? error.error 
-        : error.message || "Error en el login";
+      // Manejar errores específicos del backend
+      if (error.error) {
+        const backendError = error.error.toLowerCase();
+        
+        if (backendError.includes("email") && backendError.includes("not found")) {
+          throw new Error("No existe una cuenta con este email. ¿Deseas crear una cuenta nueva?");
+        }
+        
+        if (backendError.includes("password") && backendError.includes("incorrect")) {
+          throw new Error("Contraseña incorrecta. ¿Olvidaste tu contraseña?");
+        }
+        
+        if (backendError.includes("account") && backendError.includes("locked")) {
+          throw new Error("Tu cuenta ha sido bloqueada temporalmente por seguridad. Intenta más tarde.");
+        }
+        
+        if (backendError.includes("email") && backendError.includes("verify")) {
+          throw new Error("Tu cuenta no ha sido verificada. Por favor revisa tu email y confirma tu cuenta.");
+        }
+        
+        // Error genérico del backend
+        throw new Error(error.error);
+      }
       
-      throw new Error(errorMessage);
+      // Error genérico
+      throw new Error("Error al iniciar sesión. Por favor intenta nuevamente.");
     }
 
     const data = await response.json();
@@ -188,8 +221,43 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     });
 
     if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.error || "Código MFA inválido");
+      let errorMessage = "Código de verificación incorrecto";
+      
+      try {
+        const error = await response.json();
+        console.error("MFA verification error response:", error);
+        
+        // Mensajes específicos para MFA
+        if (response.status === 401) {
+          const backendError = (error.error || "").toLowerCase();
+          
+          if (backendError.includes("expired")) {
+            errorMessage = "El código ha expirado. Por favor genera un nuevo código en tu aplicación autenticadora.";
+          } else if (backendError.includes("invalid") || backendError.includes("incorrect")) {
+            errorMessage = "Código incorrecto. Verifica el código en tu aplicación autenticadora e intenta nuevamente.";
+          } else if (backendError.includes("challenge")) {
+            errorMessage = "Error en la verificación. Por favor intenta iniciar sesión nuevamente.";
+          } else {
+            errorMessage = "Código de verificación incorrecto. Intenta nuevamente.";
+          }
+        } else if (response.status === 429) {
+          errorMessage = "Demasiados intentos. Por favor espera un momento antes de intentar nuevamente.";
+        } else if (response.status >= 500) {
+          errorMessage = "Error del servidor. Por favor intenta iniciar sesión nuevamente.";
+        } else {
+          errorMessage = error.error || error.message || errorMessage;
+        }
+        
+      } catch (parseError) {
+        console.error("Error parsing MFA verification error response:", parseError);
+        if (response.status >= 500) {
+          errorMessage = "Error del servidor. Por favor intenta iniciar sesión nuevamente.";
+        } else {
+          errorMessage = "Error de verificación. Por favor intenta nuevamente.";
+        }
+      }
+      
+      throw new Error(errorMessage);
     }
 
     // MFA verificado, completar login
