@@ -192,10 +192,10 @@ export default function Home() {
         <div className="absolute top-1/2 left-1/2 w-32 h-32 bg-white/10 rounded-full blur-2xl -translate-x-16 -translate-y-16"></div>
 
         <div className="container mx-auto px-4 text-center relative z-10">
-          <h1 className="text-5xl md:text-6xl font-bold mb-6 leading-tight">
-            Licencias
-            <span className="block bg-gradient-to-r from-yellow-300 to-orange-300 bg-clip-text text-transparent">
-              al Mejor Precio
+          <h1 className="text-5xl md:text-6xl font-bold mb-6 leading-tight flex flex-col items-center justify-center">
+            <span>Mercador</span>
+            <span className="block bg-gradient-to-r from-amber-500 to-orange-600 bg-clip-text text-transparent text-3xl md:text-4xl font-semibold tracking-tight drop-shadow-sm">
+              licencias al Mejor Precio
             </span>
           </h1>
 

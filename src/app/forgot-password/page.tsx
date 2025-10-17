@@ -108,13 +108,12 @@ export default function ForgotPasswordPage() {
     return (
       <AuthLayout>
         <div className="relative bg-white rounded-2xl shadow-xl overflow-hidden">
-          <AuthHeader
-            title="¡Enlace Enviado!"
-            subtitle="Revisa tu bandeja de entrada"
-            icon={<FiMail size={32} />}
-          />
-
-          <div className="p-8 text-center">
+        <AuthHeader
+          title="¡Enlace Enviado!"
+          subtitle="Revisa tu bandeja de entrada"
+          icon={<FiMail size={32} />}
+          hideBackToHome={true}
+        />          <div className="p-8 text-center">
             <div className="mb-6">
               <div className="inline-flex items-center justify-center w-16 h-16 bg-green-100 rounded-full mb-4">
                 <FiExternalLink size={32} className="text-green-600" />
@@ -171,6 +170,7 @@ export default function ForgotPasswordPage() {
           subtitle="Te enviaremos un enlace mágico para cambiar tu contraseña"
           icon={<FiMail size={32} />}
           onBack={() => router.push("/login")}
+          hideBackToHome={true}
         />
 
         <form onSubmit={handleSubmit} className="p-8 space-y-6">

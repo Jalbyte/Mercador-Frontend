@@ -15,11 +15,13 @@ const API_BASE =
 interface TwoFactorAuthProps {
   isEnabled: boolean;
   onStatusChange: (enabled: boolean) => void;
+  loading?: boolean;
 }
 
 export const TwoFactorAuth = ({
   isEnabled,
   onStatusChange,
+  loading: externalLoading = false,
 }: TwoFactorAuthProps) => {
   const [showModal, setShowModal] = useState(false);
   const [qrUri, setQrUri] = useState<string | null>(null);
@@ -81,7 +83,7 @@ export const TwoFactorAuth = ({
         throw new Error("No se encontró el ID del factor de autenticación");
       }
 
-      const response = await fetch(`${API_BASE}/auth/mfa/verify`, {
+      const response = await fetch(`${API_BASE}/auth/mfa/verify-setup`, {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
@@ -125,14 +127,37 @@ export const TwoFactorAuth = ({
     setError("");
 
     try {
-      const response = await fetch(`${API_BASE}/auth/mfa/unenroll`, {
-        method: "DELETE",
+      // Primero obtenemos los factores MFA del usuario
+      const factorsResponse = await fetch(`${API_BASE}/auth/mfa/factors`, {
+        method: "GET",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
       });
 
-      if (!response.ok) {
-        throw new Error("Error al desactivar 2FA");
+      if (!factorsResponse.ok) {
+        throw new Error("Error al obtener factores MFA");
+      }
+
+      const factorsData = await factorsResponse.json();
+      const verifiedFactor = factorsData.data?.all?.find(
+        (factor: any) => factor.status === "verified"
+      );
+
+      if (!verifiedFactor) {
+        throw new Error("No se encontró factor MFA activo");
+      }
+
+      // Ahora desenrolamos el factor verificado
+      const unenrollResponse = await fetch(`${API_BASE}/auth/mfa/unenroll`, {
+        method: "DELETE",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ factorId: verifiedFactor.id }),
+      });
+
+      if (!unenrollResponse.ok) {
+        const errorData = await unenrollResponse.json();
+        throw new Error(errorData.error || "Error al desactivar MFA");
       }
 
       onStatusChange(false);
@@ -206,10 +231,10 @@ export const TwoFactorAuth = ({
         <Button
           onClick={isEnabled ? handleDisable2FA : handleEnable2FA}
           variant={isEnabled ? "destructive" : "default"}
-          disabled={loading}
+          disabled={loading || externalLoading}
           size="sm"
         >
-          {loading ? <FiLoader className="animate-spin h-4 w-4 mr-2" /> : null}
+          {loading || externalLoading ? <FiLoader className="animate-spin h-4 w-4 mr-2" /> : null}
           {isEnabled ? "Desactivar" : "Configurar"}
         </Button>
       </div>
