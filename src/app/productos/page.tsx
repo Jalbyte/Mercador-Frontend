@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Image from "next/image";
 import { Header } from "@/components/layout/Header";
@@ -29,7 +29,7 @@ type Product = {
   stock_quantity: number;
 };
 
-export default function ProductosPage() {
+function ProductosContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { addItem } = useCart();
@@ -416,5 +416,27 @@ export default function ProductosPage() {
         )}
       </div>
     </div>
+  );
+}
+
+export default function ProductosPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-gray-50">
+          <Header />
+          <div className="container mx-auto px-4 py-32">
+            <div className="flex items-center justify-center">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+              <span className="ml-3 text-lg font-medium text-gray-600">
+                Cargando productos...
+              </span>
+            </div>
+          </div>
+        </div>
+      }
+    >
+      <ProductosContent />
+    </Suspense>
   );
 }
