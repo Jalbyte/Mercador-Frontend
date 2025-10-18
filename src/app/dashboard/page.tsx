@@ -82,6 +82,12 @@ export default function DashboardPage() {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showUserModal, setShowUserModal] = useState(false);
+  const [showDeleteConfirmModal, setShowDeleteConfirmModal] = useState(false);
+  const [productToDelete, setProductToDelete] = useState<{
+    id: string;
+    name: string;
+  } | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   // Estados del ProductAdmin existente
   const [products, setProducts] = useState<Product[]>([]);
@@ -654,8 +660,7 @@ export default function DashboardPage() {
   }
 
   async function handleDelete(id: string) {
-    if (!confirm("¿Eliminar producto?")) return;
-    setLoadingProducts(true);
+    setIsDeleting(true);
     setError(null);
     try {
       const resp = await fetch(`${API_BASE}/products/${id}`, {
@@ -685,12 +690,19 @@ export default function DashboardPage() {
         setError(errMsg || "Failed to delete");
       } else {
         await fetchProducts();
+        setShowDeleteConfirmModal(false);
+        setProductToDelete(null);
       }
     } catch (e: any) {
       setError(e?.message ?? String(e));
     } finally {
-      setLoadingProducts(false);
+      setIsDeleting(false);
     }
+  }
+
+  function confirmDelete(id: string, name: string) {
+    setProductToDelete({ id, name });
+    setShowDeleteConfirmModal(true);
   }
 
   function startEdit(p: Product) {
@@ -729,23 +741,8 @@ export default function DashboardPage() {
     setShowCreateModal(true);
   }
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="flex items-center">
-          <FiLoader className="animate-spin text-blue-600 mr-2" size={32} />
-          <span className="text-gray-600">Verificando permisos...</span>
-        </div>
-      </div>
-    );
-  }
-
-  if (!isAdmin) {
-    return null;
-  }
-
   // Componente del formulario mejorado para el modal
-  const ProductFormModal = () => (
+  const renderProductForm = () => (
     <div className="max-w-2xl mx-auto">
       <form onSubmit={handleSubmit} className="space-y-6">
         {/* Product Keys Section */}
@@ -1023,6 +1020,21 @@ export default function DashboardPage() {
       </form>
     </div>
   );
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="flex items-center">
+          <FiLoader className="animate-spin text-blue-600 mr-2" size={32} />
+          <span className="text-gray-600">Verificando permisos...</span>
+        </div>
+      </div>
+    );
+  }
+
+  if (!isAdmin) {
+    return null;
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -1509,7 +1521,7 @@ export default function DashboardPage() {
                               <Button
                                 variant="destructive"
                                 size="sm"
-                                onClick={() => handleDelete(p.id)}
+                                onClick={() => confirmDelete(p.id, p.name)}
                                 className="flex-1 flex items-center gap-1 justify-center"
                               >
                                 <FiTrash2 size={14} />
@@ -1537,7 +1549,7 @@ export default function DashboardPage() {
         }}
         title="Crear Nuevo Producto"
       >
-        <ProductFormModal />
+        {renderProductForm()}
       </Modal>
 
       {/* Modal para editar producto */}
@@ -1549,7 +1561,71 @@ export default function DashboardPage() {
         }}
         title="Editar Producto"
       >
-        <ProductFormModal />
+        {renderProductForm()}
+      </Modal>
+
+      {/* Modal de confirmación de eliminación */}
+      <Modal
+        open={showDeleteConfirmModal}
+        onClose={() => {
+          if (!isDeleting) {
+            setShowDeleteConfirmModal(false);
+            setProductToDelete(null);
+            setError(null);
+          }
+        }}
+        title="Confirmar Eliminación"
+      >
+        <div className="space-y-4">
+          <p className="text-gray-700">
+            ¿Estás seguro de que deseas eliminar el producto{" "}
+            <span className="font-semibold text-gray-900">
+              "{productToDelete?.name}"
+            </span>
+            ?
+          </p>
+          <p className="text-sm text-gray-600">
+            Esta acción no se puede deshacer y se eliminarán todas las claves
+            asociadas al producto.
+          </p>
+
+          {error && (
+            <div className="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-md text-sm">
+              {error}
+            </div>
+          )}
+
+          <div className="flex gap-3 justify-end pt-4">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setShowDeleteConfirmModal(false);
+                setProductToDelete(null);
+                setError(null);
+              }}
+              disabled={isDeleting}
+            >
+              Cancelar
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={() => productToDelete && handleDelete(productToDelete.id)}
+              disabled={isDeleting}
+            >
+              {isDeleting ? (
+                <div className="flex items-center gap-2">
+                  <FiLoader className="animate-spin" size={16} />
+                  Eliminando...
+                </div>
+              ) : (
+                <div className="flex items-center gap-2">
+                  <FiTrash2 size={16} />
+                  Eliminar Producto
+                </div>
+              )}
+            </Button>
+          </div>
+        </div>
       </Modal>
     </div>
   );
