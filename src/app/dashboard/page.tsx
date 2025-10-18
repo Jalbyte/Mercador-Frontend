@@ -57,10 +57,16 @@ type Product = {
   description: string;
   price: number;
   category: string;
+  license_type?: number;
   image_url?: string | null;
   stock_quantity: number;
   created_at?: string;
   updated_at?: string;
+};
+
+type LicenseType = {
+  id: string;
+  type: string;
 };
 
 export default function DashboardPage() {
@@ -100,10 +106,15 @@ export default function DashboardPage() {
   const [description, setDescription] = useState("");
   const [price, setPrice] = useState<number | "">("");
   const [category, setCategory] = useState("");
+  const [licenseType, setLicenseType] = useState<number | "">("");
   const [stockQuantity, setStockQuantity] = useState<number | "">("");
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [imageError, setImageError] = useState<string | null>(null);
+
+  // Estados para tipos de licencia
+  const [licenseTypes, setLicenseTypes] = useState<LicenseType[]>([]);
+  const [loadingLicenseTypes, setLoadingLicenseTypes] = useState(false);
 
   // Estados para product keys
   const [productKeys, setProductKeys] = useState<ProductKeyInput[]>([]);
@@ -111,6 +122,10 @@ export default function DashboardPage() {
   const [randomCount, setRandomCount] = useState<number>(1);
   const [existingKeys, setExistingKeys] = useState<ProductKey[]>([]);
   const [loadingKeys, setLoadingKeys] = useState(false);
+
+  // Estados para filtros de productos
+  const [searchQuery, setSearchQuery] = useState("");
+  const [selectedLicenseFilter, setSelectedLicenseFilter] = useState<string>("all");
 
   useEffect(() => {
     let mounted = true;
@@ -142,6 +157,7 @@ export default function DashboardPage() {
 
         setIsAdmin(true);
         setUserName(name);
+        fetchLicenseTypes();
         fetchProducts();
       } catch (err) {
         console.error("Error checking admin access:", err);
@@ -307,6 +323,29 @@ export default function DashboardPage() {
   };
 
   // Funciones del ProductAdmin existente
+  async function fetchLicenseTypes() {
+    setLoadingLicenseTypes(true);
+    try {
+      const resp = await fetch(`${API_BASE}/products/license-types`, {
+        credentials: "include",
+      });
+      
+      if (!resp.ok) {
+        console.error("Failed to fetch license types:", resp.status);
+        return;
+      }
+
+      const json = await resp.json();
+      if (json?.success && json?.data) {
+        setLicenseTypes(json.data);
+      }
+    } catch (e: any) {
+      console.error("Error fetching license types:", e);
+    } finally {
+      setLoadingLicenseTypes(false);
+    }
+  }
+
   async function fetchProducts() {
     setLoadingProducts(true);
     setError(null);
@@ -576,6 +615,7 @@ export default function DashboardPage() {
         description,
         price: typeof price === "number" ? price : Number(price),
         category,
+        license_type: licenseType ? String(licenseType) : undefined,
         stock_quantity:
           typeof stockQuantity === "number"
             ? stockQuantity
@@ -711,6 +751,7 @@ export default function DashboardPage() {
     setDescription(p.description);
     setPrice(p.price);
     setCategory(p.category);
+    setLicenseType(p.license_type || "");
     setStockQuantity(p.stock_quantity);
     setImagePreview(p.image_url ?? null);
     setImageFile(null);
@@ -726,6 +767,7 @@ export default function DashboardPage() {
     setDescription("");
     setPrice("");
     setCategory("");
+    setLicenseType("");
     setStockQuantity("");
     setImageFile(null);
     setImagePreview(null);
@@ -740,6 +782,21 @@ export default function DashboardPage() {
     resetForm();
     setShowCreateModal(true);
   }
+
+  // Filtrar productos
+  const filteredProducts = products.filter((product) => {
+    // Filtro por búsqueda (nombre, descripción, categoría)
+    const matchesSearch = searchQuery === "" || 
+      product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      product.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      product.category.toLowerCase().includes(searchQuery.toLowerCase());
+
+    // Filtro por tipo de licencia
+    const matchesLicense = selectedLicenseFilter === "all" || 
+      product.license_type?.toString() === selectedLicenseFilter;
+
+    return matchesSearch && matchesLicense;
+  });
 
   // Componente del formulario mejorado para el modal
   const renderProductForm = () => (
@@ -943,6 +1000,34 @@ export default function DashboardPage() {
               onChange={(e) => setCategory(e.target.value)}
               required
             />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Tipo de Licencia
+            </label>
+            {loadingLicenseTypes ? (
+              <div className="flex items-center gap-2 text-sm text-gray-500">
+                <FiLoader className="animate-spin" size={16} />
+                Cargando tipos de licencia...
+              </div>
+            ) : (
+              <select
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                value={licenseType}
+                onChange={(e) => setLicenseType(e.target.value === "" ? "" : Number(e.target.value))}
+              >
+                <option value="">Seleccionar tipo de licencia</option>
+                {licenseTypes.map((type) => (
+                  <option key={type.id} value={type.id}>
+                    {type.type}
+                  </option>
+                ))}
+              </select>
+            )}
+            <p className="text-xs text-gray-500 mt-1">
+              Selecciona el tipo de licencia desde la base de datos
+            </p>
           </div>
 
           <div>
@@ -1436,6 +1521,74 @@ export default function DashboardPage() {
                 </div>
               </div>
 
+              {/* Barra de búsqueda y filtros */}
+              <div className="mb-6 space-y-4">
+                <div className="flex flex-col sm:flex-row gap-4">
+                  {/* Buscador */}
+                  <div className="flex-1 relative">
+                    <input
+                      type="text"
+                      placeholder="Buscar por nombre, descripción o categoría..."
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    />
+                    <svg
+                      className="absolute left-3 top-2.5 h-5 w-5 text-gray-400"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+                      />
+                    </svg>
+                  </div>
+
+                  {/* Filtro por tipo de licencia */}
+                  <div className="sm:w-64">
+                    <select
+                      value={selectedLicenseFilter}
+                      onChange={(e) => setSelectedLicenseFilter(e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
+                      disabled={loadingLicenseTypes}
+                    >
+                      <option value="all">Todos los tipos</option>
+                      {licenseTypes.map((type) => (
+                        <option key={type.id} value={type.id}>
+                          {type.type}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Botón para limpiar filtros */}
+                  {(searchQuery !== "" || selectedLicenseFilter !== "all") && (
+                    <Button
+                      variant="outline"
+                      onClick={() => {
+                        setSearchQuery("");
+                        setSelectedLicenseFilter("all");
+                      }}
+                      className="whitespace-nowrap"
+                    >
+                      Limpiar filtros
+                    </Button>
+                  )}
+                </div>
+
+                {/* Contador de resultados */}
+                <div className="flex items-center justify-between text-sm text-gray-600">
+                  <span>
+                    Mostrando <span className="font-semibold">{filteredProducts.length}</span> de{" "}
+                    <span className="font-semibold">{products.length}</span> productos
+                  </span>
+                </div>
+              </div>
+
               {/* Error general */}
               {error && (
                 <div className="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-md mb-6 text-sm">
@@ -1463,8 +1616,17 @@ export default function DashboardPage() {
                         Comienza creando tu primer producto
                       </p>
                     </div>
+                  ) : filteredProducts.length === 0 ? (
+                    <div className="col-span-full text-center py-12 text-gray-500">
+                      <div className="text-lg font-medium mb-2">
+                        No se encontraron productos
+                      </div>
+                      <p className="text-sm">
+                        Intenta ajustar los filtros de búsqueda
+                      </p>
+                    </div>
                   ) : (
-                    products.map((p) => (
+                    filteredProducts.map((p) => (
                       <Card
                         key={p.id}
                         className="hover:shadow-md transition-shadow"

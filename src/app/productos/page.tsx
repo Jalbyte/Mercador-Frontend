@@ -25,8 +25,14 @@ type Product = {
   description: string;
   price: number;
   category: string;
+  license_type?: string;
   image_url?: string | null;
   stock_quantity: number;
+};
+
+type LicenseType = {
+  id: string;
+  type: string;
 };
 
 function ProductosContent() {
@@ -50,11 +56,31 @@ function ProductosContent() {
   const [showFilters, setShowFilters] = useState(false);
   const [showPriceFilter, setShowPriceFilter] = useState(false);
 
-  // Obtener categorías únicas
-  const categories = [
-    "all",
-    ...Array.from(new Set(products.map((p) => p.category))),
-  ];
+  // Estados para tipos de licencia
+  const [licenseTypes, setLicenseTypes] = useState<LicenseType[]>([]);
+  const [loadingLicenseTypes, setLoadingLicenseTypes] = useState(false);
+
+  // Cargar tipos de licencia
+  useEffect(() => {
+    async function fetchLicenseTypes() {
+      setLoadingLicenseTypes(true);
+      try {
+        const res = await fetch(`${API_BASE}/products/license-types`);
+        if (res.ok) {
+          const body = await res.json();
+          if (body?.success && body?.data) {
+            setLicenseTypes(body.data);
+          }
+        }
+      } catch (err) {
+        console.error("Error al cargar tipos de licencia:", err);
+      } finally {
+        setLoadingLicenseTypes(false);
+      }
+    }
+
+    fetchLicenseTypes();
+  }, []);
 
   // Cargar productos
   useEffect(() => {
@@ -89,9 +115,9 @@ function ProductosContent() {
       );
     }
 
-    // Filtro por categoría
+    // Filtro por tipo de licencia
     if (selectedCategory !== "all") {
-      filtered = filtered.filter((p) => p.category === selectedCategory);
+      filtered = filtered.filter((p) => p.license_type?.toString() === selectedCategory);
     }
 
     // Filtro por rango de precio
@@ -201,23 +227,23 @@ function ProductosContent() {
             </div>
           </div>
 
-          {/* Segunda fila: Categoría y Ordenamiento */}
+          {/* Segunda fila: Categoría (Tipo de Licencia) y Ordenamiento */}
           <div className="flex flex-col sm:flex-row gap-4 items-stretch sm:items-center">
-            {/* Filtro por categoría */}
+            {/* Filtro por tipo de licencia (Categoría) */}
             <div className="flex items-center gap-3 flex-1">
               <label className="text-sm font-medium text-gray-700 whitespace-nowrap">
-                Categoría:
+                Tipo de Licencia:
               </label>
               <select
                 value={selectedCategory}
                 onChange={(e) => setSelectedCategory(e.target.value)}
                 className="flex-1 px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
+                disabled={loadingLicenseTypes}
               >
-                {categories.map((cat) => (
-                  <option key={cat} value={cat}>
-                    {cat === "all"
-                      ? "Todas las categorías"
-                      : cat.charAt(0).toUpperCase() + cat.slice(1)}
+                <option value="all">Todos los tipos</option>
+                {licenseTypes.map((type) => (
+                  <option key={type.id} value={type.id}>
+                    {type.type}
                   </option>
                 ))}
               </select>
