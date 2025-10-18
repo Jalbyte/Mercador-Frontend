@@ -166,47 +166,47 @@ function ProductosContent() {
       <Header />
 
       {/* Hero Section */}
-      <section className="bg-gradient-to-r from-blue-600 to-purple-600 text-white pt-32 pb-16">
-        <div className="container mx-auto px-3">
-          <h1 className="text-4xl md:text-5xl font-bold mb-4">
+      <section className="bg-gradient-to-r from-blue-600 to-purple-600 text-white pt-24 sm:pt-28 md:pt-32 pb-12 md:pb-16">
+        <div className="container mx-auto px-4">
+          <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold mb-3 md:mb-4">
             Catálogo de Productos
           </h1>
-          <p className="text-lg text-blue-100">
+          <p className="text-base sm:text-lg text-blue-100">
             Explora nuestra amplia selección de licencias
           </p>
         </div>
       </section>
 
-      <div className="container mx-auto px-4 py-8">
+      <div className="container mx-auto px-4 py-6 md:py-8">
         {/* Barra de búsqueda y controles */}
-        <div className="bg-white rounded-xl shadow-md p-6 mb-8">
+        <div className="bg-white rounded-xl shadow-md p-4 md:p-6 mb-6 md:mb-8">
           {/* Primera fila: Buscador y botones de acción */}
-          <div className="flex flex-col lg:flex-row gap-4 items-stretch lg:items-center justify-between mb-4">
+          <div className="flex flex-col gap-4 mb-4">
             {/* Buscador */}
-            <div className="relative flex-1 w-full lg:max-w-md">
+            <div className="relative w-full">
               <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
               <input
                 type="text"
-                placeholder="Buscar productos por nombre..."
+                placeholder="Buscar productos..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm md:text-base"
               />
             </div>
 
-            {/* Controles de la derecha */}
-            <div className="flex flex-wrap gap-3">
+            {/* Controles - Ahora en fila separada */}
+            <div className="flex flex-col sm:flex-row flex-wrap gap-3">
               {/* Botón de filtro de precio */}
               <button
                 onClick={() => setShowPriceFilter(!showPriceFilter)}
-                className={`flex items-center gap-2 px-4 py-3 rounded-lg font-medium transition-all duration-300 ${
+                className={`flex-1 sm:flex-initial flex items-center justify-center gap-2 px-4 py-3 rounded-lg font-medium transition-all duration-300 text-sm md:text-base ${
                   showPriceFilter
                     ? "bg-blue-600 text-white shadow-lg"
                     : "bg-gray-100 text-gray-700 hover:bg-gray-200"
                 }`}
               >
                 <FiFilter size={18} />
-                Filtro de Precio
+                <span className="whitespace-nowrap">Filtro de Precio</span>
                 {showPriceFilter && (
                   <span className="ml-1 text-xs bg-white/20 px-2 py-0.5 rounded-full">
                     Activo
@@ -218,26 +218,26 @@ function ProductosContent() {
               {(searchTerm || selectedCategory !== "all" || showPriceFilter) && (
                 <button
                   onClick={resetFilters}
-                  className="flex items-center gap-2 px-4 py-3 bg-red-50 text-red-600 hover:bg-red-100 rounded-lg font-medium transition-colors"
+                  className="flex-1 sm:flex-initial flex items-center justify-center gap-2 px-4 py-3 bg-red-50 text-red-600 hover:bg-red-100 rounded-lg font-medium transition-colors text-sm md:text-base"
                 >
                   <FiX size={18} />
-                  Limpiar
+                  <span>Limpiar</span>
                 </button>
               )}
             </div>
           </div>
 
           {/* Segunda fila: Categoría (Tipo de Licencia) y Ordenamiento */}
-          <div className="flex flex-col sm:flex-row gap-4 items-stretch sm:items-center">
+          <div className="flex flex-col gap-4">
             {/* Filtro por tipo de licencia (Categoría) */}
-            <div className="flex items-center gap-3 flex-1">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-3">
               <label className="text-sm font-medium text-gray-700 whitespace-nowrap">
                 Tipo de Licencia:
               </label>
               <select
                 value={selectedCategory}
                 onChange={(e) => setSelectedCategory(e.target.value)}
-                className="flex-1 px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
+                className="w-full sm:flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white text-sm md:text-base"
                 disabled={loadingLicenseTypes}
               >
                 <option value="all">Todos los tipos</option>
@@ -250,14 +250,14 @@ function ProductosContent() {
             </div>
 
             {/* Ordenamiento */}
-            <div className="flex items-center gap-3 flex-1">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-3">
               <label className="text-sm font-medium text-gray-700 whitespace-nowrap">
                 Ordenar por:
               </label>
               <select
                 value={sortBy}
                 onChange={(e) => setSortBy(e.target.value)}
-                className="flex-1 px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
+                className="w-full sm:flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white text-sm md:text-base"
               >
                 <option value="name-asc">Nombre (A-Z)</option>
                 <option value="name-desc">Nombre (Z-A)</option>

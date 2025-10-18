@@ -193,7 +193,7 @@ export default function Home() {
         <div className="absolute top-1/2 left-1/2 w-32 h-32 bg-white/10 rounded-full blur-2xl -translate-x-16 -translate-y-16"></div>
 
         <div className="container mx-auto px-4 text-center relative z-10">
-          <h1 className="text-5xl md:text-6xl font-bold mb-6 leading-tight flex flex-col items-center justify-center">
+          <h1 className="text-4xl sm:text-5xl md:text-6xl font-bold mb-6 leading-tight flex flex-col items-center justify-center px-4">
             {/* Logo animado */}
             <div className="mb-4 relative">
               <div className="absolute inset-0 bg-white/20 rounded-full blur-xl animate-pulse"></div>
@@ -202,23 +202,23 @@ export default function Home() {
                 alt="Mercador logo"
                 width={280}
                 height={70}
-                className="relative z-10 animate-[float_3s_ease-in-out_infinite] drop-shadow-2xl"
+                className="relative z-10 animate-[float_3s_ease-in-out_infinite] drop-shadow-2xl w-auto h-auto max-w-[200px] sm:max-w-[240px] md:max-w-[280px]"
                 style={{ height: 'auto' }}
                 priority
               />
             </div>
-            <span className="block text-3xl md:text-4xl font-semibold tracking-tight drop-shadow-sm animate-[fadeIn_1s_ease-in]" style={{ color: '#C1E0F7' }}>
+            <span className="block text-2xl sm:text-3xl md:text-4xl font-semibold tracking-tight drop-shadow-sm animate-[fadeIn_1s_ease-in] text-center" style={{ color: '#C1E0F7' }}>
               Licencias al mejor precio
             </span>
           </h1>
 
-          <p className="text-xl mb-8 max-w-2xl mx-auto leading-relaxed text-blue-100">
+          <p className="text-base sm:text-lg md:text-xl mb-8 max-w-2xl mx-auto leading-relaxed text-blue-100 px-4 text-center">
             Encuentra las mejores ofertas en licencias originales con garantía
           </p>
 
-          <div className="flex flex-col sm:flex-row gap-4 justify-center items-center mb-12">
-            <Link href="/productos">
-              <button className="border-2 border-white/30 text-white px-8 py-4 rounded-xl font-semibold hover:bg-white/10 backdrop-blur-sm transition-all duration-300">
+          <div className="flex flex-col sm:flex-row gap-4 justify-center items-center mb-12 px-4">
+            <Link href="/productos" className="w-full sm:w-auto">
+              <button className="w-full sm:w-auto border-2 border-white/30 text-white px-8 py-4 rounded-xl font-semibold hover:bg-white/10 backdrop-blur-sm transition-all duration-300">
                 Explorar Catálogo
               </button> 
             </Link>
@@ -227,17 +227,17 @@ export default function Home() {
       </section> 
 
       {/* Main Content */}
-      <main className="container mx-auto px-4 py-16">
-        <div className="flex flex-col md:flex-row justify-between items-center mb-12">
-          <div>
-            <h2 className="text-4xl font-bold text-gray-900 mb-2">
+      <main className="container mx-auto px-4 py-8 md:py-16">
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 md:mb-12 gap-4">
+          <div className="w-full md:w-auto">
+            <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-2">
               Licencias Populares
             </h2>
-            <p className="text-gray-600">Descubre los productos más vendidos</p>
+            <p className="text-gray-600 text-sm md:text-base">Descubre los productos más vendidos</p>
           </div>
-          <div className="flex gap-3 mt-4 md:mt-0">
-            <Link href="/productos">
-              <button className="px-6 py-3 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-xl hover:from-blue-700 hover:to-blue-800 transition-all duration-300 transform hover:scale-105 shadow-lg font-medium">
+          <div className="flex gap-3 w-full md:w-auto">
+            <Link href="/productos" className="w-full md:w-auto">
+              <button className="w-full md:w-auto px-6 py-3 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-xl hover:from-blue-700 hover:to-blue-800 transition-all duration-300 transform hover:scale-105 shadow-lg font-medium">
                 Ver Todas
               </button>
             </Link>
