@@ -186,20 +186,7 @@ export function MFAVerification({
             ) : (
               "Verificar"
             )}
-          </button>
-
-          {/* Cancel button */}
-          <button
-            type="button"
-            onClick={onCancel}
-            disabled={isSubmitting || loading}
-            className="w-full mt-3 py-3 px-4 bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold rounded-lg
-              transition-colors disabled:opacity-50 disabled:cursor-not-allowed
-              flex items-center justify-center gap-2"
-          >
-            <FiArrowLeft />
-            Volver al inicio de sesión
-          </button>
+          </button> 
         </form>
       </div>
     </div>

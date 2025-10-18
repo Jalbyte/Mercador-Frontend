@@ -57,6 +57,9 @@ type CartContextType = {
   removeItem: (id: string) => void;
   updateQuantity: (id: string, quantity: number) => void;
   clearCart: () => void;
+  showToast: boolean;
+  toastMessage: string;
+  hideToast: () => void;
 };
 
 /**
@@ -107,6 +110,8 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   const [items, setItems] = useState<CartItem[]>([]);
   const [isOpen, setIsOpen] = useState(false);
   const [isMounted, setIsMounted] = useState(false);
+  const [showToast, setShowToast] = useState(false);
+  const [toastMessage, setToastMessage] = useState("");
 
   /**
    * Hook useEffect que carga el carrito desde localStorage al montar el componente.
@@ -171,6 +176,14 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
 
       return [...prevItems, { ...item, quantity: 1 }];
     });
+    
+    // Mostrar notificación
+    setToastMessage(`"${item.name}" agregado al carrito`);
+    setShowToast(true);
+  };
+
+  const hideToast = () => {
+    setShowToast(false);
   };
 
   /**
@@ -225,13 +238,16 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       removeItem,
       updateQuantity,
       clearCart,
+      showToast,
+      toastMessage,
+      hideToast,
     }),
     [
       items,
       totalItems,
       isOpen,
-      setIsOpen,
-      addItem,
+      showToast,
+      toastMessage,
       removeItem,
       updateQuantity,
       clearCart,

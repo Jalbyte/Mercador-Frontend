@@ -4,7 +4,7 @@ import { useCart } from "@/hooks";
 import { useAuthRoute } from "@/hooks/use-auth-route";
 import { useAuth } from "@/components/auth/AuthProvider";
 import { Modal } from "@/components/ui/modal";
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import SaleDetail from "./SaleDetail";
 import { X, Plus, Minus, ShoppingCart } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -34,6 +34,7 @@ export function Cart() {
     items: cartItems,
     updateQuantity,
     removeItem,
+    clearCart,
     totalItems,
   } = useCart();
 
@@ -43,7 +44,23 @@ export function Cart() {
   );
 
   const [isDetailOpen, setIsDetailOpen] = useState(false);
+  const [showClearConfirm, setShowClearConfirm] = useState(false);
   const { isAuthenticated, isLoading } = useAuth();
+  const clearConfirmRef = useRef<HTMLDivElement>(null);
+
+  // Cerrar modal de confirmación al hacer clic fuera
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (clearConfirmRef.current && !clearConfirmRef.current.contains(event.target as Node)) {
+        setShowClearConfirm(false);
+      }
+    }
+
+    if (showClearConfirm) {
+      document.addEventListener("mousedown", handleClickOutside);
+      return () => document.removeEventListener("mousedown", handleClickOutside);
+    }
+  }, [showClearConfirm]);
 
   // Hide cart on auth routes, admin routes, and other specified routes
   if (isCartHiddenRoute) {
@@ -72,14 +89,61 @@ export function Cart() {
       <Card className="h-full w-full max-w-md flex flex-col">
         <CardHeader className="flex flex-row items-center justify-between border-b">
           <CardTitle>Carrito de Compras</CardTitle>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => setIsOpen(false)}
-            aria-label="Cerrar carrito"
-          >
-            <X className="h-5 w-5" />
-          </Button>
+          <div className="flex items-center gap-2 relative">
+            {cartItems.length > 0 && (
+              <div className="relative">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowClearConfirm(true)}
+                  className="text-destructive hover:bg-destructive/10"
+                >
+                  Vaciar carrito
+                </Button>
+                
+                {/* Modal de confirmación pequeño */}
+                {showClearConfirm && (
+                  <div 
+                    ref={clearConfirmRef}
+                    className="absolute top-full right-0 mt-2 z-[60] w-64 bg-white rounded-lg shadow-2xl border border-gray-200 p-4 animate-[fadeIn_0.2s_ease-out]"
+                  >
+                    <p className="text-sm text-gray-700 mb-3">
+                      ¿Vaciar el carrito?
+                    </p>
+                    <div className="flex gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setShowClearConfirm(false)}
+                        className="flex-1"
+                      >
+                        Cancelar
+                      </Button>
+                      <Button
+                        variant="destructive"
+                        size="sm"
+                        onClick={() => {
+                          clearCart();
+                          setShowClearConfirm(false);
+                        }}
+                        className="flex-1"
+                      >
+                        Vaciar
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setIsOpen(false)}
+              aria-label="Cerrar carrito"
+            >
+              <X className="h-5 w-5" />
+            </Button>
+          </div>
         </CardHeader>
 
         <CardContent className="flex-1 overflow-y-auto p-4 space-y-4">

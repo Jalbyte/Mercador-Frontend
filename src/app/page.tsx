@@ -62,6 +62,7 @@ const LicenseCard = ({
               src={image}
               alt={title}
               fill
+              sizes="(max-width: 768px) 100vw, (max-width: 1024px) 50vw, 25vw"
               className="object-cover transition-transform duration-500 group-hover:scale-110"
             />
             <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
@@ -193,9 +194,21 @@ export default function Home() {
 
         <div className="container mx-auto px-4 text-center relative z-10">
           <h1 className="text-5xl md:text-6xl font-bold mb-6 leading-tight flex flex-col items-center justify-center">
-            <span>Mercador</span>
-            <span className="block bg-gradient-to-r from-amber-500 to-orange-600 bg-clip-text text-transparent text-3xl md:text-4xl font-semibold tracking-tight drop-shadow-sm">
-              licencias al Mejor Precio
+            {/* Logo animado */}
+            <div className="mb-4 relative">
+              <div className="absolute inset-0 bg-white/20 rounded-full blur-xl animate-pulse"></div>
+              <Image
+                src="/MercadorLogo.png"
+                alt="Mercador logo"
+                width={280}
+                height={70}
+                className="relative z-10 animate-[float_3s_ease-in-out_infinite] drop-shadow-2xl"
+                style={{ height: 'auto' }}
+                priority
+              />
+            </div>
+            <span className="block text-3xl md:text-4xl font-semibold tracking-tight drop-shadow-sm animate-[fadeIn_1s_ease-in]" style={{ color: '#C1E0F7' }}>
+              Licencias al mejor precio
             </span>
           </h1>
 
@@ -204,49 +217,14 @@ export default function Home() {
           </p>
 
           <div className="flex flex-col sm:flex-row gap-4 justify-center items-center mb-12">
-            <button className="border-2 border-white/30 text-white px-8 py-4 rounded-xl font-semibold hover:bg-white/10 backdrop-blur-sm transition-all duration-300">
-              Explorar Catálogo
-            </button>
+            <Link href="/productos">
+              <button className="border-2 border-white/30 text-white px-8 py-4 rounded-xl font-semibold hover:bg-white/10 backdrop-blur-sm transition-all duration-300">
+                Explorar Catálogo
+              </button> 
+            </Link>
           </div>
         </div>
-      </section>
-
-      {/* Features Section - Nuevo */}
-      <section className="py-16 bg-white">
-        <div className="container mx-auto px-4">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            <div className="text-center group">
-              <div className="bg-gradient-to-r from-green-500 to-emerald-500 w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4 group-hover:scale-110 transition-transform duration-300">
-                <FiShield className="w-8 h-8 text-white" />
-              </div>
-              <h3 className="text-xl font-bold mb-2">Garantía Total</h3>
-              <p className="text-gray-600">
-                Todas nuestras licencias incluyen garantía y soporte técnico
-              </p>
-            </div>
-
-            <div className="text-center group">
-              <div className="bg-gradient-to-r from-blue-500 to-cyan-500 w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4 group-hover:scale-110 transition-transform duration-300">
-                <FiZap className="w-8 h-8 text-white" />
-              </div>
-              <h3 className="text-xl font-bold mb-2">Activación Instantánea</h3>
-              <p className="text-gray-600">
-                Recibe tu licencia y actívala inmediatamente
-              </p>
-            </div>
-
-            <div className="text-center group">
-              <div className="bg-gradient-to-r from-purple-500 to-pink-500 w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4 group-hover:scale-110 transition-transform duration-300">
-                <FiStar className="w-8 h-8 text-white" />
-              </div>
-              <h3 className="text-xl font-bold mb-2">Precios Exclusivos</h3>
-              <p className="text-gray-600">
-                Los mejores precios del mercado con descuentos especiales
-              </p>
-            </div>
-          </div>
-        </div>
-      </section>
+      </section> 
 
       {/* Main Content */}
       <main className="container mx-auto px-4 py-16">
@@ -258,12 +236,11 @@ export default function Home() {
             <p className="text-gray-600">Descubre los productos más vendidos</p>
           </div>
           <div className="flex gap-3 mt-4 md:mt-0">
-            <button className="px-6 py-3 border-2 border-gray-300 rounded-xl hover:border-blue-500 hover:text-blue-600 transition-all duration-300 font-medium">
-              Categorías
-            </button>
-            <button className="px-6 py-3 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-xl hover:from-blue-700 hover:to-blue-800 transition-all duration-300 transform hover:scale-105 shadow-lg font-medium">
-              Ver Todas
-            </button>
+            <Link href="/productos">
+              <button className="px-6 py-3 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-xl hover:from-blue-700 hover:to-blue-800 transition-all duration-300 transform hover:scale-105 shadow-lg font-medium">
+                Ver Todas
+              </button>
+            </Link>
           </div>
         </div>
 
@@ -301,87 +278,6 @@ export default function Home() {
               <LicenseCard key={license.id} {...license} />
             ))}
         </div>
-
-        {/* 🔥 Sección para probar funciones del carrito - Mejorada */}
-        <div className="mt-16 bg-gradient-to-r from-purple-50 to-blue-50 border border-purple-200 rounded-2xl p-8">
-          <div className="flex items-center gap-3 mb-6">
-            <div className="bg-gradient-to-r from-purple-500 to-blue-500 w-12 h-12 rounded-xl flex items-center justify-center">
-              <span className="text-2xl">🧪</span>
-            </div>
-            <div>
-              <h3 className="text-2xl font-bold text-gray-900">
-                Zona de Pruebas del Carrito
-              </h3>
-              <p className="text-gray-600">
-                Prueba las funcionalidades del carrito de compras
-              </p>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <button
-              onClick={() =>
-                addItem({
-                  id: "demo-" + Date.now(),
-                  name: "Producto Demo",
-                  price: Math.floor(Math.random() * 100) + 10,
-                  image:
-                    "https://images.unsplash.com/photo-1633419461186-7d40a38105ec?w=400&h=300&fit=crop",
-                })
-              }
-              className="bg-gradient-to-r from-green-500 to-emerald-500 text-white px-6 py-4 rounded-xl hover:from-green-600 hover:to-emerald-600 transition-all duration-300 transform hover:scale-105 shadow-lg font-medium flex items-center justify-center gap-2"
-            >
-              <span className="text-xl">➕</span>
-              Agregar Item Aleatorio
-            </button>
-
-            <button
-              onClick={() => {
-                const bulkItems = [
-                  {
-                    id: "bulk-1",
-                    name: "Excel Premium",
-                    price: 45.99,
-                    image:
-                      "https://images.unsplash.com/photo-1633419461186-7d40a38105ec?w=400&h=300&fit=crop",
-                  },
-                  {
-                    id: "bulk-2",
-                    name: "PowerPoint Pro",
-                    price: 35.99,
-                    image:
-                      "https://images.unsplash.com/photo-1633419461186-7d40a38105ec?w=400&h=300&fit=crop",
-                  },
-                  {
-                    id: "bulk-3",
-                    name: "Teams Business",
-                    price: 25.99,
-                    image:
-                      "https://images.unsplash.com/photo-1633419461186-7d40a38105ec?w=400&h=300&fit=crop",
-                  },
-                ];
-                bulkItems.forEach((item) => addItem(item));
-              }}
-              className="bg-gradient-to-r from-purple-500 to-pink-500 text-white px-6 py-4 rounded-xl hover:from-purple-600 hover:to-pink-600 transition-all duration-300 transform hover:scale-105 shadow-lg font-medium flex items-center justify-center gap-2"
-            >
-              <span className="text-xl">📦</span>
-              Agregar Paquete (3 items)
-            </button>
-
-            <button
-              onClick={() => {
-                // Limpiar carrito y reiniciar todo
-                clearCart();
-                localStorage.removeItem("cart-initialized");
-                window.location.reload();
-              }}
-              className="bg-gradient-to-r from-red-500 to-orange-500 text-white px-6 py-4 rounded-xl hover:from-red-600 hover:to-orange-600 transition-all duration-300 transform hover:scale-105 shadow-lg font-medium flex items-center justify-center gap-2"
-            >
-              <span className="text-xl">🗑️</span>
-              Reset Total
-            </button>
-          </div>
-        </div>
       </main>
 
       {/* Footer - Mejorado */}
@@ -394,10 +290,13 @@ export default function Home() {
           <div className="grid grid-cols-1 md:grid-cols-4 gap-8 mb-12">
             <div>
               <div className="flex items-center gap-3 mb-4">
-                <div className="bg-gradient-to-r from-blue-500 to-purple-500 w-10 h-10 rounded-lg flex items-center justify-center">
-                  <span className="font-bold text-white">M</span>
-                </div>
-                <h3 className="text-2xl font-bold">Mercador</h3>
+                <Image
+                  src="/MercadorLogo.png"
+                  alt="Mercador logo"
+                  width={120}
+                  height={30}
+                  className="h-10 w-28 md:h-12 md:w-40 object-contain"
+                />
               </div>
               <p className="text-gray-400 leading-relaxed">
                 Tu tienda confiable de licencias de software originales al mejor

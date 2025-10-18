@@ -43,6 +43,7 @@ import { CartProvider } from "@/hooks";
 import { AccessibilitySidebar } from "@/components/accessibility/page";
 import { AuthProvider } from "@/components/auth/AuthProvider";
 import { MFAProvider } from "@/components/auth/MFAProvider";
+import { CartToastManager } from "@/components/cart/CartToastManager";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -99,6 +100,7 @@ export default function RootLayout({ children }: RootLayoutProps) {
               <main id="main-content" className="min-h-screen bg-base-200/50">
                 {children}
                 <Cart />
+                <CartToastManager />
               </main>
 
               {/* Componente de accesibilidad */}
