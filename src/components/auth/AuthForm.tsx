@@ -2,6 +2,7 @@ import { useRouter } from "next/navigation";
 import { forwardRef, useEffect, useImperativeHandle, useState } from "react";
 import { FiGlobe, FiLock, FiMail, FiUser as UserIcon } from "react-icons/fi";
 import { FormInput } from "./FormInput";
+import { LegalModal } from '@/components/ui/legal-modal';
 
 interface FormData {
   email: string;
@@ -36,6 +37,8 @@ export const AuthForm = forwardRef<any, AuthFormProps>(({
 }, ref) => {
   const router = useRouter();
   const [showPassword, setShowPassword] = useState(false);
+  const [termsModalOpen, setTermsModalOpen] = useState(false);
+  const [privacyModalOpen, setPrivacyModalOpen] = useState(false);
   const [formData, setFormData] = useState<FormData>({
     email: "",
     password: "",
@@ -203,19 +206,21 @@ export const AuthForm = forwardRef<any, AuthFormProps>(({
             />
             <label className="ml-2 text-sm text-gray-600">
               Acepto los{" "}
-              <a
-                href="#"
-                className="text-blue-600 hover:text-blue-800 transition-colors"
+              <button
+                type="button"
+                onClick={() => setTermsModalOpen(true)}
+                className="text-blue-600 hover:text-blue-800 transition-colors underline"
               >
                 términos y condiciones
-              </a>{" "}
+              </button>{" "}
               y la{" "}
-              <a
-                href="#"
-                className="text-blue-600 hover:text-blue-800 transition-colors"
+              <button
+                type="button"
+                onClick={() => setPrivacyModalOpen(true)}
+                className="text-blue-600 hover:text-blue-800 transition-colors underline"
               >
                 política de privacidad
-              </a>
+              </button>
             </label>
           </div>
         )}
@@ -237,7 +242,21 @@ export const AuthForm = forwardRef<any, AuthFormProps>(({
               ? "Iniciar Sesión"
               : "Crear Cuenta"}
         </button>
+
+        
       </form>
+
+      {/* Legal Modals */}
+      <LegalModal
+        open={termsModalOpen}
+        onClose={() => setTermsModalOpen(false)}
+        type="terms"
+      />
+      <LegalModal
+        open={privacyModalOpen}
+        onClose={() => setPrivacyModalOpen(false)}
+        type="privacy"
+      />
     </div>
   );
 });
