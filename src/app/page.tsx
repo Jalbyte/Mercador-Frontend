@@ -16,6 +16,7 @@ import { Header } from "@/components/layout/Header";
 import { useCart } from "@/hooks";
 import { useEffect, useState } from "react";
 import Image from "next/image";
+import { LegalModal } from "@/components/ui/legal-modal";
 
 type LicenseCardProps = {
   id: string;
@@ -105,6 +106,8 @@ export default function Home() {
   const [products, setProducts] = useState<LicenseCardProps[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [termsModalOpen, setTermsModalOpen] = useState(false);
+  const [privacyModalOpen, setPrivacyModalOpen] = useState(false);
 
   // Agregar datos quemados al carrito SOLO la primera vez
   useEffect(() => {
@@ -296,20 +299,20 @@ export default function Home() {
                   </a>
                 </li>
                 <li>
-                  <a
-                    href="#"
+                  <button
+                    onClick={() => setTermsModalOpen(true)}
                     className="text-gray-400 hover:text-white transition-colors duration-300 hover:translate-x-1 inline-block"
                   >
                     Términos y Condiciones
-                  </a>
+                  </button>
                 </li>
                 <li>
-                  <a
-                    href="#"
+                  <button
+                    onClick={() => setPrivacyModalOpen(true)}
                     className="text-gray-400 hover:text-white transition-colors duration-300 hover:translate-x-1 inline-block"
                   >
                     Política de Privacidad
-                  </a>
+                  </button>
                 </li>
               </ul>
             </div>
@@ -375,6 +378,18 @@ export default function Home() {
           </div>
         </div>
       </footer>
+
+      {/* Legal Modals */}
+      <LegalModal
+        open={termsModalOpen}
+        onClose={() => setTermsModalOpen(false)}
+        type="terms"
+      />
+      <LegalModal
+        open={privacyModalOpen}
+        onClose={() => setPrivacyModalOpen(false)}
+        type="privacy"
+      />
     </div>
   );
 }

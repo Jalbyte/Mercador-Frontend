@@ -1,10 +1,5 @@
 "use client";
 
-/**
- * Header optimizado que usa AuthProvider como fuente única de verdad
- * Elimina llamadas duplicadas a la API y mejora el performance
- */
-
 import { FiSearch, FiUser, FiChevronDown } from "react-icons/fi";
 import { ShoppingCart } from "lucide-react";
 import Link from "next/link";
@@ -96,16 +91,6 @@ export function Header() {
               className="h-10 w-28 md:h-12 md:w-40 object-contain"
             />
           </Link>
-
-          {/* Barra de búsqueda */}
-          <div className="relative flex-1 max-w-2xl mx-4">
-            <input
-              type="text"
-              placeholder="Buscar productos..."
-              className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-            <FiSearch className="absolute right-3 top-2.5 text-gray-400" />
-          </div>
 
           {/* Navegación */}
           <nav className="flex items-center space-x-6">

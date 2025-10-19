@@ -83,7 +83,7 @@ export const TwoFactorAuth = ({
         throw new Error("No se encontró el ID del factor de autenticación");
       }
 
-      const response = await fetch(`${API_BASE}/auth/mfa/verify-setup`, {
+      const response = await fetch(`${API_BASE}/auth/mfa/verify`, {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
@@ -163,14 +163,12 @@ export const TwoFactorAuth = ({
       <div className="flex items-start justify-between p-4 border border-gray-200 rounded-lg">
         <div className="flex items-center space-x-3">
           <div
-            className={`p-2 rounded-full ${
-              isEnabled ? "bg-green-100" : "bg-gray-100"
-            }`}
+            className={`p-2 rounded-full ${isEnabled ? "bg-green-100" : "bg-gray-100"
+              }`}
           >
             <FiShield
-              className={`h-5 w-5 ${
-                isEnabled ? "text-green-600" : "text-gray-400"
-              }`}
+              className={`h-5 w-5 ${isEnabled ? "text-green-600" : "text-gray-400"
+                }`}
             />
           </div>
           <div>
@@ -184,11 +182,10 @@ export const TwoFactorAuth = ({
             </p>
             <div className="flex items-center mt-2">
               <span
-                className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                  isEnabled
+                className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${isEnabled
                     ? "bg-green-100 text-green-800"
                     : "bg-gray-100 text-gray-800"
-                }`}
+                  }`}
               >
                 {isEnabled ? (
                   <>

@@ -323,7 +323,7 @@ export default function ProfileContent() {
             <div className="mt-6 pt-6 border-t border-gray-200">
               <Button
                 variant="outline"
-                onClick={() => router.push("/change-password")}
+                onClick={() => router.push("/reset-password")}
                 className="w-full md:w-auto"
               >
                 Cambiar Contraseña
