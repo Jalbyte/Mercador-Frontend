@@ -255,24 +255,70 @@ export function Cart() {
           onConfirm={async () => {
             setIsDetailOpen(false);
             setIsOpen(false);
-            // Crear preferencia de pago en el backend
+            // Sincronizar carrito con Supabase y crear preferencia de pago
             try {
-              const res = await fetch("http://localhost:3010/payments/create", {
+              const API_BASE =
+                process.env.NEXT_PUBLIC_API_URL ??
+                (typeof window !== "undefined"
+                  ? `${window.location.protocol}//${window.location.hostname}:3010`
+                  : "");
+
+              // 1. Sincronizar items del carrito local con Supabase
+              console.log("📦 Sincronizando carrito con Supabase...");
+              for (const item of cartItems) {
+                const addToCartRes = await fetch(`${API_BASE}/cart/items`, {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  credentials: "include",
+                  body: JSON.stringify({
+                    productId: item.id,
+                    quantity: item.quantity,
+                  }),
+                });
+
+                if (!addToCartRes.ok) {
+                  throw new Error(`Error al agregar item ${item.name} al carrito`);
+                }
+              }
+              console.log("✅ Carrito sincronizado");
+
+              // 2. Obtener datos del usuario autenticado
+              const userRes = await fetch(`${API_BASE}/auth/me`, {
+                credentials: "include",
+                headers: { "Content-Type": "application/json" },
+              });
+
+              if (!userRes.ok) {
+                if (userRes.status === 401) {
+                  alert("Debes iniciar sesión para proceder al pago");
+                  setIsOpen(false);
+                  router.push("/login");
+                  return;
+                }
+                throw new Error("Error al obtener datos del usuario");
+              }
+
+              const userData = await userRes.json();
+              const user = userData?.data || userData;
+
+              // Extraer nombre y apellido del full_name o usar valores por defecto
+              const nameParts = (user.full_name || "").split(" ");
+              const firstName = nameParts[0] || "Cliente";
+              const lastName = nameParts.slice(1).join(" ") || "Mercador";
+
+              // 3. Crear preferencia de pago en el backend
+              console.log("💳 Creando preferencia de pago...");
+              const res = await fetch(`${API_BASE}/payments/create`, {
                 method: "POST",
                 headers: {
                   "Content-Type": "application/json"
                 },
-                credentials: "include", // Incluir cookies de autenticación
+                credentials: "include",
                 body: JSON.stringify({
                   payer: {
-                    email: "cliente@example.com", // TODO: Obtener del usuario autenticado
-                    name: "Juan",
-                    surname: "Pérez"
-                  },
-                  shipping_address: {
-                    street_name: "Calle Principal",
-                    street_number: 123,
-                    zip_code: "12345"
+                    email: user.email,
+                    name: firstName,
+                    surname: lastName
                   }
                 })
               });
@@ -284,20 +330,24 @@ export function Cart() {
                   router.push("/login");
                   return;
                 }
-                throw new Error(`Error: ${res.status}`);
+                const errorData = await res.json();
+                throw new Error(errorData.error || `Error: ${res.status}`);
               }
 
               const data = await res.json();
+              console.log("✅ Preferencia de pago creada");
 
-              if (data.data?.init_point) {
-                // Redirigir a Mercado Pago Checkout Pro
-                window.location.href = data.data.init_point;
+              if (data.init_point) {
+                // 4. Redirigir a Mercado Pago Checkout Pro
+                console.log("🔄 Redirigiendo a Mercado Pago...");
+                window.location.href = data.init_point;
               } else {
                 alert("No se pudo obtener el enlace de pago");
               }
             } catch (err) {
-              console.error('Error al crear preferencia de pago:', err);
-              alert("Error al conectar con el backend");
+              console.error('❌ Error al procesar pago:', err);
+              alert(err instanceof Error ? err.message : "Error al conectar con el backend");
+              setIsOpen(true); // Reabrir el carrito en caso de error
             }
           }}
         />
