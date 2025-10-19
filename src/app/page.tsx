@@ -117,22 +117,7 @@ export default function Home() {
 
     // Solo agregar datos si nunca hemos inicializado Y el carrito está vacío
     if (!hasInitialized && items.length === 0) {
-      const testItems = [
-        {
-          id: "test-1",
-          name: "Photoshop CC 2024",
-          price: 29.99,
-          image:
-            "https://images.unsplash.com/photo-1611224923853-80b023f02d71?w=400&h=300&fit=crop",
-        },
-        {
-          id: "test-2",
-          name: "Antivirus Premium",
-          price: 15.99,
-          image:
-            "https://images.unsplash.com/photo-1563013544-824ae1b704d3?w=400&h=300&fit=crop",
-        },
-      ];
+      const testItems = [] as { id: string; name: string; price: number; image: string}[];
 
       // Marcar como inicializado
       localStorage.setItem("cart-initialized", "true");
