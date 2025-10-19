@@ -127,32 +127,10 @@ export const TwoFactorAuth = ({
     setError("");
 
     try {
-      // Primero obtenemos los factores MFA del usuario
-      const factorsResponse = await fetch(`${API_BASE}/auth/mfa/factors`, {
-        method: "GET",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-      });
-
-      if (!factorsResponse.ok) {
-        throw new Error("Error al obtener factores MFA");
-      }
-
-      const factorsData = await factorsResponse.json();
-      const verifiedFactor = factorsData.data?.all?.find(
-        (factor: any) => factor.status === "verified"
-      );
-
-      if (!verifiedFactor) {
-        throw new Error("No se encontró factor MFA activo");
-      }
-
-      // Ahora desenrolamos el factor verificado
       const unenrollResponse = await fetch(`${API_BASE}/auth/mfa/unenroll`, {
         method: "DELETE",
         credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ factorId: verifiedFactor.id }),
+        headers: { "Content-Type": "application/json" }
       });
 
       if (!unenrollResponse.ok) {

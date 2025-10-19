@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useAuth } from "@/components/auth/AuthProvider";
 import {
   FiLoader,
   FiArrowLeft,
@@ -15,11 +16,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { convertFileToBase64 } from "@/lib/utils.client";
 
-const API_BASE =
-  process.env.NEXT_PUBLIC_API_URL ??
-  (typeof window !== "undefined"
-    ? `${window.location.protocol}//${window.location.hostname}:3010`
-    : "");
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || "";
 
 // Tipos existentes del ProductAdmin
 type ProductKeyInput = {
@@ -71,6 +68,7 @@ type LicenseType = {
 
 export default function DashboardPage() {
   const router = useRouter();
+  const { user, isLoading: authLoading } = useAuth();
   const [isAdmin, setIsAdmin] = useState(false);
   const [loading, setLoading] = useState(true);
   const [userName, setUserName] = useState<string | null>(null);
@@ -131,47 +129,34 @@ export default function DashboardPage() {
     let mounted = true;
 
     async function checkAdminAccess() {
-      try {
-        const res = await fetch(`${API_BASE}/auth/me`, {
-          credentials: "include",
-        });
-        if (!mounted) return;
+      // Esperar a que termine la carga de autenticación
+      if (authLoading) return;
+      
+      if (!mounted) return;
 
-        if (!res.ok) {
-          router.push("/login");
-          return;
-        }
-
-        const j = await res.json().catch(() => null);
-        const role = j?.data?.role ?? j?.data?.user_metadata?.role ?? null;
-        const name =
-          j?.data?.full_name ??
-          j?.data?.user_metadata?.full_name ??
-          j?.data?.email ??
-          null;
-
-        if (role !== "admin") {
-          router.push("/");
-          return;
-        }
-
-        setIsAdmin(true);
-        setUserName(name);
-        fetchLicenseTypes();
-        fetchProducts();
-      } catch (err) {
-        console.error("Error checking admin access:", err);
-        router.push("/");
-      } finally {
-        if (mounted) setLoading(false);
+      // Si no hay usuario o no es admin, redirigir
+      if (!user) {
+        router.push("/login");
+        return;
       }
+
+      if (user.role !== "admin") {
+        router.push("/");
+        return;
+      }
+
+      setIsAdmin(true);
+      setUserName(user.full_name || user.email);
+      fetchLicenseTypes();
+      fetchProducts();
+      setLoading(false);
     }
 
     checkAdminAccess();
     return () => {
       mounted = false;
     };
-  }, [router]);
+  }, [router, user, authLoading]);
 
   // Funciones para gestión de usuarios
   async function fetchUsers() {

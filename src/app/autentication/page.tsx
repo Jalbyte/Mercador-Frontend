@@ -2,17 +2,14 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { useAuth } from "@/components/auth/AuthProvider";
 import { FiUser, FiMail, FiSave, FiArrowLeft, FiLoader } from "react-icons/fi";
 import { Header } from "@/components/layout/Header";
 import { FormInput } from "@/components/auth/FormInput";
 import { TwoFactorAuth } from "@/components/auth/TwoFactorAuth";
 import { Button } from "@/components/ui/button";
 
-const API_BASE =
-  process.env.NEXT_PUBLIC_API_URL ??
-  (typeof window !== "undefined"
-    ? `${window.location.protocol}//${window.location.hostname}:3010`
-    : "");
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || "";
 
 interface UserProfile {
   id: string;
@@ -25,6 +22,7 @@ interface UserProfile {
 
 export default function ProfilePage() {
   const router = useRouter();
+  const { user, isLoading: authLoading, refreshUser } = useAuth();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -37,44 +35,31 @@ export default function ProfilePage() {
   });
 
   useEffect(() => {
-    loadProfile();
-  }, []);
-
-  const loadProfile = async () => {
-    setLoading(true);
-    setError("");
-
-    try {
-      // Use cookie-based auth
-      const response = await fetch(`${API_BASE}/auth/me`, {
-        credentials: 'include',
-        headers: { "Content-Type": "application/json" },
-      });
-
-      if (!response.ok) {
-        if (response.status === 401) {
-          return;
-        }
-        throw new Error("Error al cargar el perfil");
+    if (!authLoading) {
+      if (!user) {
+        router.push("/login");
+        return;
       }
-
-      const data = await response.json();
-      const userProfile = data?.data || data;
-
-      setProfile(userProfile);
-      setFormData({
-        first_name: userProfile.first_name || "",
-        last_name: userProfile.last_name || "",
-        email: userProfile.email || "",
+      
+      // Cargar perfil desde el contexto
+      setProfile({
+        id: user.id,
+        email: user.email,
+        full_name: user.full_name,
+        first_name: user.first_name,
+        last_name: user.last_name,
+        two_factor_enabled: user.two_factor_enabled,
       });
-    } catch (err) {
-      setError(
-        err instanceof Error ? err.message : "Error al cargar el perfil"
-      );
-    } finally {
+      
+      setFormData({
+        first_name: user.first_name || "",
+        last_name: user.last_name || "",
+        email: user.email || "",
+      });
+      
       setLoading(false);
     }
-  };
+  }, [user, authLoading, router]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;

@@ -26,12 +26,8 @@ type LicenseCardProps = {
   image: string;
 };
 
-// Client-side API base (can be set via NEXT_PUBLIC_API_URL)
-const API_BASE =
-  process.env.NEXT_PUBLIC_API_URL ??
-  (typeof window !== "undefined"
-    ? `${window.location.protocol}//${window.location.hostname}:3010`
-    : "");
+// Client-side API base (must be set via NEXT_PUBLIC_API_URL)
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || "";
 
 const LicenseCard = ({
   id,

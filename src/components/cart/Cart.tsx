@@ -45,7 +45,7 @@ export function Cart() {
 
   const [isDetailOpen, setIsDetailOpen] = useState(false);
   const [showClearConfirm, setShowClearConfirm] = useState(false);
-  const { isAuthenticated, isLoading } = useAuth();
+  const { isAuthenticated, isLoading, user } = useAuth();
   const clearConfirmRef = useRef<HTMLDivElement>(null);
 
   // Cerrar modal de confirmación al hacer clic fuera
@@ -282,24 +282,13 @@ export function Cart() {
               }
               console.log("✅ Carrito sincronizado");
 
-              // 2. Obtener datos del usuario autenticado
-              const userRes = await fetch(`${API_BASE}/auth/me`, {
-                credentials: "include",
-                headers: { "Content-Type": "application/json" },
-              });
-
-              if (!userRes.ok) {
-                if (userRes.status === 401) {
-                  alert("Debes iniciar sesión para proceder al pago");
-                  setIsOpen(false);
-                  router.push("/login");
-                  return;
-                }
-                throw new Error("Error al obtener datos del usuario");
+              // 2. Verificar que el usuario esté autenticado
+              if (!user) {
+                alert("Debes iniciar sesión para proceder al pago");
+                setIsOpen(false);
+                router.push("/login");
+                return;
               }
-
-              const userData = await userRes.json();
-              const user = userData?.data || userData;
 
               // Extraer nombre y apellido del full_name o usar valores por defecto
               const nameParts = (user.full_name || "").split(" ");

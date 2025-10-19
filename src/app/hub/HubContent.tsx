@@ -2,8 +2,9 @@
 
 import { useEffect, useState } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
+import { useAuth } from "@/components/auth/AuthProvider"
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? (typeof window !== 'undefined' ? `${window.location.protocol}//${window.location.hostname}:3010` : '')
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || ""
 
 function getCookie(name: string) {
   if (typeof document === 'undefined') return null
@@ -14,25 +15,12 @@ function getCookie(name: string) {
 export default function HubContent() {
   const router = useRouter()
   const params = useSearchParams()
+  const { refreshUser, isAuthenticated } = useAuth()
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     let mounted = true
-
-    async function verifyViaCookie() {
-      try {
-        const res = await fetch(`${API_BASE}/auth/me`, {
-          credentials: 'include'
-        })
-        if (!mounted) return { ok: false, body: null }
-        if (!res.ok) return { ok: false, body: await res.text().catch(() => null) }
-        const j = await res.json().catch(() => null)
-        return { ok: true, body: j }
-      } catch (err) {
-        return { ok: false, body: String(err) }
-      }
-    }
 
     async function init() {
       setLoading(true)
@@ -97,15 +85,17 @@ export default function HubContent() {
         return
       }
 
-      // Ahora verificar la sesión establecida
-      const result = await verifyViaCookie()
-      if (!mounted) return
-
-      if (!result.ok) {
+      // Ahora verificar la sesión usando el contexto de autenticación
+      try {
+        await refreshUser()
+      } catch (err) {
+        if (!mounted) return
         setError('Token inválido o caducado')
         setTimeout(() => router.push('/'), 1200)
         return
       }
+
+      if (!mounted) return
 
       // Notificar al resto de la app que cambió el estado de autenticación
       try {

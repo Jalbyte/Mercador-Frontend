@@ -3,6 +3,9 @@ import { Button } from "@/components/ui/button";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
 
+// API base URL from environment variable
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || "";
+
 function CheckoutPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -24,7 +27,7 @@ function CheckoutPage() {
   const createPaymentPreference = async () => {
     setLoading(true);
     try {
-      const response = await fetch("http://localhost:3010/payments/create", {
+      const response = await fetch(`${API_BASE}/payments/create`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json"
@@ -65,7 +68,7 @@ function CheckoutPage() {
   const verifyPaymentStatus = async (paymentId: string) => {
     setLoading(true);
     try {
-      const response = await fetch(`http://localhost:3010/payments/status/${paymentId}`, {
+      const response = await fetch(`${API_BASE}/payments/status/${paymentId}`, {
         credentials: "include"
       });
 

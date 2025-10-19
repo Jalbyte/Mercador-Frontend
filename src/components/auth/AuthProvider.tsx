@@ -8,11 +8,7 @@
 import React, { createContext, useContext, useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 
-const API_BASE =
-  process.env.NEXT_PUBLIC_API_URL ??
-  (typeof window !== "undefined"
-    ? `${window.location.protocol}//${window.location.hostname}:3010`
-    : "");
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || "";
 
 // Interface unificada del usuario
 export interface User {
