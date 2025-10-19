@@ -1,10 +1,5 @@
 "use client";
 
-/**
- * Header optimizado que usa AuthProvider como fuente única de verdad
- * Elimina llamadas duplicadas a la API y mejora el performance
- */
-
 import { FiSearch, FiUser, FiChevronDown } from "react-icons/fi";
 import { ShoppingCart } from "lucide-react";
 import Link from "next/link";
