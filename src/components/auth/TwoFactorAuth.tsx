@@ -83,7 +83,7 @@ export const TwoFactorAuth = ({
         throw new Error("No se encontró el ID del factor de autenticación");
       }
 
-      const response = await fetch(`${API_BASE}/auth/mfa/verify-setup`, {
+      const response = await fetch(`${API_BASE}/auth/mfa/verify`, {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
@@ -139,7 +139,10 @@ export const TwoFactorAuth = ({
       }
 
       const factorsData = await factorsResponse.json();
-      const verifiedFactor = factorsData.data?.all?.find(
+      
+      // El backend retorna { success: true, factors: [...] }
+      const factors = factorsData.factors || factorsData.data?.all || [];
+      const verifiedFactor = factors.find(
         (factor: any) => factor.status === "verified"
       );
 

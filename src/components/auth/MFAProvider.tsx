@@ -96,7 +96,7 @@ export function MFAProvider({ children }: { children: React.ReactNode }) {
    */
   const verifyEnrollment = async (factorId: string, code: string): Promise<void> => {
     try {
-      const response = await fetch(`${API_BASE}/auth/mfa/verify-setup`, {
+      const response = await fetch(`${API_BASE}/auth/mfa/verify`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
