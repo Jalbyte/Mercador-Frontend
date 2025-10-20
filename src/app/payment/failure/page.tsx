@@ -11,15 +11,25 @@ function PaymentFailurePage() {
 
   useEffect(() => {
     const transactionId = searchParams.get('transaction_id');
+    const orderId = searchParams.get('order_id');
+    
     if (transactionId) {
+      setPaymentInfo({
+        id: transactionId,
+        status: 'DECLINED',
+        status_detail: 'La transacción fue rechazada'
+      });
+    }
+    
+    // Si tenemos orderId, podemos verificar con el backend
+    if (orderId) {
       const API_BASE =
         process.env.NEXT_PUBLIC_API_URL ??
         (typeof window !== "undefined"
           ? `${window.location.protocol}//${window.location.hostname}:3010`
           : "");
       
-      // Verificar el estado del pago en PayU
-      fetch(`${API_BASE}/payu/status/${transactionId}`, {
+      fetch(`${API_BASE}/payu/status/${orderId}`, {
         credentials: "include"
       })
         .then(res => res.json())

@@ -15,54 +15,86 @@ function PaymentResultPage() {
 
   useEffect(() => {
     const checkPaymentStatus = async () => {
-      const paymentId = searchParams.get('payment_id');
-      const externalReference = searchParams.get('external_reference');
-      const collectionStatus = searchParams.get('collection_status');
-
-      if (!paymentId) {
+      // PayU envía transaction_id en la URL
+      const transactionId = searchParams.get('transaction_id');
+      const orderId = searchParams.get('order_id');
+      
+      // Si viene de la redirección de PayU con transaction_id aprobado
+      if (transactionId && transactionId.includes('_approved')) {
+        console.log('✅ Pago aprobado detectado en URL:', transactionId);
+        setStatus('success');
+        setPaymentInfo({
+          id: transactionId,
+          status: 'APPROVED',
+        });
+        setLoading(false);
+        return;
+      }
+      
+      // Si viene con transaction_id rechazado
+      if (transactionId && transactionId.includes('_declined')) {
+        console.log('❌ Pago rechazado detectado en URL:', transactionId);
         setStatus('failure');
+        setPaymentInfo({
+          id: transactionId,
+          status: 'DECLINED',
+        });
+        setLoading(false);
+        return;
+      }
+      
+      // Si viene con transaction_id pendiente
+      if (transactionId && transactionId.includes('_pending')) {
+        console.log('⏳ Pago pendiente detectado en URL:', transactionId);
+        setStatus('pending');
+        setPaymentInfo({
+          id: transactionId,
+          status: 'PENDING',
+        });
         setLoading(false);
         return;
       }
 
-      try {
-        const API_BASE =
-          process.env.NEXT_PUBLIC_API_URL ??
-          (typeof window !== "undefined"
-            ? `${window.location.protocol}//${window.location.hostname}:3010`
-            : "");
-        
-        // Verificar el estado del pago con el backend
-        const response = await fetch(`${API_BASE}/payu/status/${paymentId}`, {
-          credentials: "include" // Incluir cookies de autenticación
-        });
+      // Si tenemos un orderId, verificar el estado con el backend
+      if (orderId) {
+        try {
+          const API_BASE =
+            process.env.NEXT_PUBLIC_API_URL ??
+            (typeof window !== "undefined"
+              ? `${window.location.protocol}//${window.location.hostname}:3010`
+              : "");
+          
+          // Verificar el estado del pago con el backend usando el orderId (referenceCode)
+          const response = await fetch(`${API_BASE}/payu/status/${orderId}`, {
+            credentials: "include" // Incluir cookies de autenticación
+          });
 
-        if (response.ok) {
-          const data = await response.json();
-          setPaymentInfo(data);
+          if (response.ok) {
+            const data = await response.json();
+            setPaymentInfo(data);
 
-          // Determinar el estado basado en la respuesta de PayU
-          if (data.approved) {
-            setStatus('success');
-          } else if (data.status === 'pending') {
-            setStatus('pending');
+            // Determinar el estado basado en la respuesta de PayU
+            if (data.approved) {
+              setStatus('success');
+            } else if (data.status === 'PENDING') {
+              setStatus('pending');
+            } else {
+              setStatus('failure');
+            }
           } else {
+            console.error('Error al verificar estado del pago');
             setStatus('failure');
           }
-        } else {
-          // Si no podemos verificar, usar el parámetro de URL como fallback
-          if (collectionStatus === 'approved') {
-            setStatus('success');
-          } else if (collectionStatus === 'pending') {
-            setStatus('pending');
-          } else {
-            setStatus('failure');
-          }
+        } catch (error) {
+          console.error('Error verificando pago:', error);
+          setStatus('failure');
+        } finally {
+          setLoading(false);
         }
-      } catch (error) {
-        console.error('Error verificando pago:', error);
+      } else {
+        // Sin transaction_id ni order_id, mostrar error
+        console.error('No se encontró transaction_id ni order_id en la URL');
         setStatus('failure');
-      } finally {
         setLoading(false);
       }
     };

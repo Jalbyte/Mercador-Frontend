@@ -10,10 +10,25 @@ function PaymentPendingPage() {
   const [paymentInfo, setPaymentInfo] = useState<any>(null);
 
   useEffect(() => {
-    const paymentId = searchParams.get('payment_id');
-    if (paymentId) {
-      // Verificar el estado del pago
-      fetch(`http://localhost:3010/payments/status/${paymentId}`, {
+    const transactionId = searchParams.get('transaction_id');
+    const orderId = searchParams.get('order_id');
+    
+    if (transactionId) {
+      setPaymentInfo({
+        id: transactionId,
+        status: 'PENDING',
+      });
+    }
+    
+    // Si tenemos orderId, podemos verificar con el backend
+    if (orderId) {
+      const API_BASE =
+        process.env.NEXT_PUBLIC_API_URL ??
+        (typeof window !== "undefined"
+          ? `${window.location.protocol}//${window.location.hostname}:3010`
+          : "");
+      
+      fetch(`${API_BASE}/payu/status/${orderId}`, {
         credentials: "include"
       })
         .then(res => res.json())
