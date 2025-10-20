@@ -331,7 +331,9 @@ export function Cart() {
                 });
 
                 if (!addToCartRes.ok) {
-                  throw new Error(`Error al agregar item ${item.name} al carrito`);
+                  const errorData = await addToCartRes.json();
+                  const errorMessage = errorData?.error || `Error al agregar item ${item.name} al carrito`;
+                  throw new Error(errorMessage);
                 }
               }
               console.log("✅ Carrito sincronizado");
