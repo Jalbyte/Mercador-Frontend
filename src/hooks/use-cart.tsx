@@ -14,7 +14,7 @@
  * @module useCart
  */
 
-import { createContext, useContext, useState, useMemo, useEffect } from "react";
+import { createContext, useContext, useState, useMemo, useEffect, useCallback } from "react";
 
 /**
  * Tipo que define la estructura de un item en el carrito de compras.
@@ -25,6 +25,9 @@ import { createContext, useContext, useState, useMemo, useEffect } from "react";
  * @property {number} price - Precio unitario del producto
  * @property {number} quantity - Cantidad del producto en el carrito
  * @property {string} image - URL de la imagen del producto
+ * @property {number} [max_quantity] - Stock máximo disponible
+ * @property {boolean} [is_available] - Si el producto aún existe
+ * @property {boolean} [has_enough_stock] - Si hay suficiente stock
  */
 type CartItem = {
   id: string;
@@ -32,6 +35,9 @@ type CartItem = {
   price: number;
   quantity: number;
   image: string;
+  max_quantity?: number;
+  is_available?: boolean;
+  has_enough_stock?: boolean;
 };
 
 /**
@@ -47,6 +53,9 @@ type CartItem = {
  * @property {(id: string) => void} removeItem - Función para remover item
  * @property {(id: string, quantity: number) => void} updateQuantity - Función para actualizar cantidad
  * @property {() => void} clearCart - Función para vaciar el carrito
+ * @property {() => Promise<void>} syncCart - Sincronizar carrito con backend
+ * @property {boolean} isValid - Si todos los items del carrito son válidos
+ * @property {boolean} isLoading - Si está cargando datos del backend
  */
 type CartContextType = {
   items: CartItem[];
@@ -60,6 +69,10 @@ type CartContextType = {
   showToast: boolean;
   toastMessage: string;
   hideToast: () => void;
+  syncCart: () => Promise<void>;
+  isValid: boolean;
+  isLoading: boolean;
+  fixItem: (id: string) => Promise<void>;
 };
 
 /**
@@ -112,6 +125,94 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   const [isMounted, setIsMounted] = useState(false);
   const [showToast, setShowToast] = useState(false);
   const [toastMessage, setToastMessage] = useState("");
+  const [isValid, setIsValid] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
+
+  const API_BASE = process.env.NEXT_PUBLIC_API_URL || "";
+
+  /**
+   * Función para sincronizar el carrito con el backend
+   */
+  const syncCart = useCallback(async () => {
+    setIsLoading(true);
+    try {
+      const response = await fetch(`${API_BASE}/cart`, {
+        method: "GET",
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to sync cart");
+      }
+
+      const data = await response.json();
+      
+      if (data.success && data.data) {
+        const backendItems = data.data.items.map((item: any) => ({
+          id: String(item.product_id),
+          name: item.product?.name || "Unknown Product",
+          price: item.product?.price || 0,
+          quantity: item.quantity,
+          image: item.product?.image_url || "/placeholder.png",
+          max_quantity: item.max_quantity,
+          is_available: item.is_available,
+          has_enough_stock: item.has_enough_stock,
+        }));
+
+        setItems(backendItems);
+        setIsValid(data.data.valid !== false);
+      }
+    } catch (error) {
+      console.error("Error syncing cart:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [API_BASE]);
+
+  /**
+   * Función para corregir un item con problemas (ajustar cantidad o eliminar)
+   */
+  const fixItem = useCallback(async (id: string) => {
+    const item = items.find((i) => i.id === id);
+    if (!item) return;
+
+    try {
+      const newQuantity = !item.is_available ? 0 : item.max_quantity || 0;
+
+      const response = await fetch(`${API_BASE}/cart/items/manage`, {
+        method: "POST",
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          productId: Number(id),
+          quantity: newQuantity,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to fix item");
+      }
+
+      // Sincronizar carrito después de corregir
+      await syncCart();
+
+      if (newQuantity === 0) {
+        setToastMessage(`Producto eliminado del carrito`);
+      } else {
+        setToastMessage(`Cantidad ajustada a ${newQuantity} unidades`);
+      }
+      setShowToast(true);
+    } catch (error) {
+      console.error("Error fixing item:", error);
+      setToastMessage("Error al corregir el item");
+      setShowToast(true);
+    }
+  }, [items, API_BASE, syncCart]);
 
   /**
    * Hook useEffect que carga el carrito desde localStorage al montar el componente.
@@ -131,6 +232,9 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       }
     }
     setIsMounted(true);
+    // Sincronizar con el backend al cargar
+    syncCart();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   /**
@@ -146,6 +250,15 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       localStorage.setItem("cart", JSON.stringify(items));
     }
   }, [items, isMounted]);
+
+  /**
+   * Hook useEffect que sincroniza el carrito cuando se abre
+   */
+  useEffect(() => {
+    if (isOpen && isMounted) {
+      syncCart();
+    }
+  }, [isOpen, isMounted, syncCart]);
 
   /**
    * Cálculo memoizado del total de items en el carrito.
@@ -241,6 +354,10 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       showToast,
       toastMessage,
       hideToast,
+      syncCart,
+      isValid,
+      isLoading,
+      fixItem,
     }),
     [
       items,
@@ -248,9 +365,10 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       isOpen,
       showToast,
       toastMessage,
-      removeItem,
-      updateQuantity,
-      clearCart,
+      isValid,
+      isLoading,
+      syncCart,
+      fixItem,
     ]
   );
 

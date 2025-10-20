@@ -36,6 +36,9 @@ export function Cart() {
     removeItem,
     clearCart,
     totalItems,
+    isValid,
+    isLoading: isCartLoading,
+    fixItem,
   } = useCart();
 
   const subtotal = cartItems.reduce(
@@ -154,66 +157,117 @@ export function Cart() {
             </div>
           ) : (
             <ul className="space-y-4">
-              {cartItems.map((item) => (
-                <li
-                  key={item.id}
-                  className="flex items-center gap-4 border-b pb-4"
-                >
-                  <img
-                    src={item.image}
-                    alt={item.name}
-                    className="h-16 w-16 rounded-md object-cover"
-                  />
-                  <div className="flex-1">
-                    <h3 className="font-medium">{item.name}</h3>
-                    <p className="text-sm text-muted-foreground">
-                      ${item.price.toFixed(2)}
-                    </p>
-                    <div className="flex items-center gap-2 mt-1">
+              {cartItems.map((item) => {
+                const hasIssue = item.is_available === false || item.has_enough_stock === false;
+                return (
+                  <li
+                    key={item.id}
+                    className={`flex flex-col gap-2 border-b pb-4 ${hasIssue ? 'bg-destructive/5 p-2 rounded-md' : ''}`}
+                  >
+                    <div className="flex items-center gap-4">
+                      <img
+                        src={item.image}
+                        alt={item.name}
+                        className="h-16 w-16 rounded-md object-cover"
+                      />
+                      <div className="flex-1">
+                        <h3 className="font-medium">{item.name}</h3>
+                        <p className="text-sm text-muted-foreground">
+                          ${item.price.toFixed(2)}
+                        </p>
+                        <div className="flex items-center gap-2 mt-1">
+                          <Button
+                            variant="outline"
+                            size="icon"
+                            className="h-6 w-6"
+                            onClick={() =>
+                              updateQuantity(item.id, item.quantity - 1)
+                            }
+                            disabled={hasIssue}
+                          >
+                            <Minus className="h-3 w-3" />
+                          </Button>
+                          <span className="w-8 text-center">{item.quantity}</span>
+                          <Button
+                            variant="outline"
+                            size="icon"
+                            className="h-6 w-6"
+                            onClick={() =>
+                              updateQuantity(item.id, item.quantity + 1)
+                            }
+                            disabled={hasIssue}
+                          >
+                            <Plus className="h-3 w-3" />
+                          </Button>
+                        </div>
+                      </div>
                       <Button
-                        variant="outline"
+                        variant="ghost"
                         size="icon"
-                        className="h-6 w-6"
-                        onClick={() =>
-                          updateQuantity(item.id, item.quantity - 1)
-                        }
+                        className="text-destructive hover:bg-destructive/10"
+                        onClick={() => removeItem(item.id)}
                       >
-                        <Minus className="h-3 w-3" />
-                      </Button>
-                      <span className="w-8 text-center">{item.quantity}</span>
-                      <Button
-                        variant="outline"
-                        size="icon"
-                        className="h-6 w-6"
-                        onClick={() =>
-                          updateQuantity(item.id, item.quantity + 1)
-                        }
-                      >
-                        <Plus className="h-3 w-3" />
+                        <X className="h-4 w-4" />
                       </Button>
                     </div>
-                  </div>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="text-destructive hover:bg-destructive/10"
-                    onClick={() => removeItem(item.id)}
-                  >
-                    <X className="h-4 w-4" />
-                  </Button>
-                </li>
-              ))}
+                    
+                    {/* Mensajes de validación */}
+                    {item.is_available === false && (
+                      <div className="flex flex-col gap-2 text-sm">
+                        <p className="text-destructive font-medium">
+                          ⚠️ Este producto ya no está disponible
+                        </p>
+                        <Button
+                          variant="destructive"
+                          size="sm"
+                          onClick={() => fixItem(item.id)}
+                          className="w-full"
+                        >
+                          Eliminar del carrito
+                        </Button>
+                      </div>
+                    )}
+                    
+                    {item.is_available !== false && item.has_enough_stock === false && (
+                      <div className="flex flex-col gap-2 text-sm">
+                        <p className="text-amber-600 dark:text-amber-400 font-medium">
+                          ⚠️ Stock insuficiente. Solo quedan {item.max_quantity} unidades disponibles
+                        </p>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => fixItem(item.id)}
+                          className="w-full border-amber-600 text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-950"
+                        >
+                          Ajustar a {item.max_quantity} unidades
+                        </Button>
+                      </div>
+                    )}
+                  </li>
+                );
+              })}
             </ul>
           )}
         </CardContent>
 
         {cartItems.length > 0 && (
           <CardFooter className="border-t p-4 flex flex-col gap-4">
+            {!isValid && (
+              <div className="w-full p-3 bg-amber-50 dark:bg-amber-950 border border-amber-200 dark:border-amber-800 rounded-md">
+                <p className="text-sm text-amber-800 dark:text-amber-200 font-medium">
+                  ⚠️ Hay problemas con algunos productos. Por favor, corrígelos antes de continuar.
+                </p>
+              </div>
+            )}
             <div className="flex justify-between w-full">
               <span>Subtotal</span>
               <span className="font-medium">${subtotal.toFixed(2)}</span>
             </div>
-            <Button className="w-full" size="lg" onClick={async () => {
+            <Button 
+              className="w-full" 
+              size="lg" 
+              disabled={!isValid || isCartLoading}
+              onClick={async () => {
               // If auth is still loading, give simple feedback
               if (isLoading) {
                 alert("Verificando sesión, por favor espera...");
@@ -231,7 +285,7 @@ export function Cart() {
               // Authenticated: open sale detail modal
               setIsDetailOpen(true);
             }}>
-              Proceder al pago
+              {isCartLoading ? "Validando..." : "Proceder al pago"}
             </Button>
             <Button
               variant="outline"
