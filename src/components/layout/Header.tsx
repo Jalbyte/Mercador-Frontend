@@ -12,7 +12,7 @@ import { createPortal } from "react-dom";
 
 export function Header() {
   const router = useRouter();
-  const { totalItems, setIsOpen } = useCart();
+  const { totalItems, setIsOpen, clearCart } = useCart();
   const { user, isAuthenticated, isLoading, logout } = useAuth();
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [showCategoriesMenu, setShowCategoriesMenu] = useState(false);
@@ -51,6 +51,9 @@ export function Header() {
   const confirmLogout = async () => {
     setShowLogoutConfirm(false);
     try {
+      // Limpiar el carrito antes de hacer logout
+      await clearCart();
+      
       await logout();
       // Redirigir a la página principal y hacer refresh
       router.push('/');
