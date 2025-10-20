@@ -14,7 +14,9 @@
  * @module useCart
  */
 
-import { createContext, useContext, useState, useMemo, useEffect, useCallback } from "react";
+import { createContext, useContext, useState, useMemo, useEffect, useCallback, useRef, ReactNode } from "react";
+import { CartMergeDialog } from "@/components/cart/CartMergeDialog";
+import { useAuth } from "@/components/auth/AuthProvider";
 
 /**
  * Tipo que define la estructura de un item en el carrito de compras.
@@ -56,6 +58,8 @@ type CartItem = {
  * @property {() => Promise<void>} syncCart - Sincronizar carrito con backend
  * @property {boolean} isValid - Si todos los items del carrito son válidos
  * @property {boolean} isLoading - Si está cargando datos del backend
+ * @property {boolean} isAuthenticated - Si el usuario está autenticado
+ * @property {() => Promise<void>} handleLoginSync - Maneja sincronización al iniciar sesión
  */
 type CartContextType = {
   items: CartItem[];
@@ -73,6 +77,8 @@ type CartContextType = {
   isValid: boolean;
   isLoading: boolean;
   fixItem: (id: string) => Promise<void>;
+  isAuthenticated: boolean;
+  handleLoginSync: () => Promise<void>;
 };
 
 /**
@@ -127,13 +133,30 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   const [toastMessage, setToastMessage] = useState("");
   const [isValid, setIsValid] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
+  const [showMergeDialog, setShowMergeDialog] = useState(false);
+  const [backendCart, setBackendCart] = useState<CartItem[]>([]);
+  const [mergeDone, setMergeDone] = useState(false); // Flag para saber si ya se hizo el merge
+  
+  // Cola de sincronización para operaciones batch
+  const syncQueueRef = useRef<Map<number, number>>(new Map()); // productId -> quantity
+  const syncTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
+  // Usar isAuthenticated del AuthProvider
+  const { isAuthenticated } = useAuth();
+  
   const API_BASE = process.env.NEXT_PUBLIC_API_URL || "";
 
   /**
    * Función para sincronizar el carrito con el backend
+   * Solo se ejecuta si el usuario está autenticado
    */
   const syncCart = useCallback(async () => {
+    // No sincronizar si no está autenticado
+    if (!isAuthenticated) {
+      console.log("User not authenticated, skipping cart sync");
+      return;
+    }
+
     setIsLoading(true);
     try {
       const response = await fetch(`${API_BASE}/cart`, {
@@ -145,6 +168,11 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       });
 
       if (!response.ok) {
+        // Si falla la autenticación, simplemente retornar
+        if (response.status === 401) {
+          console.log("Cart sync failed: Not authenticated");
+          return;
+        }
         throw new Error("Failed to sync cart");
       }
 
@@ -170,12 +198,18 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     } finally {
       setIsLoading(false);
     }
-  }, [API_BASE]);
+  }, [API_BASE, isAuthenticated]);
 
   /**
    * Función para corregir un item con problemas (ajustar cantidad o eliminar)
+   * Solo funciona si está autenticado
    */
   const fixItem = useCallback(async (id: string) => {
+    if (!isAuthenticated) {
+      console.log("User not authenticated, cannot fix item");
+      return;
+    }
+
     const item = items.find((i) => i.id === id);
     if (!item) return;
 
@@ -212,7 +246,198 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       setToastMessage("Error al corregir el item");
       setShowToast(true);
     }
-  }, [items, API_BASE, syncCart]);
+  }, [items, API_BASE, syncCart, isAuthenticated]);
+
+  /**
+   * Función para sincronizar múltiples operaciones del carrito al backend en batch
+   */
+  const syncBatchToBackend = useCallback(async (operations: Array<{ productId: number; quantity: number }>) => {
+    if (!isAuthenticated || operations.length === 0) return;
+
+    try {
+      const response = await fetch(`${API_BASE}/cart/items/batch`, {
+        method: "POST",
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          operations,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to sync batch operations");
+      }
+
+      const data = await response.json();
+      
+      // Verificar si hubo errores en alguna operación
+      const failed = data.results?.filter((r: any) => r.action === 'failed') || [];
+      if (failed.length > 0) {
+        console.error("Some operations failed:", failed);
+        setToastMessage(`Algunos productos no se pudieron sincronizar`);
+        setShowToast(true);
+      } else {
+        console.log(`✅ Batch sync completed: ${operations.length} operations`);
+      }
+
+      return data;
+    } catch (error) {
+      console.error("Error syncing batch to backend:", error);
+      setToastMessage("Error al sincronizar carrito");
+      setShowToast(true);
+    }
+  }, [isAuthenticated, API_BASE]);
+
+  /**
+   * Procesa la cola de sincronización y envía operaciones acumuladas al backend
+   */
+  const flushSyncQueue = useCallback(async () => {
+    if (!isAuthenticated || syncQueueRef.current.size === 0) return;
+
+    // Copiar y limpiar la cola
+    const operations = Array.from(syncQueueRef.current.entries()).map(([productId, quantity]) => ({
+      productId,
+      quantity,
+    }));
+    syncQueueRef.current.clear();
+
+    // Cancelar timeout pendiente
+    if (syncTimeoutRef.current) {
+      clearTimeout(syncTimeoutRef.current);
+      syncTimeoutRef.current = null;
+    }
+
+    // Enviar operaciones
+    await syncBatchToBackend(operations);
+  }, [isAuthenticated, syncBatchToBackend]);
+
+  /**
+   * Agrega una operación a la cola de sincronización
+   */
+  const queueSync = useCallback((productId: number, quantity: number) => {
+    if (!isAuthenticated) return;
+
+    // Agregar/actualizar en la cola
+    syncQueueRef.current.set(productId, quantity);
+
+    // Cancelar timeout anterior
+    if (syncTimeoutRef.current) {
+      clearTimeout(syncTimeoutRef.current);
+    }
+
+    // Programar flush después de 500ms de inactividad
+    syncTimeoutRef.current = setTimeout(() => {
+      flushSyncQueue();
+    }, 500);
+  }, [isAuthenticated, flushSyncQueue]);
+
+  /**
+   * Función para enviar el carrito local al backend
+   */
+  const uploadLocalCartToBackend = useCallback(async (localItems: CartItem[]) => {
+    if (!isAuthenticated || localItems.length === 0) return;
+
+    try {
+      // Convertir items a operaciones batch
+      const operations = localItems.map(item => ({
+        productId: Number(item.id),
+        quantity: item.quantity,
+      }));
+
+      await syncBatchToBackend(operations);
+
+      // Sincronizar para obtener el carrito actualizado con validación
+      await syncCart();
+      
+      setToastMessage("Carrito local sincronizado con el servidor");
+      setShowToast(true);
+    } catch (error) {
+      console.error("Error uploading local cart:", error);
+      setToastMessage("Error al sincronizar carrito");
+      setShowToast(true);
+    }
+  }, [syncCart, isAuthenticated, syncBatchToBackend]);
+
+  /**
+   * Maneja la sincronización del carrito al iniciar sesión
+   */
+  const handleLoginSync = useCallback(async () => {
+    if (!isAuthenticated || mergeDone) return; // No hacer nada si ya se hizo el merge
+
+    // Obtener carrito local
+    const localCart = items.length > 0 ? items : [];
+
+    // Si hay carrito local, preguntar qué hacer
+    if (localCart.length > 0) {
+      try {
+        // Primero, verificar si hay carrito en el backend
+        const response = await fetch(`${API_BASE}/cart`, {
+          method: "GET",
+          credentials: "include",
+          headers: {
+            "Content-Type": "application/json",
+          },
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          const backendItems = data.success && data.data ? data.data.items : [];
+
+          if (backendItems.length > 0) {
+            // Hay carrito en ambos lados - preguntar al usuario
+            const mappedBackendItems = backendItems.map((item: any) => ({
+              id: String(item.product_id),
+              name: item.product?.name || "Unknown Product",
+              price: item.product?.price || 0,
+              quantity: item.quantity,
+              image: item.product?.image_url || "/placeholder.png",
+              max_quantity: item.max_quantity,
+              is_available: item.is_available,
+              has_enough_stock: item.has_enough_stock,
+            }));
+
+            setBackendCart(mappedBackendItems);
+            setShowMergeDialog(true);
+          } else {
+            // No hay carrito en backend, subir el local
+            await uploadLocalCartToBackend(localCart);
+            setMergeDone(true); // Marcar como completado
+          }
+        }
+      } catch (error) {
+        console.error("Error checking backend cart:", error);
+        // Si hay error, subir el carrito local de todos modos
+        await uploadLocalCartToBackend(localCart);
+        setMergeDone(true); // Marcar como completado
+      }
+    } else {
+      // No hay carrito local, simplemente sincronizar
+      await syncCart();
+      setMergeDone(true); // Marcar como completado
+    }
+  }, [isAuthenticated, mergeDone, items, API_BASE, syncCart, uploadLocalCartToBackend]);
+
+  /**
+   * Mantiene el carrito local y lo sube al backend
+   */
+  const handleKeepLocal = useCallback(async () => {
+    setShowMergeDialog(false);
+    setBackendCart([]); // Limpiar el carrito del backend en memoria
+    await uploadLocalCartToBackend(items);
+    setMergeDone(true); // Marcar como completado
+  }, [items, uploadLocalCartToBackend]);
+
+  /**
+   * Carga el carrito del backend y descarta el local
+   */
+  const handleLoadBackend = useCallback(async () => {
+    setShowMergeDialog(false);
+    setBackendCart([]); // Limpiar el carrito del backend en memoria
+    await syncCart();
+    setMergeDone(true); // Marcar como completado
+  }, [syncCart]);
 
   /**
    * Hook useEffect que carga el carrito desde localStorage al montar el componente.
@@ -232,8 +457,11 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       }
     }
     setIsMounted(true);
-    // Sincronizar con el backend al cargar
-    syncCart();
+    
+    // Verificar autenticación y sincronizar si está autenticado
+    if (isAuthenticated) {
+      syncCart();
+    }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -253,12 +481,45 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
 
   /**
    * Hook useEffect que sincroniza el carrito cuando se abre
+   * Solo si está autenticado
    */
   useEffect(() => {
-    if (isOpen && isMounted) {
+    if (isOpen && isMounted && isAuthenticated) {
       syncCart();
     }
-  }, [isOpen, isMounted, syncCart]);
+  }, [isOpen, isMounted, syncCart, isAuthenticated]);
+
+  /**
+   * Hook useEffect que detecta cuando el usuario inicia sesión
+   * y sincroniza el carrito automáticamente
+   */
+  useEffect(() => {
+    if (isMounted && isAuthenticated && !mergeDone) {
+      // Llamar a handleLoginSync cuando el usuario inicia sesión
+      handleLoginSync().catch(console.error);
+    }
+    
+    // Si el usuario cierra sesión, resetear el flag de merge
+    if (isMounted && !isAuthenticated) {
+      setMergeDone(false);
+    }
+  }, [isAuthenticated, isMounted, mergeDone, handleLoginSync]);
+
+  /**
+   * Hook useEffect para limpiar la cola de sincronización al desmontar
+   */
+  useEffect(() => {
+    return () => {
+      // Flush pendiente antes de desmontar
+      if (syncTimeoutRef.current) {
+        clearTimeout(syncTimeoutRef.current);
+      }
+      if (syncQueueRef.current.size > 0) {
+        // No podemos hacer async en cleanup, pero la cola se perderá
+        console.warn("Sync queue had pending operations on unmount");
+      }
+    };
+  }, []);
 
   /**
    * Cálculo memoizado del total de items en el carrito.
@@ -274,10 +535,16 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   /**
    * Función para agregar un item al carrito.
    * Si el item ya existe, incrementa su cantidad. Si no existe, lo agrega con cantidad 1.
+   * Si está autenticado, también actualiza el backend usando cola de sincronización.
    *
    * @param {Omit<CartItem, "quantity">} item - Item a agregar (sin cantidad)
    */
-  const addItem = (item: Omit<CartItem, "quantity">) => {
+  const addItem = useCallback((item: Omit<CartItem, "quantity">) => {
+    // Calcular nueva cantidad
+    const currentItem = items.find((i) => i.id === item.id);
+    const newQuantity = currentItem ? currentItem.quantity + 1 : 1;
+
+    // Actualizar el estado local primero
     setItems((prevItems) => {
       const existingItem = prevItems.find((i) => i.id === item.id);
 
@@ -290,10 +557,16 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       return [...prevItems, { ...item, quantity: 1 }];
     });
     
+    // Si está autenticado, agregar a la cola de sincronización
+    if (isAuthenticated) {
+      queueSync(Number(item.id), newQuantity);
+      console.log(`Item ${item.name} queued for sync with quantity ${newQuantity}`);
+    }
+    
     // Mostrar notificación
     setToastMessage(`"${item.name}" agregado al carrito`);
     setShowToast(true);
-  };
+  }, [items, isAuthenticated, queueSync]);
 
   const hideToast = () => {
     setShowToast(false);
@@ -301,38 +574,71 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
 
   /**
    * Función para remover completamente un item del carrito.
+   * Si está autenticado, también lo elimina del backend usando cola de sincronización.
    *
    * @param {string} id - ID del item a remover
    */
-  const removeItem = (id: string) => {
+  const removeItem = useCallback((id: string) => {
+    // Actualizar el estado local
     setItems((prevItems) => prevItems.filter((item) => item.id !== id));
-  };
+    
+    // Si está autenticado, agregar a la cola de sincronización con quantity=0
+    if (isAuthenticated) {
+      queueSync(Number(id), 0);
+      console.log(`Item ${id} queued for removal`);
+    }
+  }, [isAuthenticated, queueSync]);
 
   /**
    * Función para actualizar la cantidad de un item en el carrito.
    * Si la cantidad es menor a 1, remueve el item completamente.
+   * Si está autenticado, también actualiza el backend usando cola de sincronización.
    *
    * @param {string} id - ID del item a actualizar
    * @param {number} quantity - Nueva cantidad del item
    */
-  const updateQuantity = (id: string, quantity: number) => {
+  const updateQuantity = useCallback((id: string, quantity: number) => {
     if (quantity < 1) {
       removeItem(id);
       return;
     }
 
+    // Actualizar el estado local
     setItems((prevItems) =>
       prevItems.map((item) => (item.id === id ? { ...item, quantity } : item))
     );
-  };
+    
+    // Si está autenticado, agregar a la cola de sincronización
+    if (isAuthenticated) {
+      queueSync(Number(id), quantity);
+      console.log(`Item ${id} queued for quantity update to ${quantity}`);
+    }
+  }, [isAuthenticated, queueSync, removeItem]);
 
   /**
    * Función para vaciar completamente el carrito.
-   * Remueve todos los items del carrito.
+   * Remueve todos los items del carrito local y del backend si está autenticado.
    */
-  const clearCart = () => {
+  const clearCart = useCallback(async () => {
+    const currentItems = [...items]; // Guardar items actuales
     setItems([]);
-  };
+    
+    // Si está autenticado, limpiar también el backend usando batch
+    if (isAuthenticated && currentItems.length > 0) {
+      try {
+        // Crear operaciones batch para eliminar todos los items
+        const operations = currentItems.map(item => ({
+          productId: Number(item.id),
+          quantity: 0,
+        }));
+
+        await syncBatchToBackend(operations);
+        console.log(`✅ Cart cleared: ${operations.length} items removed from backend`);
+      } catch (error) {
+        console.error("Error clearing backend cart:", error);
+      }
+    }
+  }, [isAuthenticated, items, syncBatchToBackend]);
 
   /**
    * Valor memoizado del contexto del carrito.
@@ -358,6 +664,8 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       isValid,
       isLoading,
       fixItem,
+      isAuthenticated,
+      handleLoginSync,
     }),
     [
       items,
@@ -369,10 +677,28 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       isLoading,
       syncCart,
       fixItem,
+      isAuthenticated,
+      handleLoginSync,
+      addItem,
+      removeItem,
+      updateQuantity,
+      clearCart,
     ]
   );
 
-  return <CartContext.Provider value={value}>{children}</CartContext.Provider>;
+  return (
+    <CartContext.Provider value={value}>
+      {children}
+      <CartMergeDialog
+        isOpen={showMergeDialog}
+        onClose={() => setShowMergeDialog(false)}
+        onKeepLocal={handleKeepLocal}
+        onLoadBackend={handleLoadBackend}
+        localItemCount={items.length}
+        backendItemCount={backendCart.length}
+      />
+    </CartContext.Provider>
+  );
 }
 
 /**

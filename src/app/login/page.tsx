@@ -31,6 +31,7 @@ function LoginContent() {
   const formRef = useRef<any>(null);
 
   // Redirect if already authenticated
+  // El CartProvider se encargará automáticamente de sincronizar el carrito
   useEffect(() => {
     if (!authLoading && isAuthenticated) {
       router.push("/");
