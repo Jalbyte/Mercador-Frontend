@@ -2,6 +2,7 @@
 
 import { useAuth } from "@/components/auth/AuthProvider";
 import { FormInput } from "@/components/auth/FormInput";
+import { ChangePasswordModal } from "@/components/auth/ChangePasswordModal";
 import { TwoFactorAuth } from "@/components/auth/TwoFactorAuth";
 import { Button } from "@/components/ui/button";
 import { useRouter } from "next/navigation";
@@ -13,6 +14,8 @@ import {
   FiMail,
   FiSave,
   FiUser,
+  FiLock,
+  FiX,
 } from "react-icons/fi";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "";
@@ -34,6 +37,7 @@ export default function ProfileContent() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [passwordModalOpen, setPasswordModalOpen] = useState(false);
 
   const [formData, setFormData] = useState({
     full_name: "",
@@ -322,10 +326,9 @@ export default function ProfileContent() {
 
             <div className="mt-6 pt-6 border-t border-gray-200">
               <Button
-                variant="outline"
-                onClick={() => router.push("/reset-password")}
-                className="w-full md:w-auto"
+                onClick={() => setPasswordModalOpen(true)}
               >
+                <FiLock className="h-4 w-4 mr-2" />
                 Cambiar Contraseña
               </Button>
             </div>
@@ -345,6 +348,15 @@ export default function ProfileContent() {
           )}
         </div>
       </div>
+
+      {/* Modal de cambiar contraseña */}
+      <ChangePasswordModal
+        isOpen={passwordModalOpen}
+        onClose={() => setPasswordModalOpen(false)}
+        onSuccess={() => {
+          setSuccess("Contraseña actualizada correctamente");
+        }}
+      />
     </div>
   );
 }
