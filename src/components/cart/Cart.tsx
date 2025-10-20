@@ -6,7 +6,7 @@ import { useAuth } from "@/components/auth/AuthProvider";
 import { Modal } from "@/components/ui/modal";
 import { useState, useEffect, useRef } from "react";
 import SaleDetail from "./SaleDetail";
-import { CreditCardForm } from "./CreditCardForm";
+import WompiCheckout from "@/components/payment/WompiCheckout";
 import { X, Plus, Minus, ShoppingCart } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useRouter } from "next/navigation";
@@ -48,8 +48,7 @@ export function Cart() {
   );
 
   const [isDetailOpen, setIsDetailOpen] = useState(false);
-  const [showCreditCardForm, setShowCreditCardForm] = useState(false);
-  const [isProcessingPayment, setIsProcessingPayment] = useState(false);
+  const [showWompiCheckout, setShowWompiCheckout] = useState(false);
   const [showClearConfirm, setShowClearConfirm] = useState(false);
   const { isAuthenticated, isLoading, user } = useAuth();
   const clearConfirmRef = useRef<HTMLDivElement>(null);
@@ -310,124 +309,80 @@ export function Cart() {
           subtotal={subtotal}
           onCancel={() => setIsDetailOpen(false)}
           onConfirm={() => {
-            // Cerrar modal de detalle y mostrar formulario de tarjeta
+            // Cerrar modal de detalle y mostrar checkout de Wompi
             setIsDetailOpen(false);
-            setShowCreditCardForm(true);
+            setShowWompiCheckout(true);
           }}
         />
       </Modal>
 
-      {/* Formulario de tarjeta de crédito */}
-      {showCreditCardForm && (
-        <CreditCardForm
-          isLoading={isProcessingPayment}
-          onCancel={() => {
-            setShowCreditCardForm(false);
-            setIsOpen(true);
-          }}
-          onSubmit={async (cardData) => {
-            setIsProcessingPayment(true);
-            try {
-              const API_BASE =
-                process.env.NEXT_PUBLIC_API_URL ??
-                (typeof window !== "undefined"
-                  ? `${window.location.protocol}//${window.location.hostname}:3010`
-                  : "");
+      {/* Checkout de Wompi */}
+      {showWompiCheckout && user && (
+        <div className="fixed inset-0 bg-black/50 z-[60] flex items-center justify-center p-4">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-xl font-bold">Pago con Wompi</h2>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => {
+                  setShowWompiCheckout(false);
+                  setIsOpen(true);
+                }}
+              >
+                <X className="h-5 w-5" />
+              </Button>
+            </div>
+            
+            <WompiCheckout
+              amount={subtotal}
+              currency="COP"
+              reference={`ORDER-${user.id}-${Date.now()}`}
+              customerEmail={user.email || ""}
+              customerName={user.full_name || "Cliente"}
+              onSuccess={async (transaction) => {
+                console.log("✅ Pago exitoso:", transaction);
+                
+                try {
+                  const API_BASE =
+                    process.env.NEXT_PUBLIC_API_URL ??
+                    (typeof window !== "undefined"
+                      ? `${window.location.protocol}//${window.location.hostname}:3010`
+                      : "");
 
-              // 1. Sincronizar items del carrito local con Supabase
-              console.log("📦 Sincronizando carrito con Supabase...");
-              for (const item of cartItems) {
-                const addToCartRes = await fetch(`${API_BASE}/cart/items`, {
-                  method: "POST",
-                  headers: { "Content-Type": "application/json" },
-                  credentials: "include",
-                  body: JSON.stringify({
-                    productId: item.id,
-                    quantity: item.quantity,
-                  }),
-                });
-
-                if (!addToCartRes.ok) {
-                  const errorData = await addToCartRes.json();
-                  const errorMessage = errorData?.error || `Error al agregar item ${item.name} al carrito`;
-                  throw new Error(errorMessage);
+                  // Sincronizar items del carrito local con Supabase
+                  console.log("� Sincronizando carrito con Supabase...");
+                  for (const item of cartItems) {
+                    await fetch(`${API_BASE}/cart/items`, {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      credentials: "include",
+                      body: JSON.stringify({
+                        productId: item.id,
+                        quantity: item.quantity,
+                      }),
+                    });
+                  }
+                  console.log("✅ Carrito sincronizado");
+                } catch (err) {
+                  console.error("Error sincronizando carrito:", err);
                 }
-              }
-              console.log("✅ Carrito sincronizado");
 
-              // 2. Verificar que el usuario esté autenticado
-              if (!user) {
-                alert("Debes iniciar sesión para proceder al pago");
-                setShowCreditCardForm(false);
-                router.push("/login");
-                return;
-              }
-
-              // Extraer nombre y apellido del full_name o usar valores por defecto
-              const nameParts = (user.full_name || "").split(" ");
-              const firstName = nameParts[0] || "Cliente";
-              const lastName = nameParts.slice(1).join(" ") || "Mercador";
-
-              // 3. Crear preferencia de pago en el backend (PayU) con datos de tarjeta
-              console.log("💳 Creando pago con PayU...");
-              const res = await fetch(`${API_BASE}/payu/create`, {
-                method: "POST",
-                headers: {
-                  "Content-Type": "application/json"
-                },
-                credentials: "include",
-                body: JSON.stringify({
-                  payer: {
-                    email: user.email,
-                    name: firstName,
-                    surname: lastName
-                  },
-                  creditCard: cardData
-                })
-              });
-
-              if (!res.ok) {
-                if (res.status === 401) {
-                  alert("Debes iniciar sesión para proceder al pago");
-                  setShowCreditCardForm(false);
-                  router.push("/login");
-                  return;
-                }
-                const errorData = await res.json();
-                throw new Error(errorData.error || `Error: ${res.status}`);
-              }
-
-              const data = await res.json();
-              console.log("✅ Pago procesado con PayU:", data);
-
-              // Cerrar formulario y carrito
-              setShowCreditCardForm(false);
-              setIsOpen(false);
-
-              // PayU procesa el pago inmediatamente
-              if (data.redirect_url) {
-                // Redirigir a la página de resultado
-                console.log("🔄 Redirigiendo a resultado del pago...");
-                window.location.href = data.redirect_url;
-              } else if (data.state === 'APPROVED') {
-                // Pago aprobado, redirigir a éxito
-                router.push(`/payment/success?transaction_id=${data.transaction_id}`);
-              } else if (data.state === 'DECLINED') {
-                // Pago rechazado
-                router.push(`/payment/failure?transaction_id=${data.transaction_id}`);
-              } else {
-                alert("Pago procesado. Estado: " + (data.state || 'Desconocido'));
-              }
-            } catch (err) {
-              console.error('❌ Error al procesar pago:', err);
-              alert(err instanceof Error ? err.message : "Error al conectar con el backend");
-              setShowCreditCardForm(false);
-              setIsOpen(true);
-            } finally {
-              setIsProcessingPayment(false);
-            }
-          }}
-        />
+                // Limpiar carrito y cerrar
+                clearCart();
+                setShowWompiCheckout(false);
+                setIsOpen(false);
+                
+                // Redirigir a página de éxito
+                router.push(`/checkout/wompi-callback?id=${transaction.id}`);
+              }}
+              onError={(error) => {
+                console.error("❌ Error en el pago:", error);
+                alert("Error procesando el pago. Por favor intenta nuevamente.");
+              }}
+            />
+          </div>
+        </div>
       )}
     </div>
   );
