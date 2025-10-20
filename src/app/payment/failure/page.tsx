@@ -10,11 +10,16 @@ function PaymentFailurePage() {
   const [paymentInfo, setPaymentInfo] = useState<any>(null);
 
   useEffect(() => {
-    const paymentId = searchParams.get('payment_id');
-    if (paymentId) {
-      // Opcionalmente verificar el estado del pago
-      const token = localStorage.getItem('access_token') || '';
-      fetch(`http://localhost:3010/payments/status/${paymentId}`, {
+    const transactionId = searchParams.get('transaction_id');
+    if (transactionId) {
+      const API_BASE =
+        process.env.NEXT_PUBLIC_API_URL ??
+        (typeof window !== "undefined"
+          ? `${window.location.protocol}//${window.location.hostname}:3010`
+          : "");
+      
+      // Verificar el estado del pago en PayU
+      fetch(`${API_BASE}/payu/status/${transactionId}`, {
         credentials: "include"
       })
         .then(res => res.json())
@@ -39,7 +44,7 @@ function PaymentFailurePage() {
           </div>
         )}
         <div className="space-x-4">
-          <Button onClick={() => router.push('/cart')}>
+          <Button onClick={() => router.push('/')}>
             Intentar de Nuevo
           </Button>
           <Button variant="outline" onClick={() => router.push('/')}>

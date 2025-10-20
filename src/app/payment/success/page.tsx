@@ -26,8 +26,14 @@ function PaymentResultPage() {
       }
 
       try {
+        const API_BASE =
+          process.env.NEXT_PUBLIC_API_URL ??
+          (typeof window !== "undefined"
+            ? `${window.location.protocol}//${window.location.hostname}:3010`
+            : "");
+        
         // Verificar el estado del pago con el backend
-        const response = await fetch(`http://localhost:3010/payments/status/${paymentId}`, {
+        const response = await fetch(`${API_BASE}/payu/status/${paymentId}`, {
           credentials: "include" // Incluir cookies de autenticación
         });
 
@@ -35,7 +41,7 @@ function PaymentResultPage() {
           const data = await response.json();
           setPaymentInfo(data);
 
-          // Determinar el estado basado en la respuesta de Mercado Pago
+          // Determinar el estado basado en la respuesta de PayU
           if (data.approved) {
             setStatus('success');
           } else if (data.status === 'pending') {

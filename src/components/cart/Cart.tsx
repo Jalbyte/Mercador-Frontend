@@ -6,6 +6,7 @@ import { useAuth } from "@/components/auth/AuthProvider";
 import { Modal } from "@/components/ui/modal";
 import { useState, useEffect, useRef } from "react";
 import SaleDetail from "./SaleDetail";
+import { CreditCardForm } from "./CreditCardForm";
 import { X, Plus, Minus, ShoppingCart } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useRouter } from "next/navigation";
@@ -47,6 +48,8 @@ export function Cart() {
   );
 
   const [isDetailOpen, setIsDetailOpen] = useState(false);
+  const [showCreditCardForm, setShowCreditCardForm] = useState(false);
+  const [isProcessingPayment, setIsProcessingPayment] = useState(false);
   const [showClearConfirm, setShowClearConfirm] = useState(false);
   const { isAuthenticated, isLoading, user } = useAuth();
   const clearConfirmRef = useRef<HTMLDivElement>(null);
@@ -306,10 +309,24 @@ export function Cart() {
           items={cartItems}
           subtotal={subtotal}
           onCancel={() => setIsDetailOpen(false)}
-          onConfirm={async () => {
+          onConfirm={() => {
+            // Cerrar modal de detalle y mostrar formulario de tarjeta
             setIsDetailOpen(false);
-            setIsOpen(false);
-            // Sincronizar carrito con Supabase y crear preferencia de pago
+            setShowCreditCardForm(true);
+          }}
+        />
+      </Modal>
+
+      {/* Formulario de tarjeta de crédito */}
+      {showCreditCardForm && (
+        <CreditCardForm
+          isLoading={isProcessingPayment}
+          onCancel={() => {
+            setShowCreditCardForm(false);
+            setIsOpen(true);
+          }}
+          onSubmit={async (cardData) => {
+            setIsProcessingPayment(true);
             try {
               const API_BASE =
                 process.env.NEXT_PUBLIC_API_URL ??
@@ -339,7 +356,7 @@ export function Cart() {
               // 2. Verificar que el usuario esté autenticado
               if (!user) {
                 alert("Debes iniciar sesión para proceder al pago");
-                setIsOpen(false);
+                setShowCreditCardForm(false);
                 router.push("/login");
                 return;
               }
@@ -349,9 +366,9 @@ export function Cart() {
               const firstName = nameParts[0] || "Cliente";
               const lastName = nameParts.slice(1).join(" ") || "Mercador";
 
-              // 3. Crear preferencia de pago en el backend
-              console.log("💳 Creando preferencia de pago...");
-              const res = await fetch(`${API_BASE}/payments/create`, {
+              // 3. Crear preferencia de pago en el backend (PayU) con datos de tarjeta
+              console.log("💳 Creando pago con PayU...");
+              const res = await fetch(`${API_BASE}/payu/create`, {
                 method: "POST",
                 headers: {
                   "Content-Type": "application/json"
@@ -362,14 +379,15 @@ export function Cart() {
                     email: user.email,
                     name: firstName,
                     surname: lastName
-                  }
+                  },
+                  creditCard: cardData
                 })
               });
 
               if (!res.ok) {
                 if (res.status === 401) {
                   alert("Debes iniciar sesión para proceder al pago");
-                  setIsOpen(false);
+                  setShowCreditCardForm(false);
                   router.push("/login");
                   return;
                 }
@@ -378,23 +396,37 @@ export function Cart() {
               }
 
               const data = await res.json();
-              console.log("✅ Preferencia de pago creada");
+              console.log("✅ Pago procesado con PayU:", data);
 
-              if (data.init_point) {
-                // 4. Redirigir a Mercado Pago Checkout Pro
-                console.log("🔄 Redirigiendo a Mercado Pago...");
-                window.location.href = data.init_point;
+              // Cerrar formulario y carrito
+              setShowCreditCardForm(false);
+              setIsOpen(false);
+
+              // PayU procesa el pago inmediatamente
+              if (data.redirect_url) {
+                // Redirigir a la página de resultado
+                console.log("🔄 Redirigiendo a resultado del pago...");
+                window.location.href = data.redirect_url;
+              } else if (data.state === 'APPROVED') {
+                // Pago aprobado, redirigir a éxito
+                router.push(`/payment/success?transaction_id=${data.transaction_id}`);
+              } else if (data.state === 'DECLINED') {
+                // Pago rechazado
+                router.push(`/payment/failure?transaction_id=${data.transaction_id}`);
               } else {
-                alert("No se pudo obtener el enlace de pago");
+                alert("Pago procesado. Estado: " + (data.state || 'Desconocido'));
               }
             } catch (err) {
               console.error('❌ Error al procesar pago:', err);
               alert(err instanceof Error ? err.message : "Error al conectar con el backend");
-              setIsOpen(true); // Reabrir el carrito en caso de error
+              setShowCreditCardForm(false);
+              setIsOpen(true);
+            } finally {
+              setIsProcessingPayment(false);
             }
           }}
         />
-      </Modal>
+      )}
     </div>
   );
 }

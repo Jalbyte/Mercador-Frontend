@@ -108,13 +108,13 @@ export default function TermsPage() {
               <div>
                 <h3 className="text-lg font-semibold text-gray-800 mb-2">4.1 Métodos de Pago</h3>
                 <p className="text-gray-700 leading-relaxed">
-                  Aceptamos múltiples formas de pago a través de <strong>Mercado Pago</strong>, nuestra pasarela de pago segura y confiable. Los pagos se procesan de forma segura y encriptada.
+                  Aceptamos múltiples formas de pago a través de <strong>PayU Latam</strong>, nuestra pasarela de pago segura y confiable. Los pagos se procesan de forma segura y encriptada.
                 </p>
               </div>
               <div>
                 <h3 className="text-lg font-semibold text-gray-800 mb-2">4.2 Procesamiento de Pagos</h3>
                 <p className="text-gray-700 leading-relaxed">
-                  Al realizar una compra, autorizas a Mercador y a Mercado Pago a procesar el pago usando la información de pago que proporcionas. El pago se procesará en tu moneda local o en COP (Pesos Colombianos).
+                  Al realizar una compra, autorizas a Mercador y a PayU Latam a procesar el pago usando la información de pago que proporcionas. El pago se procesará en tu moneda local o en COP (Pesos Colombianos).
                 </p>
               </div>
               <div>
@@ -151,7 +151,7 @@ export default function TermsPage() {
               <div>
                 <h3 className="text-lg font-semibold text-gray-800 mb-2">5.2 Proceso de Reembolso</h3>
                 <p className="text-gray-700 leading-relaxed">
-                  Los reembolsos se procesarán a través de Mercado Pago en 5-10 días hábiles después de aprobar tu solicitud de devolución. El dinero se acreditará en el mismo método de pago utilizado.
+                  Los reembolsos se procesarán a través de PayU Latam en 5-10 días hábiles después de aprobar tu solicitud de devolución. El dinero se acreditará en el mismo método de pago utilizado.
                 </p>
               </div>
               <div>

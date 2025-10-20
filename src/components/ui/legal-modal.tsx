@@ -31,7 +31,7 @@ const TermsContent = () => (
     <section>
       <h3 className="text-lg font-bold text-gray-900 mb-3">3. Pagos</h3>
       <p className="text-gray-700 text-sm leading-relaxed">
-        Aceptamos pagos seguros a través de <strong>Mercado Pago</strong>. Todos los pagos son procesados de forma encriptada y segura.
+        Aceptamos pagos seguros a través de <strong>PayU Latam</strong>. Todos los pagos son procesados de forma encriptada y segura.
       </p>
     </section>
 
@@ -70,7 +70,7 @@ const PrivacyContent = () => (
       <h3 className="text-lg font-bold text-gray-900 mb-3">2. Datos que Recopilamos</h3>
       <ul className="text-gray-700 text-sm space-y-2 ml-4">
         <li>• Información de registro (nombre, email, teléfono)</li>
-        <li>• Información de pago (procesada por Mercado Pago)</li>
+        <li>• Información de pago (procesada por PayU Latam)</li>
         <li>• Datos de autenticación de 2FA</li>
         <li>• Historial de navegación y compras</li>
       </ul>
