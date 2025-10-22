@@ -46,6 +46,8 @@ export default function PurchaseHistoryPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [expandedOrders, setExpandedOrders] = useState<Set<number>>(new Set());
+  const [sortBy, setSortBy] = useState<"date" | "price">("date");
+  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
 
   useEffect(() => {
     if (!authLoading && !isAuthenticated) {
@@ -149,6 +151,19 @@ export default function PurchaseHistoryPage() {
     });
   };
 
+  const sortedOrders = [...orders].sort((a, b) => {
+    if (sortBy === "date") {
+      const dateA = new Date(a.created_at).getTime();
+      const dateB = new Date(b.created_at).getTime();
+      return sortOrder === "asc" ? dateA - dateB : dateB - dateA;
+    } else {
+      // sort by price
+      return sortOrder === "asc"
+        ? a.total_amount - b.total_amount
+        : b.total_amount - a.total_amount;
+    }
+  });
+
   if (authLoading) {
     return (
       <div className="min-h-screen bg-gray-50">
@@ -182,6 +197,54 @@ export default function PurchaseHistoryPage() {
       </section>
 
       <div className="container mx-auto px-4 py-8">
+        {/* Filtros */}
+        {!loading && !error && orders.length > 0 && (
+          <div className="bg-white rounded-xl shadow-md p-6 mb-6 border border-gray-100">
+            <div className="flex flex-col md:flex-row md:items-center gap-4">
+              <div className="flex items-center gap-2">
+                <label className="text-sm font-medium text-gray-700">
+                  Ordenar por:
+                </label>
+                <select
+                  value={sortBy}
+                  onChange={(e) => setSortBy(e.target.value as "date" | "price")}
+                  className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+                >
+                  <option value="date">Fecha</option>
+                  <option value="price">Precio</option>
+                </select>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <label className="text-sm font-medium text-gray-700">
+                  Orden:
+                </label>
+                <select
+                  value={sortOrder}
+                  onChange={(e) => setSortOrder(e.target.value as "asc" | "desc")}
+                  className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+                >
+                  {sortBy === "date" ? (
+                    <>
+                      <option value="desc">Más reciente</option>
+                      <option value="asc">Más antiguo</option>
+                    </>
+                  ) : (
+                    <>
+                      <option value="desc">Mayor a menor</option>
+                      <option value="asc">Menor a mayor</option>
+                    </>
+                  )}
+                </select>
+              </div>
+
+              <div className="ml-auto text-sm text-gray-600">
+                Total: <span className="font-semibold">{orders.length}</span> {orders.length === 1 ? "orden" : "órdenes"}
+              </div>
+            </div>
+          </div>
+        )}
+
         {loading ? (
           <div className="flex flex-col items-center justify-center py-20">
             <FiLoader className="animate-spin text-blue-600 mb-4" size={48} />
@@ -219,7 +282,7 @@ export default function PurchaseHistoryPage() {
           </div>
         ) : (
           <div className="space-y-4">
-            {orders.map((order) => (
+            {sortedOrders.map((order) => (
               <div
                 key={order.id}
                 className="bg-white rounded-xl shadow-md overflow-hidden border border-gray-100 hover:shadow-lg transition-shadow"

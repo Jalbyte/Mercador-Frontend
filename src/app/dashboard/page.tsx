@@ -125,6 +125,15 @@ export default function DashboardPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedLicenseFilter, setSelectedLicenseFilter] = useState<string>("all");
 
+  // Estado para paginación de productos
+  const [currentProductPage, setCurrentProductPage] = useState(1);
+  const [totalProductsCount, setTotalProductsCount] = useState(0);
+
+  // Reset pagination when filters change
+  useEffect(() => {
+    setCurrentProductPage(1);
+  }, [searchQuery, selectedLicenseFilter]);
+
   useEffect(() => {
     let mounted = true;
 
@@ -157,6 +166,18 @@ export default function DashboardPage() {
       mounted = false;
     };
   }, [router, user, authLoading]);
+
+  // Recargar productos cuando cambian filtros o página
+  useEffect(() => {
+    if (isAdmin) {
+      fetchProducts();
+    }
+  }, [currentProductPage, searchQuery, selectedLicenseFilter]);
+
+  // Resetear a página 1 cuando cambian los filtros
+  useEffect(() => {
+    setCurrentProductPage(1);
+  }, [searchQuery, selectedLicenseFilter]);
 
   // Funciones para gestión de usuarios
   async function fetchUsers() {
@@ -213,7 +234,7 @@ export default function DashboardPage() {
           : mockUsers;
 
         setUsers(filteredUsers);
-        setTotalPages(Math.ceil(filteredUsers.length / 10)); // 10 items por página
+        setTotalPages(Math.ceil(filteredUsers.length / 12)); // 12 items por página
         setLoadingUsers(false);
       }, 500);
     } catch (error) {
@@ -335,7 +356,16 @@ export default function DashboardPage() {
     setLoadingProducts(true);
     setError(null);
     try {
-      const resp = await fetch(`${API_BASE}/products`);
+      // Construir query params con paginación
+      const params = new URLSearchParams({
+        page: currentProductPage.toString(),
+        limit: '12',
+      });
+      
+      if (searchQuery) params.append('search', searchQuery);
+      if (selectedLicenseFilter !== 'all') params.append('category', selectedLicenseFilter);
+
+      const resp = await fetch(`${API_BASE}/products?${params.toString()}`);
       let json: any = undefined;
       try {
         json = await resp.json();
@@ -360,8 +390,10 @@ export default function DashboardPage() {
           : errObj?.message ?? JSON.stringify(errObj);
         setError(errMsg || "Failed to fetch products");
         setProducts([]);
+        setTotalProductsCount(0);
       } else {
         setProducts(json.data.products ?? []);
+        setTotalProductsCount(json.data.pagination?.total ?? 0);
       }
     } catch (e: any) {
       setError(e?.message ?? String(e));
@@ -768,20 +800,13 @@ export default function DashboardPage() {
     setShowCreateModal(true);
   }
 
-  // Filtrar productos
-  const filteredProducts = products.filter((product) => {
-    // Filtro por búsqueda (nombre, descripción, categoría)
-    const matchesSearch = searchQuery === "" || 
-      product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      product.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      product.category.toLowerCase().includes(searchQuery.toLowerCase());
+  // El servidor ya filtra productos por búsqueda y categoría
+  // Solo mostramos los productos que vienen del servidor
+  const filteredProducts = products;
 
-    // Filtro por tipo de licencia
-    const matchesLicense = selectedLicenseFilter === "all" || 
-      product.license_type?.toString() === selectedLicenseFilter;
-
-    return matchesSearch && matchesLicense;
-  });
+  // Paginación de productos (calculada desde el servidor)
+  const productsPerPage = 12;
+  const totalProductPages = Math.ceil(totalProductsCount / productsPerPage);
 
   // Componente del formulario mejorado para el modal
   const renderProductForm = () => (
@@ -1586,7 +1611,7 @@ export default function DashboardPage() {
                 <div className="flex items-center justify-between text-sm text-gray-600">
                   <span>
                     Mostrando <span className="font-semibold">{filteredProducts.length}</span> de{" "}
-                    <span className="font-semibold">{products.length}</span> productos
+                    <span className="font-semibold">{totalProductsCount}</span> productos
                   </span>
                 </div>
               </div>
@@ -1697,6 +1722,43 @@ export default function DashboardPage() {
                       </Card>
                     ))
                   )}
+                </div>
+              )}
+
+              {/* Paginación de productos */}
+              {!loadingProducts && totalProductPages > 1 && (
+                <div className="flex justify-center items-center gap-2 mt-8">
+                  <button
+                    onClick={() => setCurrentProductPage((prev) => Math.max(1, prev - 1))}
+                    disabled={currentProductPage === 1}
+                    className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  >
+                    Anterior
+                  </button>
+                  
+                  <div className="flex gap-2">
+                    {Array.from({ length: totalProductPages }, (_, i) => i + 1).map((page) => (
+                      <button
+                        key={page}
+                        onClick={() => setCurrentProductPage(page)}
+                        className={`px-4 py-2 rounded-lg transition-colors ${
+                          currentProductPage === page
+                            ? "bg-blue-600 text-white"
+                            : "border border-gray-300 hover:bg-gray-50"
+                        }`}
+                      >
+                        {page}
+                      </button>
+                    ))}
+                  </div>
+
+                  <button
+                    onClick={() => setCurrentProductPage((prev) => Math.min(totalProductPages, prev + 1))}
+                    disabled={currentProductPage === totalProductPages}
+                    className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  >
+                    Siguiente
+                  </button>
                 </div>
               )}
             </div>

@@ -56,6 +56,12 @@ function ProductosContent() {
   const [showFilters, setShowFilters] = useState(false);
   const [showPriceFilter, setShowPriceFilter] = useState(false);
 
+  // Estados de paginación
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalProducts, setTotalProducts] = useState(0);
+  const itemsPerPage = 12;
+  const totalPages = Math.ceil(totalProducts / itemsPerPage);
+
   // Estados para tipos de licencia
   const [licenseTypes, setLicenseTypes] = useState<LicenseType[]>([]);
   const [loadingLicenseTypes, setLoadingLicenseTypes] = useState(false);
@@ -82,18 +88,35 @@ function ProductosContent() {
     fetchLicenseTypes();
   }, []);
 
-  // Cargar productos
+  // Resetear a página 1 cuando cambian los filtros
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, selectedCategory]);
+
+  // Cargar productos con paginación del servidor
   useEffect(() => {
     async function fetchProducts() {
       setLoading(true);
       setError(null);
       try {
-        const res = await fetch(`${API_BASE}/products`);
+        // Construir query params
+        const params = new URLSearchParams({
+          page: currentPage.toString(),
+          limit: itemsPerPage.toString(),
+        });
+        
+        if (searchTerm) params.append('search', searchTerm);
+        if (selectedCategory !== 'all') params.append('category', selectedCategory);
+
+        const res = await fetch(`${API_BASE}/products?${params.toString()}`);
         if (!res.ok) throw new Error(`Error al cargar productos: ${res.status}`);
         const body = await res.json();
         const items = body?.data?.products ?? [];
+        const total = body?.data?.pagination?.total ?? 0;
+        
         setProducts(items);
         setFilteredProducts(items);
+        setTotalProducts(total);
       } catch (err: any) {
         setError(err.message ?? "Error al cargar productos");
       } finally {
@@ -102,30 +125,19 @@ function ProductosContent() {
     }
 
     fetchProducts();
-  }, []);
+  }, [currentPage, searchTerm, selectedCategory]);
 
-  // Aplicar filtros
+  // Aplicar filtros locales adicionales (precio y ordenamiento)
+  // El servidor ya maneja búsqueda y categoría
   useEffect(() => {
     let filtered = [...products];
 
-    // Filtro por búsqueda
-    if (searchTerm) {
-      filtered = filtered.filter((p) =>
-        p.name.toLowerCase().includes(searchTerm.toLowerCase())
-      );
-    }
-
-    // Filtro por tipo de licencia
-    if (selectedCategory !== "all") {
-      filtered = filtered.filter((p) => p.license_type?.toString() === selectedCategory);
-    }
-
-    // Filtro por rango de precio
+    // Filtro por rango de precio (local)
     filtered = filtered.filter(
       (p) => p.price >= priceRange.min && p.price <= priceRange.max
     );
 
-    // Ordenamiento
+    // Ordenamiento (local)
     switch (sortBy) {
       case "name-asc":
         filtered.sort((a, b) => a.name.localeCompare(b.name));
@@ -142,7 +154,7 @@ function ProductosContent() {
     }
 
     setFilteredProducts(filtered);
-  }, [searchTerm, selectedCategory, priceRange, sortBy, products]);
+  }, [priceRange, sortBy, products]);
 
   const handleAddToCart = (product: Product) => {
     addItem({
@@ -347,7 +359,8 @@ function ProductosContent() {
         {/* Resultados */}
         <div className="mb-6">
           <p className="text-gray-600">
-            Mostrando {filteredProducts.length} de {products.length} productos
+            Mostrando <span className="font-semibold">{filteredProducts.length}</span> de{" "}
+            <span className="font-semibold">{totalProducts}</span> productos
           </p>
         </div>
 
@@ -378,12 +391,13 @@ function ProductosContent() {
             </button>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            {filteredProducts.map((product) => (
-              <div
-                key={product.id}
-                className="group bg-white rounded-xl shadow-md overflow-hidden hover:shadow-2xl transition-all duration-500 transform hover:scale-[1.02] border border-gray-100"
-              >
+          <>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+              {filteredProducts.map((product) => (
+                <div
+                  key={product.id}
+                  className="group bg-white rounded-xl shadow-md overflow-hidden hover:shadow-2xl transition-all duration-500 transform hover:scale-[1.02] border border-gray-100"
+                >
                 {/* Imagen del producto */}
                 <div className="relative h-48 overflow-hidden bg-gray-100">
                   <Image
@@ -438,7 +452,45 @@ function ProductosContent() {
                 </div>
               </div>
             ))}
-          </div>
+            </div>
+
+            {/* Paginación */}
+            {totalPages > 1 && (
+              <div className="flex justify-center items-center gap-2 mt-8">
+                <button
+                  onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
+                  disabled={currentPage === 1}
+                  className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  Anterior
+                </button>
+                
+                <div className="flex gap-2">
+                  {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+                    <button
+                      key={page}
+                      onClick={() => setCurrentPage(page)}
+                      className={`px-4 py-2 rounded-lg transition-colors ${
+                        currentPage === page
+                          ? "bg-blue-600 text-white"
+                          : "border border-gray-300 hover:bg-gray-50"
+                      }`}
+                    >
+                      {page}
+                    </button>
+                  ))}
+                </div>
+
+                <button
+                  onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
+                  disabled={currentPage === totalPages}
+                  className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  Siguiente
+                </button>
+              </div>
+            )}
+          </>
         )}
       </div>
     </div>
