@@ -55,6 +55,10 @@ type Product = {
   price: number;
   category: string;
   license_type?: number;
+  license_category?: {
+    id: number;
+    type: string;
+  } | null;
   image_url?: string | null;
   stock_quantity: number;
   created_at?: string;
@@ -356,14 +360,42 @@ export default function DashboardPage() {
     setLoadingProducts(true);
     setError(null);
     try {
-      // Construir query params con paginación
+      // If a license filter is active, fetch all products and filter client-side
+      const hasLicenseFilter = selectedLicenseFilter !== "all";
+
+      if (hasLicenseFilter) {
+        const respAll = await fetch(
+          `${API_BASE}/products?search=${encodeURIComponent(searchQuery || "")}&page=1&limit=10000`
+        );
+        let jsonAll: any = undefined;
+        try {
+          jsonAll = await respAll.json();
+        } catch (parseErr) {
+          const text = await respAll.text().catch(() => "");
+          throw new Error(
+            `Server returned ${respAll.status} ${respAll.statusText}: ${text || "non-JSON response"}`
+          );
+        }
+
+        if (!respAll.ok || !jsonAll?.success) {
+          const errObj = jsonAll?.error ?? jsonAll?.message ?? "Failed to fetch products";
+          throw new Error(typeof errObj === 'string' ? errObj : JSON.stringify(errObj));
+        }
+
+        setProducts(jsonAll.data.products ?? []);
+        // Let local filteredProducts (computed below) drive the visible list
+        setTotalProductsCount((jsonAll.data.products ?? []).length);
+        setLoadingProducts(false);
+        return;
+      }
+
+      // Construir query params con paginación - solo búsqueda al servidor
       const params = new URLSearchParams({
         page: currentProductPage.toString(),
         limit: '12',
       });
-      
+
       if (searchQuery) params.append('search', searchQuery);
-      if (selectedLicenseFilter !== 'all') params.append('category', selectedLicenseFilter);
 
       const resp = await fetch(`${API_BASE}/products?${params.toString()}`);
       let json: any = undefined;
@@ -800,13 +832,35 @@ export default function DashboardPage() {
     setShowCreateModal(true);
   }
 
-  // El servidor ya filtra productos por búsqueda y categoría
-  // Solo mostramos los productos que vienen del servidor
-  const filteredProducts = products;
+  // Filtrar productos por tipo de licencia en caso de que el backend no lo aplique
+  const filteredProducts =
+    selectedLicenseFilter === "all"
+      ? products
+      : products.filter((product) => {
+          const licenseId =
+            typeof product.license_type === "number"
+              ? product.license_type.toString()
+              : product.license_type ?? undefined;
+          const fallbackId = product.license_category?.id
+            ? product.license_category.id.toString()
+            : undefined;
+          return (
+            licenseId === selectedLicenseFilter ||
+            fallbackId === selectedLicenseFilter
+          );
+        });
 
-  // Paginación de productos (calculada desde el servidor)
+  // Paginación de productos (calculada desde el servidor cuando no hay filtro)
   const productsPerPage = 12;
-  const totalProductPages = Math.ceil(totalProductsCount / productsPerPage);
+  // When filtered client-side, make totalProductsCount reflect filtered length
+  const effectiveTotal = selectedLicenseFilter === "all" ? totalProductsCount : filteredProducts.length;
+  const totalProductPages = Math.ceil(effectiveTotal / productsPerPage);
+
+  // Visible slice for current page (client-side pagination when filtered)
+  const displayedProducts = filteredProducts.slice(
+    (currentProductPage - 1) * productsPerPage,
+    currentProductPage * productsPerPage
+  );
 
   // Componente del formulario mejorado para el modal
   const renderProductForm = () => (
