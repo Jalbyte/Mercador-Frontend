@@ -40,10 +40,10 @@ type ProductKey = {
 
 type User = {
   id: string;
-  name: string;
+  full_name: string;
   email: string;
-  phone?: string;
-  status: "active" | "inactive";
+  country?: string;
+  is_deleted?: boolean;
   created_at?: string;
   updated_at?: string;
 };
@@ -71,6 +71,17 @@ type LicenseType = {
 };
 
 export default function DashboardPage() {
+  // Lista de países comunes
+  const countries = [
+    "Argentina", "Bolivia", "Brasil", "Chile", "Colombia", "Costa Rica", "Cuba", "Ecuador", "El Salvador", "Guatemala", "Honduras", "México", "Nicaragua", "Panamá", "Paraguay", "Perú", "Puerto Rico", "República Dominicana", "Uruguay", "Venezuela", "Estados Unidos", "Canadá", "España", "Francia", "Italia", "Reino Unido", "Alemania", "Portugal", "Otros"
+  ];
+
+  // Estado para el formulario de edición de usuario
+  const [editForm, setEditForm] = useState<{ full_name: string; email: string; country: string }>({
+    full_name: "",
+    email: "",
+    country: "",
+  });
   const router = useRouter();
   const { user, isLoading: authLoading } = useAuth();
   const [isAdmin, setIsAdmin] = useState(false);
@@ -187,62 +198,30 @@ export default function DashboardPage() {
   async function fetchUsers() {
     try {
       setLoadingUsers(true);
-      // TODO: Reemplazar con el endpoint real de la API
-      // const response = await fetch(`${API_BASE}/api/users?page=${currentPage}&search=${searchTerm}`, {
-      //   credentials: 'include',
-      // });
-      // const data = await response.json();
-      // setUsers(data.users);
-      // setTotalPages(data.totalPages);
-
-      // Datos de ejemplo - Eliminar cuando se tenga el endpoint real
-      setTimeout(() => {
-        const mockUsers: User[] = [
-          {
-            id: "1",
-            name: "Juan Pérez",
-            email: "juan@example.com",
-            phone: "1234567890",
-            status: "active",
-            created_at: "2023-01-01",
-            updated_at: "2023-01-01",
-          },
-          {
-            id: "2",
-            name: "María García",
-            email: "maria@example.com",
-            phone: "0987654321",
-            status: "inactive",
-            created_at: "2023-01-02",
-            updated_at: "2023-01-02",
-          },
-          {
-            id: "3",
-            name: "Carlos López",
-            email: "carlos@example.com",
-            phone: "5551234567",
-            status: "active",
-            created_at: "2023-01-03",
-            updated_at: "2023-01-03",
-          },
-        ];
-
-        // Filtrar usuarios basado en el término de búsqueda
-        const filteredUsers = searchTerm
-          ? mockUsers.filter(
-              (user) =>
-                user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                user.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                (user.phone && user.phone.includes(searchTerm))
+      const response = await fetch(`${API_BASE}/admin/users`, {
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+      });
+      const data = await response.json();
+      if (response.ok && Array.isArray(data)) {
+        // Filtrar por búsqueda
+        const filtered = searchTerm
+          ? data.filter((user: User) =>
+              user.full_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+              user.email?.toLowerCase().includes(searchTerm.toLowerCase())
             )
-          : mockUsers;
-
-        setUsers(filteredUsers);
-        setTotalPages(Math.ceil(filteredUsers.length / 12)); // 12 items por página
-        setLoadingUsers(false);
-      }, 500);
+          : data;
+        setUsers(filtered);
+        setTotalPages(Math.ceil(filtered.length / 12));
+      } else {
+        setUsers([]);
+        setTotalPages(1);
+      }
     } catch (error) {
       console.error("Error al cargar usuarios:", error);
+      setUsers([]);
+      setTotalPages(1);
+    } finally {
       setLoadingUsers(false);
     }
   }
@@ -261,21 +240,28 @@ export default function DashboardPage() {
   const handleEditUser = (user: User) => {
     setEditingUser(user);
     setShowUserModal(true);
+    setEditForm({
+      full_name: user.full_name,
+      email: user.email,
+      country: user.country || "",
+    });
   };
 
   const handleDeleteUser = async (userId: string) => {
     if (window.confirm("¿Estás seguro de que deseas eliminar este usuario?")) {
       try {
-        // TODO: Implementar eliminación de usuario
-        // await fetch(`${API_BASE}/api/users/${userId}`, {
-        //   method: 'DELETE',
-        //   credentials: 'include',
-        // });
-        // fetchUsers(); // Recargar la lista de usuarios
-
-        // Simulación de eliminación
-        setUsers(users.filter((user) => user.id !== userId));
-        alert("Usuario eliminado correctamente");
+        const resp = await fetch(`${API_BASE}/admin/users/${userId}`, {
+          method: 'DELETE',
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json' },
+        });
+        if (resp.ok) {
+          fetchUsers();
+          alert("Usuario eliminado correctamente");
+        } else {
+          const data = await resp.json().catch(() => ({}));
+          alert(data?.error || "Error al eliminar el usuario");
+        }
       } catch (error) {
         console.error("Error al eliminar usuario:", error);
         alert("Error al eliminar el usuario");
@@ -283,54 +269,101 @@ export default function DashboardPage() {
     }
   };
 
-  const handleSaveUser = async (
-    userData: Omit<User, "id" | "created_at" | "updated_at">
-  ) => {
+  const handleSaveUser = async () => {
+    if (!editingUser) return;
     try {
-      // TODO: Implementar creación/actualización de usuario
-      // const method = editingUser ? 'PUT' : 'POST';
-      // const url = editingUser
-      //   ? `${API_BASE}/api/users/${editingUser.id}`
-      //   : `${API_BASE}/api/users`;
-      //
-      // await fetch(url, {
-      //   method,
-      //   headers: { 'Content-Type': 'application/json' },
-      //   credentials: 'include',
-      //   body: JSON.stringify(userData),
-      // });
-
-      // Simulación de guardado
-      if (editingUser) {
-        // Actualizar usuario existente
-        setUsers(
-          users.map((u) =>
-            u.id === editingUser.id ? { ...u, ...userData } : u
-          )
-        );
+      const resp = await fetch(`${API_BASE}/admin/users/${editingUser.id}`, {
+        method: 'PUT',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          full_name: editForm.full_name,
+          email: editForm.email,
+          country: editForm.country,
+        }),
+      });
+      if (resp.ok) {
+        fetchUsers();
+        setShowUserModal(false);
+        setEditingUser(null);
+        alert("Usuario actualizado correctamente");
       } else {
-        // Crear nuevo usuario
-        const newUser: User = {
-          ...userData,
-          id: Math.random().toString(36).substr(2, 9),
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        };
-        setUsers([newUser, ...users]);
+        const data = await resp.json().catch(() => ({}));
+        alert(data?.error || "Error al actualizar el usuario");
       }
-
-      setShowUserModal(false);
-      setEditingUser(null);
-      alert(
-        editingUser
-          ? "Usuario actualizado correctamente"
-          : "Usuario creado correctamente"
-      );
     } catch (error) {
       console.error("Error al guardar usuario:", error);
-      alert(`Error al ${editingUser ? "actualizar" : "crear"} el usuario`);
+      alert("Error al actualizar el usuario");
     }
   };
+  // Modal de edición de usuario
+  const renderUserEditModal = () => (
+    <Modal
+      open={showUserModal}
+      onClose={() => {
+        setShowUserModal(false);
+        setEditingUser(null);
+      }}
+      title="Editar Usuario"
+    >
+      <form
+        onSubmit={e => {
+          e.preventDefault();
+          handleSaveUser();
+        }}
+        className="space-y-4"
+      >
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Nombre completo</label>
+          <input
+            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            value={editForm.full_name}
+            onChange={e => setEditForm(f => ({ ...f, full_name: e.target.value }))}
+            required
+          />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Correo electrónico</label>
+          <input
+            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            type="email"
+            value={editForm.email}
+            onChange={e => setEditForm(f => ({ ...f, email: e.target.value }))}
+            required
+          />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">País</label>
+          <select
+            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+            value={editForm.country}
+            onChange={e => setEditForm(f => ({ ...f, country: e.target.value }))}
+            required
+          >
+            <option value="">Selecciona un país</option>
+            {countries.map((c) => (
+              <option key={c} value={c}>{c}</option>
+            ))}
+          </select>
+        </div>
+        <div className="flex gap-3 justify-end pt-4">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => {
+              setShowUserModal(false);
+              setEditingUser(null);
+            }}
+          >
+            Cancelar
+          </Button>
+          <Button type="submit">Guardar</Button>
+        </div>
+      </form>
+    </Modal>
+  );
+  // ...en el render principal, antes de los modales de producto:
+  {renderUserEditModal()}
 
   // Funciones del ProductAdmin existente
   async function fetchLicenseTypes() {
@@ -1204,6 +1237,72 @@ export default function DashboardPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
+      {/* Modal para editar usuario */}
+      {showUserModal && (
+        <Modal
+          open={showUserModal}
+          onClose={() => {
+            setShowUserModal(false);
+            setEditingUser(null);
+          }}
+          title="Editar Usuario"
+        >
+          <form
+            onSubmit={e => {
+              e.preventDefault();
+              handleSaveUser();
+            }}
+            className="space-y-4"
+          >
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Nombre completo</label>
+              <input
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                value={editForm.full_name}
+                onChange={e => setEditForm(f => ({ ...f, full_name: e.target.value }))}
+                required
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Correo electrónico</label>
+              <input
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                type="email"
+                value={editForm.email}
+                onChange={e => setEditForm(f => ({ ...f, email: e.target.value }))}
+                required
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">País</label>
+              <select
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                value={editForm.country}
+                onChange={e => setEditForm(f => ({ ...f, country: e.target.value }))}
+                required
+              >
+                <option value="">Selecciona un país</option>
+                {countries.map((c) => (
+                  <option key={c} value={c}>{c}</option>
+                ))}
+              </select>
+            </div>
+            <div className="flex gap-3 justify-end pt-4">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  setShowUserModal(false);
+                  setEditingUser(null);
+                }}
+              >
+                Cancelar
+              </Button>
+              <Button type="submit">Guardar</Button>
+            </div>
+          </form>
+        </Modal>
+      )}
       {/* Header del Dashboard */}
       <div className="bg-white shadow-sm border-b">
         <div className="container mx-auto px-4 py-6">
@@ -1380,12 +1479,6 @@ export default function DashboardPage() {
                       scope="col"
                       className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
                     >
-                      Teléfono
-                    </th>
-                    <th
-                      scope="col"
-                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                    >
                       Estado
                     </th>
                     <th
@@ -1444,12 +1537,12 @@ export default function DashboardPage() {
                           <div className="flex items-center">
                             <div className="flex-shrink-0 h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center">
                               <span className="text-blue-600 font-medium">
-                                {user.name.charAt(0).toUpperCase()}
+                                {user.full_name.charAt(0).toUpperCase()}
                               </span>
                             </div>
                             <div className="ml-4">
                               <div className="text-sm font-medium text-gray-900">
-                                {user.name}
+                                {user.full_name}
                               </div>
                             </div>
                           </div>
@@ -1460,19 +1553,16 @@ export default function DashboardPage() {
                           </div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm text-gray-500">
-                            {user.phone || "No especificado"}
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
                           <span
                             className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                              user.status === "active"
-                                ? "bg-green-100 text-green-800"
-                                : "bg-red-100 text-red-800"
+                              user.is_deleted ? "bg-red-100 text-red-800" : "bg-green-100 text-green-800"
                             }`}
                           >
-                            {user.status === "active" ? "Activo" : "Inactivo"}
+                            {user.is_deleted ? (
+                              <span className="px-2 py-1 rounded bg-red-100 text-red-700 text-xs font-semibold">Inactivo</span>
+                            ) : (
+                              <span className="px-2 py-1 rounded bg-green-100 text-green-700 text-xs font-semibold">Activo</span>
+                            )}
                           </span>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
