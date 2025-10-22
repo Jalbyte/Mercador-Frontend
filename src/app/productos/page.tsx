@@ -25,7 +25,11 @@ type Product = {
   description: string;
   price: number;
   category: string;
-  license_type?: string;
+  license_type?: number | string;
+  license_category?: {
+    id: number;
+    type: string;
+  } | null;
   image_url?: string | null;
   stock_quantity: number;
 };
@@ -99,21 +103,43 @@ function ProductosContent() {
       setLoading(true);
       setError(null);
       try {
-        // Construir query params
+        // If a license filter is active, fetch all products so we can filter client-side
+        const hasLicenseFilter = selectedCategory !== "all";
+
+        if (hasLicenseFilter) {
+          // Request a large limit (server should support) to retrieve full list for client filtering
+          const resAll = await fetch(
+            `${API_BASE}/products?search=${encodeURIComponent(
+              searchTerm || ""
+            )}&page=1&limit=10000`
+          );
+          if (!resAll.ok) throw new Error(`Error al cargar productos: ${resAll.status}`);
+          const bodyAll = await resAll.json();
+          const allItems = bodyAll?.data?.products ?? [];
+          setProducts(allItems);
+          // We'll allow the local filters effect to compute filteredProducts
+          // but set a provisional total so pagination UI can render immediately
+          setTotalProducts(allItems.length);
+          setFilteredProducts(allItems);
+          setLoading(false);
+          return;
+        }
+
+        // Normal server-paginated fetch when no license filter is applied
         const params = new URLSearchParams({
           page: currentPage.toString(),
           limit: itemsPerPage.toString(),
         });
-        
-        if (searchTerm) params.append('search', searchTerm);
-        if (selectedCategory !== 'all') params.append('category', selectedCategory);
+
+        if (searchTerm) params.append("search", searchTerm);
+        // Do not append selectedCategory here because server-side support is inconsistent
 
         const res = await fetch(`${API_BASE}/products?${params.toString()}`);
         if (!res.ok) throw new Error(`Error al cargar productos: ${res.status}`);
         const body = await res.json();
         const items = body?.data?.products ?? [];
-        const total = body?.data?.pagination?.total ?? 0;
-        
+        const total = body?.data?.pagination?.total ?? items.length;
+
         setProducts(items);
         setFilteredProducts(items);
         setTotalProducts(total);
@@ -127,10 +153,21 @@ function ProductosContent() {
     fetchProducts();
   }, [currentPage, searchTerm, selectedCategory]);
 
-  // Aplicar filtros locales adicionales (precio y ordenamiento)
-  // El servidor ya maneja búsqueda y categoría
+  // Aplicar filtros locales (tipo de licencia, precio y ordenamiento)
   useEffect(() => {
     let filtered = [...products];
+
+    // Filtro por tipo de licencia (en caso de que el backend no lo aplique)
+    if (selectedCategory !== "all") {
+      filtered = filtered.filter((p) => {
+        const licenseId =
+          typeof p.license_type === "number"
+            ? p.license_type.toString()
+            : p.license_type ?? undefined;
+        const fallbackId = p.license_category?.id?.toString();
+        return licenseId === selectedCategory || fallbackId === selectedCategory;
+      });
+    }
 
     // Filtro por rango de precio (local)
     filtered = filtered.filter(
@@ -154,7 +191,20 @@ function ProductosContent() {
     }
 
     setFilteredProducts(filtered);
-  }, [priceRange, sortBy, products]);
+  }, [selectedCategory, priceRange, sortBy, products]);
+
+  // When we filter client-side (selectedCategory active), make totalProducts follow filtered count
+  useEffect(() => {
+    if (selectedCategory !== "all") {
+      setTotalProducts(filteredProducts.length);
+    }
+  }, [filteredProducts, selectedCategory]);
+
+  // Compute visible products for current page (client-side pagination when filtering)
+  const displayedProducts = filteredProducts.slice(
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage
+  );
 
   const handleAddToCart = (product: Product) => {
     addItem({
