@@ -47,15 +47,25 @@ export default function WompiCheckout({
     // Obtener configuración pública
     const fetchConfig = async () => {
       try {
+        console.log("🔍 Obteniendo config de Wompi desde:", `${API_BASE}/wompi/config`);
         const response = await fetch(`${API_BASE}/wompi/config`);
         if (response.ok) {
           const config = await response.json();
+          console.log("✅ Config recibida:", config);
+          if (!config.publicKey) {
+            console.error("❌ La respuesta no contiene publicKey:", config);
+            setError("La configuración de Wompi no contiene la Public Key");
+            return;
+          }
           setPublicKey(config.publicKey);
+          console.log("✅ Public Key configurada:", config.publicKey);
         } else {
+          const errorText = await response.text();
+          console.error("❌ Error obteniendo config:", response.status, errorText);
           setError("No se pudo obtener la configuración de Wompi");
         }
       } catch (err) {
-        console.error("Error obteniendo config:", err);
+        console.error("❌ Error obteniendo config:", err);
         setError("Error de conexión con el servidor");
       }
     };
@@ -132,8 +142,26 @@ export default function WompiCheckout({
         amountInCents: data.amountInCents,
       });
 
+      // Validar que tenemos todos los datos necesarios
+      console.log("🔍 Verificando datos para inicializar Widget:", {
+        publicKey,
+        currency,
+        amountInCents: data.amountInCents,
+        reference,
+        signature: data.signature,
+        customerEmail,
+      });
+
+      if (!publicKey) {
+        throw new Error("No se pudo obtener la Public Key");
+      }
+
+      // Determinar si estamos en sandbox basado en la public key
+      const isSandbox = publicKey.includes('test');
+      console.log("🏖️ Modo sandbox:", isSandbox);
+
       // Crear el widget de Wompi con la firma de integridad del backend
-      const checkout = new window.WidgetCheckout({
+      const checkoutConfig: any = {
         currency: currency,
         amountInCents: data.amountInCents, // Usar el monto calculado por el backend
         reference: reference,
@@ -148,7 +176,16 @@ export default function WompiCheckout({
           phoneNumber: customerPhone,
           phoneNumberPrefix: customerPhonePrefix, // Prefijo del país
         },
-      });
+      };
+
+      // Si estamos en sandbox, agregar el parámetro sandbox: true
+      if (isSandbox) {
+        checkoutConfig.sandbox = true;
+        console.log("✅ Modo sandbox activado");
+      }
+
+      console.log("🚀 Inicializando Widget con config:", checkoutConfig);
+      const checkout = new window.WidgetCheckout(checkoutConfig);
 
       // Abrir el widget
       checkout.open((result: any) => {
