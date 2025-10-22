@@ -943,11 +943,13 @@ export default function DashboardPage() {
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Precio ($)
+                Precio (COP $)
               </label>
               <input
                 type="number"
-                step="0.01"
+                step="1000"
+                min="0"
+                placeholder="Ej: 50000"
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                 value={price as any}
                 onChange={(e) =>
@@ -955,6 +957,11 @@ export default function DashboardPage() {
                 }
                 required
               />
+              <p className="text-xs text-gray-500 mt-1">
+                {typeof price === "number" && price > 0 
+                  ? `$ ${price.toLocaleString('es-CO')}` 
+                  : "Ingrese el precio en pesos colombianos"}
+              </p>
             </div>
 
             <div>
@@ -1643,7 +1650,7 @@ export default function DashboardPage() {
 
                             <div className="flex items-center justify-between">
                               <span className="text-lg font-bold text-green-600">
-                                ${p.price.toFixed(2)}
+                                ${p.price.toLocaleString('es-CO')}
                               </span>
                               <div className="text-right">
                                 <div className="text-sm text-gray-500">

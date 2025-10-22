@@ -84,7 +84,7 @@ const LicenseCard = ({
         <div className="flex justify-between items-center">
           <div className="flex flex-col">
             <span className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-              ${price.toFixed(2)}
+              ${price.toLocaleString('es-CO')}
             </span>
           </div>
 

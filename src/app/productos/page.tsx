@@ -51,7 +51,7 @@ function ProductosContent() {
   const [priceRange, setPriceRange] = useState<{
     min: number;
     max: number;
-  }>({ min: 0, max: 1000 });
+  }>({ min: 0, max: 500000 });
   const [sortBy, setSortBy] = useState<string>("name-asc");
   const [showFilters, setShowFilters] = useState(false);
   const [showPriceFilter, setShowPriceFilter] = useState(false);
@@ -156,7 +156,7 @@ function ProductosContent() {
   const resetFilters = () => {
     setSearchTerm("");
     setSelectedCategory("all");
-    setPriceRange({ min: 0, max: 1000 });
+    setPriceRange({ min: 0, max: 500000 });
     setSortBy("name-asc");
     setShowPriceFilter(false);
   };
@@ -283,14 +283,14 @@ function ProductosContent() {
                         Precio mínimo
                       </label>
                       <span className="text-lg font-bold text-blue-600">
-                        ${priceRange.min}
+                        ${priceRange.min.toLocaleString('es-CO')}
                       </span>
                     </div>
                     <input
                       type="range"
                       min="0"
-                      max="1000"
-                      step="10"
+                      max="500000"
+                      step="10000"
                       value={priceRange.min}
                       onChange={(e) =>
                         setPriceRange({ ...priceRange, min: Number(e.target.value) })
@@ -299,7 +299,7 @@ function ProductosContent() {
                     />
                     <div className="flex justify-between text-xs text-gray-500 mt-1">
                       <span>$0</span>
-                      <span>$1000</span>
+                      <span>$500.000</span>
                     </div>
                   </div>
 
@@ -310,14 +310,14 @@ function ProductosContent() {
                         Precio máximo
                       </label>
                       <span className="text-lg font-bold text-purple-600">
-                        ${priceRange.max}
+                        ${priceRange.max.toLocaleString('es-CO')}
                       </span>
                     </div>
                     <input
                       type="range"
                       min="0"
-                      max="1000"
-                      step="10"
+                      max="500000"
+                      step="10000"
                       value={priceRange.max}
                       onChange={(e) =>
                         setPriceRange({ ...priceRange, max: Number(e.target.value) })
@@ -326,7 +326,7 @@ function ProductosContent() {
                     />
                     <div className="flex justify-between text-xs text-gray-500 mt-1">
                       <span>$0</span>
-                      <span>$1000</span>
+                      <span>$500.000</span>
                     </div>
                   </div>
                 </div>
