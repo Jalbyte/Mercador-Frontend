@@ -26,7 +26,7 @@ export default function ForgotPasswordPage() {
     setIsLoading(true);
 
     try {
-      const response = await fetch(`${API_BASE}/auth/password/reset`, {
+      const response = await fetch(`${API_BASE}/auth/login/magiclink`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -40,17 +40,17 @@ export default function ForgotPasswordPage() {
 
       if (!response.ok) {
         throw new Error(
-          data.error || data.message || "Error al enviar el correo de recuperación"
+          data.error || data.message || "Error al enviar el enlace de acceso"
         );
       }
 
       setIsSuccess(true);
     } catch (err) {
-      console.error("Forgot password error:", err);
+      console.error("Magic link error:", err);
       if (err instanceof Error) {
         setError(err.message);
       } else {
-        setError("No pudimos enviar el correo de recuperación. Inténtalo de nuevo.");
+        setError("No pudimos enviar el enlace de acceso. Inténtalo de nuevo.");
       }
     } finally {
       setIsLoading(false);
@@ -63,7 +63,7 @@ export default function ForgotPasswordPage() {
         <div className="relative bg-white rounded-2xl shadow-xl overflow-hidden">
           <AuthHeader
             title="Revisa tu correo"
-            subtitle="Te hemos enviado un enlace de recuperación"
+            subtitle="Te hemos enviado un enlace mágico de acceso"
             icon={<FiCheck size={32} />}
           />
 
@@ -73,23 +73,24 @@ export default function ForgotPasswordPage() {
                 <FiCheck size={32} className="text-green-600" />
               </div>
               <p className="text-gray-600 mb-4">
-                Hemos enviado un enlace de recuperación a{" "}
+                Hemos enviado un enlace mágico de acceso a{" "}
                 <span className="font-semibold text-gray-900">{email}</span>
               </p>
               <p className="text-sm text-gray-500">
                 Por favor, revisa tu bandeja de entrada y haz clic en el enlace
-                para restablecer tu contraseña.
+                para iniciar sesión automáticamente sin necesidad de contraseña.
               </p>
             </div>
 
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
               <p className="text-sm text-blue-800 mb-2 font-medium">
-                💡 Consejos importantes:
+                 ¿Qué es un enlace mágico?
               </p>
               <ul className="text-sm text-blue-700 space-y-1 ml-4 list-disc">
+                <li>Te permite acceder sin recordar tu contraseña</li>
                 <li>El enlace expira en 1 hora por seguridad</li>
-                <li>Revisa la carpeta de spam si no lo encuentras</li>
                 <li>Solo funciona una vez</li>
+                <li>Revisa la carpeta de spam si no lo encuentras</li>
               </ul>
             </div>
 
@@ -122,16 +123,16 @@ export default function ForgotPasswordPage() {
     <AuthLayout>
       <div className="relative bg-white rounded-2xl shadow-xl overflow-hidden">
         <AuthHeader
-          title="Recupera tu contraseña"
-          subtitle="Te enviaremos un enlace para restablecer tu contraseña"
+          title="Acceso sin contraseña"
+          subtitle="Te enviaremos un enlace mágico para iniciar sesión"
           icon={<FiMail size={32} />}
         />
 
         <form onSubmit={handleSubmit} className="p-8 space-y-6">
           <div>
             <p className="text-sm text-gray-600 mb-6">
-              Ingresa tu correo electrónico y te enviaremos un enlace para que
-              puedas restablecer tu contraseña.
+              Ingresa tu correo electrónico y te enviaremos un enlace mágico 
+              que te permitirá iniciar sesión sin necesidad de recordar tu contraseña.
             </p>
 
             <FormInput
@@ -166,8 +167,7 @@ export default function ForgotPasswordPage() {
                 </>
               ) : (
                 <>
-                  <FiMail size={18} />
-                  Enviar enlace de recuperación
+                   Enviar enlace mágico
                 </>
               )}
             </button>
