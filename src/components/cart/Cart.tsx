@@ -3,13 +3,10 @@
 import { useCart } from "@/hooks";
 import { useAuthRoute } from "@/hooks/use-auth-route";
 import { useAuth } from "@/components/auth/AuthProvider";
-import { Modal } from "@/components/ui/modal";
-import { useState, useEffect, useRef } from "react";
-import SaleDetail from "./SaleDetail";
-import WompiCheckout from "@/components/payment/WompiCheckout";
 import { X, Plus, Minus, ShoppingCart } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useRouter } from "next/navigation";
+import { useState, useEffect, useRef } from "react";
 import {
   Card,
   CardContent,
@@ -47,10 +44,8 @@ export function Cart() {
     0
   );
 
-  const [isDetailOpen, setIsDetailOpen] = useState(false);
-  const [showWompiCheckout, setShowWompiCheckout] = useState(false);
   const [showClearConfirm, setShowClearConfirm] = useState(false);
-  const { isAuthenticated, isLoading, user } = useAuth();
+  const { isAuthenticated, isLoading } = useAuth();
   const clearConfirmRef = useRef<HTMLDivElement>(null);
 
   // Cerrar modal de confirmación al hacer clic fuera
@@ -270,23 +265,25 @@ export function Cart() {
               size="lg" 
               disabled={!isValid || isCartLoading}
               onClick={async () => {
-              // If auth is still loading, give simple feedback
-              if (isLoading) {
-                alert("Verificando sesión, por favor espera...");
-                return;
-              }
+                // Si está cargando la autenticación, dar feedback
+                if (isLoading) {
+                  alert("Verificando sesión, por favor espera...");
+                  return;
+                }
 
-              if (!isAuthenticated) {
-                // Not authenticated: notify and redirect to login
-                alert("Debes iniciar sesión para proceder al pago");
+                // Si no está autenticado, redirigir a login
+                if (!isAuthenticated) {
+                  alert("Debes iniciar sesión para proceder al pago");
+                  setIsOpen(false);
+                  router.push("/login");
+                  return;
+                }
+
+                // Si está autenticado, cerrar el carrito y redirigir a checkout
                 setIsOpen(false);
-                router.push("/login");
-                return;
-              }
-
-              // Authenticated: open sale detail modal
-              setIsDetailOpen(true);
-            }}>
+                router.push("/checkout");
+              }}
+            >
               {isCartLoading ? "Validando..." : "Proceder al pago"}
             </Button>
             <Button
@@ -302,88 +299,6 @@ export function Cart() {
           </CardFooter>
         )}
       </Card>
-      {/* Detalle de venta modal: muestra los items del carrito y el total */}
-      <Modal open={isDetailOpen} onClose={() => setIsDetailOpen(false)} title="Detalle de venta">
-        <SaleDetail
-          items={cartItems}
-          subtotal={subtotal}
-          onCancel={() => setIsDetailOpen(false)}
-          onConfirm={() => {
-            // Cerrar modal de detalle y mostrar checkout de Wompi
-            setIsDetailOpen(false);
-            setShowWompiCheckout(true);
-          }}
-        />
-      </Modal>
-
-      {/* Checkout de Wompi */}
-      {showWompiCheckout && user && (
-        <div className="fixed inset-0 bg-black/50 z-[60] flex items-center justify-center p-4">
-          <div className="bg-white rounded-lg p-6 max-w-md w-full">
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-xl font-bold">Pago con Wompi</h2>
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => {
-                  setShowWompiCheckout(false);
-                  setIsOpen(true);
-                }}
-              >
-                <X className="h-5 w-5" />
-              </Button>
-            </div>
-            
-            <WompiCheckout
-              amount={subtotal}
-              currency="COP"
-              reference={`ORDER-${user.id}-${Date.now()}`}
-              customerEmail={user.email || ""}
-              customerName={user.full_name || "Cliente"}
-              onSuccess={async (transaction) => {
-                console.log("✅ Pago exitoso:", transaction);
-                
-                try {
-                  const API_BASE =
-                    process.env.NEXT_PUBLIC_API_URL ??
-                    (typeof window !== "undefined"
-                      ? `${window.location.protocol}//${window.location.hostname}:3010`
-                      : "");
-
-                  // Sincronizar items del carrito local con Supabase
-                  console.log("� Sincronizando carrito con Supabase...");
-                  for (const item of cartItems) {
-                    await fetch(`${API_BASE}/cart/items`, {
-                      method: "POST",
-                      headers: { "Content-Type": "application/json" },
-                      credentials: "include",
-                      body: JSON.stringify({
-                        productId: item.id,
-                        quantity: item.quantity,
-                      }),
-                    });
-                  }
-                  console.log("✅ Carrito sincronizado");
-                } catch (err) {
-                  console.error("Error sincronizando carrito:", err);
-                }
-
-                // Limpiar carrito y cerrar
-                clearCart();
-                setShowWompiCheckout(false);
-                setIsOpen(false);
-                
-                // Redirigir a página de éxito
-                router.push(`/checkout/wompi-callback?id=${transaction.id}`);
-              }}
-              onError={(error) => {
-                console.error("❌ Error en el pago:", error);
-                alert("Error procesando el pago. Por favor intenta nuevamente.");
-              }}
-            />
-          </div>
-        </div>
-      )}
     </div>
   );
 }
