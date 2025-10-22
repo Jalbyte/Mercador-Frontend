@@ -191,7 +191,7 @@ export const AuthForm = forwardRef<any, AuthFormProps>(({
               onClick={() => router.push("/forgot-password")}
               className="text-sm text-blue-600 hover:text-blue-800 transition-colors"
             >
-              Acceder sin contraseña ✨
+              ¿Olvidaste tu contraseña?
             </button>
           </div>
         ) : (
