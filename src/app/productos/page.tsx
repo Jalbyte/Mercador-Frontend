@@ -419,7 +419,7 @@ function ProductosContent() {
                   <div className="flex justify-between items-center">
                     <div className="flex flex-col">
                       <span className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-                        ${product.price.toFixed(2)}
+                        ${product.price.toLocaleString('es-CO')}
                       </span>
                       <span className="text-xs text-gray-500">
                         Stock: {product.stock_quantity}

@@ -42,22 +42,22 @@ export const SaleDetail: React.FC<SaleDetailProps> = ({
             />
             <div>
               <div className="font-medium">{item.name}</div>
-              <div className="text-sm text-muted-foreground">${item.price.toFixed(2)} c/u</div>
+              <div className="text-sm text-muted-foreground">${item.price.toLocaleString('es-CO')} c/u</div>
             </div>
           </div>
           <div className="col-span-2 text-center">{item.quantity}</div>
-          <div className="col-span-3 text-right font-medium">${(item.price * item.quantity).toFixed(2)}</div>
+          <div className="col-span-3 text-right font-medium">${(item.price * item.quantity).toLocaleString('es-CO')}</div>
         </div>
       ))}
 
       <div className="border-t pt-4">
         <div className="flex justify-between">
           <span>Subtotal</span>
-          <span className="font-medium">${subtotal.toFixed(2)}</span>
+          <span className="font-medium">${subtotal.toLocaleString('es-CO')}</span>
         </div>
         <div className="flex justify-between mt-2">
           <span>Valor total de keys</span>
-          <span className="font-semibold">${subtotal.toFixed(2)}</span>
+          <span className="font-semibold">${subtotal.toLocaleString('es-CO')}</span>
         </div>
       </div>
 

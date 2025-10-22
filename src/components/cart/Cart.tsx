@@ -175,7 +175,7 @@ export function Cart() {
                       <div className="flex-1">
                         <h3 className="font-medium">{item.name}</h3>
                         <p className="text-sm text-muted-foreground">
-                          ${item.price.toFixed(2)}
+                          ${item.price.toLocaleString('es-CO')}
                         </p>
                         <div className="flex items-center gap-2 mt-1">
                           <Button
@@ -263,7 +263,7 @@ export function Cart() {
             )}
             <div className="flex justify-between w-full">
               <span>Subtotal</span>
-              <span className="font-medium">${subtotal.toFixed(2)}</span>
+              <span className="font-medium">${subtotal.toLocaleString('es-CO')}</span>
             </div>
             <Button 
               className="w-full" 

@@ -986,12 +986,22 @@ export default function DashboardPage() {
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Categoría
             </label>
-            <input
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            <select
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
               value={category}
               onChange={(e) => setCategory(e.target.value)}
               required
-            />
+            >
+              <option value="">Seleccione una categoría</option>
+              <option value="Licencias">Licencias</option>
+              <option value="Tarjeta de Regalo">Tarjeta de Regalo</option>
+              <option value="Software">Software</option>
+              <option value="Suscripciones">Suscripciones</option>
+              <option value="Juegos">Juegos</option>
+              <option value="Antivirus">Antivirus</option>
+              <option value="Ofimática">Ofimática</option>
+              <option value="Otra">Otra</option>
+            </select>
           </div>
 
           <div>
