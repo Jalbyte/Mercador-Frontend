@@ -3,13 +3,10 @@
 import { useCart } from "@/hooks";
 import { useAuthRoute } from "@/hooks/use-auth-route";
 import { useAuth } from "@/components/auth/AuthProvider";
-import { Modal } from "@/components/ui/modal";
-import { useState, useEffect, useRef } from "react";
-import SaleDetail from "./SaleDetail";
-import { CreditCardForm } from "./CreditCardForm";
 import { X, Plus, Minus, ShoppingCart } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useRouter } from "next/navigation";
+import { useState, useEffect, useRef } from "react";
 import {
   Card,
   CardContent,
@@ -47,11 +44,8 @@ export function Cart() {
     0
   );
 
-  const [isDetailOpen, setIsDetailOpen] = useState(false);
-  const [showCreditCardForm, setShowCreditCardForm] = useState(false);
-  const [isProcessingPayment, setIsProcessingPayment] = useState(false);
   const [showClearConfirm, setShowClearConfirm] = useState(false);
-  const { isAuthenticated, isLoading, user } = useAuth();
+  const { isAuthenticated, isLoading } = useAuth();
   const clearConfirmRef = useRef<HTMLDivElement>(null);
 
   // Cerrar modal de confirmación al hacer clic fuera
@@ -176,7 +170,7 @@ export function Cart() {
                       <div className="flex-1">
                         <h3 className="font-medium">{item.name}</h3>
                         <p className="text-sm text-muted-foreground">
-                          ${item.price.toFixed(2)}
+                          ${item.price.toLocaleString('es-CO')}
                         </p>
                         <div className="flex items-center gap-2 mt-1">
                           <Button
@@ -264,30 +258,32 @@ export function Cart() {
             )}
             <div className="flex justify-between w-full">
               <span>Subtotal</span>
-              <span className="font-medium">${subtotal.toFixed(2)}</span>
+              <span className="font-medium">${subtotal.toLocaleString('es-CO')}</span>
             </div>
             <Button 
               className="w-full" 
               size="lg" 
               disabled={!isValid || isCartLoading}
               onClick={async () => {
-              // If auth is still loading, give simple feedback
-              if (isLoading) {
-                alert("Verificando sesión, por favor espera...");
-                return;
-              }
+                // Si está cargando la autenticación, dar feedback
+                if (isLoading) {
+                  alert("Verificando sesión, por favor espera...");
+                  return;
+                }
 
-              if (!isAuthenticated) {
-                // Not authenticated: notify and redirect to login
-                alert("Debes iniciar sesión para proceder al pago");
+                // Si no está autenticado, redirigir a login
+                if (!isAuthenticated) {
+                  alert("Debes iniciar sesión para proceder al pago");
+                  setIsOpen(false);
+                  router.push("/login");
+                  return;
+                }
+
+                // Si está autenticado, cerrar el carrito y redirigir a checkout
                 setIsOpen(false);
-                router.push("/login");
-                return;
-              }
-
-              // Authenticated: open sale detail modal
-              setIsDetailOpen(true);
-            }}>
+                router.push("/checkout");
+              }}
+            >
               {isCartLoading ? "Validando..." : "Proceder al pago"}
             </Button>
             <Button
@@ -303,132 +299,6 @@ export function Cart() {
           </CardFooter>
         )}
       </Card>
-      {/* Detalle de venta modal: muestra los items del carrito y el total */}
-      <Modal open={isDetailOpen} onClose={() => setIsDetailOpen(false)} title="Detalle de venta">
-        <SaleDetail
-          items={cartItems}
-          subtotal={subtotal}
-          onCancel={() => setIsDetailOpen(false)}
-          onConfirm={() => {
-            // Cerrar modal de detalle y mostrar formulario de tarjeta
-            setIsDetailOpen(false);
-            setShowCreditCardForm(true);
-          }}
-        />
-      </Modal>
-
-      {/* Formulario de tarjeta de crédito */}
-      {showCreditCardForm && (
-        <CreditCardForm
-          isLoading={isProcessingPayment}
-          onCancel={() => {
-            setShowCreditCardForm(false);
-            setIsOpen(true);
-          }}
-          onSubmit={async (cardData) => {
-            setIsProcessingPayment(true);
-            try {
-              const API_BASE =
-                process.env.NEXT_PUBLIC_API_URL ??
-                (typeof window !== "undefined"
-                  ? `${window.location.protocol}//${window.location.hostname}:3010`
-                  : "");
-
-              // 1. Sincronizar items del carrito local con Supabase
-              console.log("📦 Sincronizando carrito con Supabase...");
-              for (const item of cartItems) {
-                const addToCartRes = await fetch(`${API_BASE}/cart/items`, {
-                  method: "POST",
-                  headers: { "Content-Type": "application/json" },
-                  credentials: "include",
-                  body: JSON.stringify({
-                    productId: item.id,
-                    quantity: item.quantity,
-                  }),
-                });
-
-                if (!addToCartRes.ok) {
-                  const errorData = await addToCartRes.json();
-                  const errorMessage = errorData?.error || `Error al agregar item ${item.name} al carrito`;
-                  throw new Error(errorMessage);
-                }
-              }
-              console.log("✅ Carrito sincronizado");
-
-              // 2. Verificar que el usuario esté autenticado
-              if (!user) {
-                alert("Debes iniciar sesión para proceder al pago");
-                setShowCreditCardForm(false);
-                router.push("/login");
-                return;
-              }
-
-              // Extraer nombre y apellido del full_name o usar valores por defecto
-              const nameParts = (user.full_name || "").split(" ");
-              const firstName = nameParts[0] || "Cliente";
-              const lastName = nameParts.slice(1).join(" ") || "Mercador";
-
-              // 3. Crear preferencia de pago en el backend (PayU) con datos de tarjeta
-              console.log("💳 Creando pago con PayU...");
-              const res = await fetch(`${API_BASE}/payu/create`, {
-                method: "POST",
-                headers: {
-                  "Content-Type": "application/json"
-                },
-                credentials: "include",
-                body: JSON.stringify({
-                  payer: {
-                    email: user.email,
-                    name: firstName,
-                    surname: lastName
-                  },
-                  creditCard: cardData
-                })
-              });
-
-              if (!res.ok) {
-                if (res.status === 401) {
-                  alert("Debes iniciar sesión para proceder al pago");
-                  setShowCreditCardForm(false);
-                  router.push("/login");
-                  return;
-                }
-                const errorData = await res.json();
-                throw new Error(errorData.error || `Error: ${res.status}`);
-              }
-
-              const data = await res.json();
-              console.log("✅ Pago procesado con PayU:", data);
-
-              // Cerrar formulario y carrito
-              setShowCreditCardForm(false);
-              setIsOpen(false);
-
-              // PayU procesa el pago inmediatamente
-              if (data.redirect_url) {
-                // Redirigir a la página de resultado
-                console.log("🔄 Redirigiendo a resultado del pago...");
-                window.location.href = data.redirect_url;
-              } else if (data.state === 'APPROVED') {
-                // Pago aprobado, redirigir a éxito
-                router.push(`/payment/success?transaction_id=${data.transaction_id}`);
-              } else if (data.state === 'DECLINED') {
-                // Pago rechazado
-                router.push(`/payment/failure?transaction_id=${data.transaction_id}`);
-              } else {
-                alert("Pago procesado. Estado: " + (data.state || 'Desconocido'));
-              }
-            } catch (err) {
-              console.error('❌ Error al procesar pago:', err);
-              alert(err instanceof Error ? err.message : "Error al conectar con el backend");
-              setShowCreditCardForm(false);
-              setIsOpen(true);
-            } finally {
-              setIsProcessingPayment(false);
-            }
-          }}
-        />
-      )}
     </div>
   );
 }

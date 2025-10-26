@@ -25,7 +25,11 @@ type Product = {
   description: string;
   price: number;
   category: string;
-  license_type?: string;
+  license_type?: number | string;
+  license_category?: {
+    id: number;
+    type: string;
+  } | null;
   image_url?: string | null;
   stock_quantity: number;
 };
@@ -51,10 +55,16 @@ function ProductosContent() {
   const [priceRange, setPriceRange] = useState<{
     min: number;
     max: number;
-  }>({ min: 0, max: 1000 });
+  }>({ min: 0, max: 500000 });
   const [sortBy, setSortBy] = useState<string>("name-asc");
   const [showFilters, setShowFilters] = useState(false);
   const [showPriceFilter, setShowPriceFilter] = useState(false);
+
+  // Estados de paginación
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalProducts, setTotalProducts] = useState(0);
+  const itemsPerPage = 12;
+  const totalPages = Math.ceil(totalProducts / itemsPerPage);
 
   // Estados para tipos de licencia
   const [licenseTypes, setLicenseTypes] = useState<LicenseType[]>([]);
@@ -82,18 +92,57 @@ function ProductosContent() {
     fetchLicenseTypes();
   }, []);
 
-  // Cargar productos
+  // Resetear a página 1 cuando cambian los filtros
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, selectedCategory]);
+
+  // Cargar productos con paginación del servidor
   useEffect(() => {
     async function fetchProducts() {
       setLoading(true);
       setError(null);
       try {
-        const res = await fetch(`${API_BASE}/products`);
+        // If a license filter is active, fetch all products so we can filter client-side
+        const hasLicenseFilter = selectedCategory !== "all";
+
+        if (hasLicenseFilter) {
+          // Request a large limit (server should support) to retrieve full list for client filtering
+          const resAll = await fetch(
+            `${API_BASE}/products?search=${encodeURIComponent(
+              searchTerm || ""
+            )}&page=1&limit=10000`
+          );
+          if (!resAll.ok) throw new Error(`Error al cargar productos: ${resAll.status}`);
+          const bodyAll = await resAll.json();
+          const allItems = bodyAll?.data?.products ?? [];
+          setProducts(allItems);
+          // We'll allow the local filters effect to compute filteredProducts
+          // but set a provisional total so pagination UI can render immediately
+          setTotalProducts(allItems.length);
+          setFilteredProducts(allItems);
+          setLoading(false);
+          return;
+        }
+
+        // Normal server-paginated fetch when no license filter is applied
+        const params = new URLSearchParams({
+          page: currentPage.toString(),
+          limit: itemsPerPage.toString(),
+        });
+
+        if (searchTerm) params.append("search", searchTerm);
+        // Do not append selectedCategory here because server-side support is inconsistent
+
+        const res = await fetch(`${API_BASE}/products?${params.toString()}`);
         if (!res.ok) throw new Error(`Error al cargar productos: ${res.status}`);
         const body = await res.json();
         const items = body?.data?.products ?? [];
+        const total = body?.data?.pagination?.total ?? items.length;
+
         setProducts(items);
         setFilteredProducts(items);
+        setTotalProducts(total);
       } catch (err: any) {
         setError(err.message ?? "Error al cargar productos");
       } finally {
@@ -102,30 +151,30 @@ function ProductosContent() {
     }
 
     fetchProducts();
-  }, []);
+  }, [currentPage, searchTerm, selectedCategory]);
 
-  // Aplicar filtros
+  // Aplicar filtros locales (tipo de licencia, precio y ordenamiento)
   useEffect(() => {
     let filtered = [...products];
 
-    // Filtro por búsqueda
-    if (searchTerm) {
-      filtered = filtered.filter((p) =>
-        p.name.toLowerCase().includes(searchTerm.toLowerCase())
-      );
-    }
-
-    // Filtro por tipo de licencia
+    // Filtro por tipo de licencia (en caso de que el backend no lo aplique)
     if (selectedCategory !== "all") {
-      filtered = filtered.filter((p) => p.license_type?.toString() === selectedCategory);
+      filtered = filtered.filter((p) => {
+        const licenseId =
+          typeof p.license_type === "number"
+            ? p.license_type.toString()
+            : p.license_type ?? undefined;
+        const fallbackId = p.license_category?.id?.toString();
+        return licenseId === selectedCategory || fallbackId === selectedCategory;
+      });
     }
 
-    // Filtro por rango de precio
+    // Filtro por rango de precio (local)
     filtered = filtered.filter(
       (p) => p.price >= priceRange.min && p.price <= priceRange.max
     );
 
-    // Ordenamiento
+    // Ordenamiento (local)
     switch (sortBy) {
       case "name-asc":
         filtered.sort((a, b) => a.name.localeCompare(b.name));
@@ -142,7 +191,20 @@ function ProductosContent() {
     }
 
     setFilteredProducts(filtered);
-  }, [searchTerm, selectedCategory, priceRange, sortBy, products]);
+  }, [selectedCategory, priceRange, sortBy, products]);
+
+  // When we filter client-side (selectedCategory active), make totalProducts follow filtered count
+  useEffect(() => {
+    if (selectedCategory !== "all") {
+      setTotalProducts(filteredProducts.length);
+    }
+  }, [filteredProducts, selectedCategory]);
+
+  // Compute visible products for current page (client-side pagination when filtering)
+  const displayedProducts = filteredProducts.slice(
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage
+  );
 
   const handleAddToCart = (product: Product) => {
     addItem({
@@ -156,7 +218,7 @@ function ProductosContent() {
   const resetFilters = () => {
     setSearchTerm("");
     setSelectedCategory("all");
-    setPriceRange({ min: 0, max: 1000 });
+    setPriceRange({ min: 0, max: 500000 });
     setSortBy("name-asc");
     setShowPriceFilter(false);
   };
@@ -283,14 +345,14 @@ function ProductosContent() {
                         Precio mínimo
                       </label>
                       <span className="text-lg font-bold text-blue-600">
-                        ${priceRange.min}
+                        ${priceRange.min.toLocaleString('es-CO')}
                       </span>
                     </div>
                     <input
                       type="range"
                       min="0"
-                      max="1000"
-                      step="10"
+                      max="500000"
+                      step="10000"
                       value={priceRange.min}
                       onChange={(e) =>
                         setPriceRange({ ...priceRange, min: Number(e.target.value) })
@@ -299,7 +361,7 @@ function ProductosContent() {
                     />
                     <div className="flex justify-between text-xs text-gray-500 mt-1">
                       <span>$0</span>
-                      <span>$1000</span>
+                      <span>$500.000</span>
                     </div>
                   </div>
 
@@ -310,14 +372,14 @@ function ProductosContent() {
                         Precio máximo
                       </label>
                       <span className="text-lg font-bold text-purple-600">
-                        ${priceRange.max}
+                        ${priceRange.max.toLocaleString('es-CO')}
                       </span>
                     </div>
                     <input
                       type="range"
                       min="0"
-                      max="1000"
-                      step="10"
+                      max="500000"
+                      step="10000"
                       value={priceRange.max}
                       onChange={(e) =>
                         setPriceRange({ ...priceRange, max: Number(e.target.value) })
@@ -326,7 +388,7 @@ function ProductosContent() {
                     />
                     <div className="flex justify-between text-xs text-gray-500 mt-1">
                       <span>$0</span>
-                      <span>$1000</span>
+                      <span>$500.000</span>
                     </div>
                   </div>
                 </div>
@@ -347,7 +409,8 @@ function ProductosContent() {
         {/* Resultados */}
         <div className="mb-6">
           <p className="text-gray-600">
-            Mostrando {filteredProducts.length} de {products.length} productos
+            Mostrando <span className="font-semibold">{filteredProducts.length}</span> de{" "}
+            <span className="font-semibold">{totalProducts}</span> productos
           </p>
         </div>
 
@@ -378,12 +441,13 @@ function ProductosContent() {
             </button>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            {filteredProducts.map((product) => (
-              <div
-                key={product.id}
-                className="group bg-white rounded-xl shadow-md overflow-hidden hover:shadow-2xl transition-all duration-500 transform hover:scale-[1.02] border border-gray-100"
-              >
+          <>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+              {filteredProducts.map((product) => (
+                <div
+                  key={product.id}
+                  className="group bg-white rounded-xl shadow-md overflow-hidden hover:shadow-2xl transition-all duration-500 transform hover:scale-[1.02] border border-gray-100"
+                >
                 {/* Imagen del producto */}
                 <div className="relative h-48 overflow-hidden bg-gray-100">
                   <Image
@@ -419,7 +483,7 @@ function ProductosContent() {
                   <div className="flex justify-between items-center">
                     <div className="flex flex-col">
                       <span className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-                        ${product.price.toFixed(2)}
+                        ${product.price.toLocaleString('es-CO')}
                       </span>
                       <span className="text-xs text-gray-500">
                         Stock: {product.stock_quantity}
@@ -438,7 +502,45 @@ function ProductosContent() {
                 </div>
               </div>
             ))}
-          </div>
+            </div>
+
+            {/* Paginación */}
+            {totalPages > 1 && (
+              <div className="flex justify-center items-center gap-2 mt-8">
+                <button
+                  onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
+                  disabled={currentPage === 1}
+                  className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  Anterior
+                </button>
+                
+                <div className="flex gap-2">
+                  {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+                    <button
+                      key={page}
+                      onClick={() => setCurrentPage(page)}
+                      className={`px-4 py-2 rounded-lg transition-colors ${
+                        currentPage === page
+                          ? "bg-blue-600 text-white"
+                          : "border border-gray-300 hover:bg-gray-50"
+                      }`}
+                    >
+                      {page}
+                    </button>
+                  ))}
+                </div>
+
+                <button
+                  onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
+                  disabled={currentPage === totalPages}
+                  className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  Siguiente
+                </button>
+              </div>
+            )}
+          </>
         )}
       </div>
     </div>

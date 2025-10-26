@@ -25,6 +25,7 @@ type LicenseCardProps = {
   price: number;
   category: string;
   image: string;
+  stock_quantity: number;
 };
 
 // Client-side API base (must be set via NEXT_PUBLIC_API_URL)
@@ -37,6 +38,7 @@ const LicenseCard = ({
   price,
   category,
   image,
+  stock_quantity,
 }: LicenseCardProps) => {
   const { addItem } = useCart();
 
@@ -70,7 +72,13 @@ const LicenseCard = ({
             {category}
           </span>
         </div>
-        <div className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+        {stock_quantity === 0 && (
+          <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
+            <span className="text-white font-bold text-lg">
+              Agotado
+            </span>
+          </div>
+        )}
       </div>
 
       <div className="p-6">
@@ -84,13 +92,17 @@ const LicenseCard = ({
         <div className="flex justify-between items-center">
           <div className="flex flex-col">
             <span className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-              ${price.toFixed(2)}
+              ${price.toLocaleString('es-CO')}
+            </span>
+            <span className="text-xs text-gray-500">
+              Stock: {stock_quantity}
             </span>
           </div>
 
           <button
             onClick={handleAddToCart}
-            className="bg-gradient-to-r from-blue-600 to-blue-700 text-white px-6 py-2.5 rounded-lg hover:from-blue-700 hover:to-blue-800 transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-xl font-medium flex items-center gap-2"
+            disabled={stock_quantity === 0}
+            className="bg-gradient-to-r from-blue-600 to-blue-700 text-white px-6 py-2.5 rounded-lg hover:from-blue-700 hover:to-blue-800 transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-xl font-medium flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
           >
             <FiShoppingCart className="w-4 h-4" />
             Agregar
@@ -149,6 +161,7 @@ export default function Home() {
             p.image_url ??
             process.env.NEXT_PUBLIC_PLACEHOLDER_URL ??
             "/placeholder.png",
+          stock_quantity: p.stock_quantity ?? 0,
         }));
         if (mounted) setProducts(mapped);
       } catch (err: any) {

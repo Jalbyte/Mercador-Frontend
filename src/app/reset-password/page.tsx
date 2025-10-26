@@ -49,26 +49,8 @@ function ResetPasswordForm() {
       }
 
       try {
-        // Verificar el token con Supabase
-        const response = await fetch(`${API_BASE}/auth/password/verify`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            token: tokenToVerify,
-            type: "recovery",
-          }),
-        });
-
-        const data = await response.json();
-
-        if (response.ok && data.user?.email) {
-          setIsValidToken(true);
-          setUserEmail(data.user.email);
-        } else {
-          throw new Error("Token de recuperación no válido o expirado");
-        }
+        setIsValidToken(true);
+        // El token será validado cuando se intente cambiar la contraseña
       } catch (err) {
         console.error("Error verifying token:", err);
         setError("Error al verificar el enlace de recuperación");
@@ -150,15 +132,14 @@ function ResetPasswordForm() {
     try {
       const tokenToUse = token || access_token;
 
-      // Actualizar la contraseña usando la API de Supabase
-      const response = await fetch(`${API_BASE}/auth/v1/verify`, {
+      // Actualizar la contraseña usando la API del backend
+      const response = await fetch(`${API_BASE}/auth/password/update`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
           token: tokenToUse,
-          type: "recovery",
           password: passwords.newPassword,
         }),
       });
@@ -167,11 +148,11 @@ function ResetPasswordForm() {
 
       if (!response.ok) {
         throw new Error(
-          data.msg || data.message || "Error al actualizar la contraseña"
+          data.error || data.message || "Error al actualizar la contraseña"
         );
       }
 
-      console.log("Password reset successful for:", userEmail);
+      console.log("Password reset successful");
       setIsSuccess(true);
 
       // Redirigir al login después de 3 segundos

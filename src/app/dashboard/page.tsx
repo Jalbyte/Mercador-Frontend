@@ -40,10 +40,10 @@ type ProductKey = {
 
 type User = {
   id: string;
-  name: string;
+  full_name: string;
   email: string;
-  phone?: string;
-  status: "active" | "inactive";
+  country?: string;
+  is_deleted?: boolean;
   created_at?: string;
   updated_at?: string;
 };
@@ -55,6 +55,10 @@ type Product = {
   price: number;
   category: string;
   license_type?: number;
+  license_category?: {
+    id: number;
+    type: string;
+  } | null;
   image_url?: string | null;
   stock_quantity: number;
   created_at?: string;
@@ -67,6 +71,17 @@ type LicenseType = {
 };
 
 export default function DashboardPage() {
+  // Lista de países comunes
+  const countries = [
+    "Argentina", "Bolivia", "Brasil", "Chile", "Colombia", "Costa Rica", "Cuba", "Ecuador", "El Salvador", "Guatemala", "Honduras", "México", "Nicaragua", "Panamá", "Paraguay", "Perú", "Puerto Rico", "República Dominicana", "Uruguay", "Venezuela", "Estados Unidos", "Canadá", "España", "Francia", "Italia", "Reino Unido", "Alemania", "Portugal", "Otros"
+  ];
+
+  // Estado para el formulario de edición de usuario
+  const [editForm, setEditForm] = useState<{ full_name: string; email: string; country: string }>({
+    full_name: "",
+    email: "",
+    country: "",
+  });
   const router = useRouter();
   const { user, isLoading: authLoading } = useAuth();
   const [isAdmin, setIsAdmin] = useState(false);
@@ -125,6 +140,15 @@ export default function DashboardPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedLicenseFilter, setSelectedLicenseFilter] = useState<string>("all");
 
+  // Estado para paginación de productos
+  const [currentProductPage, setCurrentProductPage] = useState(1);
+  const [totalProductsCount, setTotalProductsCount] = useState(0);
+
+  // Reset pagination when filters change
+  useEffect(() => {
+    setCurrentProductPage(1);
+  }, [searchQuery, selectedLicenseFilter]);
+
   useEffect(() => {
     let mounted = true;
 
@@ -158,66 +182,46 @@ export default function DashboardPage() {
     };
   }, [router, user, authLoading]);
 
+  // Recargar productos cuando cambian filtros o página
+  useEffect(() => {
+    if (isAdmin) {
+      fetchProducts();
+    }
+  }, [currentProductPage, searchQuery, selectedLicenseFilter]);
+
+  // Resetear a página 1 cuando cambian los filtros
+  useEffect(() => {
+    setCurrentProductPage(1);
+  }, [searchQuery, selectedLicenseFilter]);
+
   // Funciones para gestión de usuarios
   async function fetchUsers() {
     try {
       setLoadingUsers(true);
-      // TODO: Reemplazar con el endpoint real de la API
-      // const response = await fetch(`${API_BASE}/api/users?page=${currentPage}&search=${searchTerm}`, {
-      //   credentials: 'include',
-      // });
-      // const data = await response.json();
-      // setUsers(data.users);
-      // setTotalPages(data.totalPages);
-
-      // Datos de ejemplo - Eliminar cuando se tenga el endpoint real
-      setTimeout(() => {
-        const mockUsers: User[] = [
-          {
-            id: "1",
-            name: "Juan Pérez",
-            email: "juan@example.com",
-            phone: "1234567890",
-            status: "active",
-            created_at: "2023-01-01",
-            updated_at: "2023-01-01",
-          },
-          {
-            id: "2",
-            name: "María García",
-            email: "maria@example.com",
-            phone: "0987654321",
-            status: "inactive",
-            created_at: "2023-01-02",
-            updated_at: "2023-01-02",
-          },
-          {
-            id: "3",
-            name: "Carlos López",
-            email: "carlos@example.com",
-            phone: "5551234567",
-            status: "active",
-            created_at: "2023-01-03",
-            updated_at: "2023-01-03",
-          },
-        ];
-
-        // Filtrar usuarios basado en el término de búsqueda
-        const filteredUsers = searchTerm
-          ? mockUsers.filter(
-              (user) =>
-                user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                user.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                (user.phone && user.phone.includes(searchTerm))
+      const response = await fetch(`${API_BASE}/admin/users`, {
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+      });
+      const data = await response.json();
+      if (response.ok && Array.isArray(data)) {
+        // Filtrar por búsqueda
+        const filtered = searchTerm
+          ? data.filter((user: User) =>
+              user.full_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+              user.email?.toLowerCase().includes(searchTerm.toLowerCase())
             )
-          : mockUsers;
-
-        setUsers(filteredUsers);
-        setTotalPages(Math.ceil(filteredUsers.length / 10)); // 10 items por página
-        setLoadingUsers(false);
-      }, 500);
+          : data;
+        setUsers(filtered);
+        setTotalPages(Math.ceil(filtered.length / 12));
+      } else {
+        setUsers([]);
+        setTotalPages(1);
+      }
     } catch (error) {
       console.error("Error al cargar usuarios:", error);
+      setUsers([]);
+      setTotalPages(1);
+    } finally {
       setLoadingUsers(false);
     }
   }
@@ -236,21 +240,28 @@ export default function DashboardPage() {
   const handleEditUser = (user: User) => {
     setEditingUser(user);
     setShowUserModal(true);
+    setEditForm({
+      full_name: user.full_name,
+      email: user.email,
+      country: user.country || "",
+    });
   };
 
   const handleDeleteUser = async (userId: string) => {
     if (window.confirm("¿Estás seguro de que deseas eliminar este usuario?")) {
       try {
-        // TODO: Implementar eliminación de usuario
-        // await fetch(`${API_BASE}/api/users/${userId}`, {
-        //   method: 'DELETE',
-        //   credentials: 'include',
-        // });
-        // fetchUsers(); // Recargar la lista de usuarios
-
-        // Simulación de eliminación
-        setUsers(users.filter((user) => user.id !== userId));
-        alert("Usuario eliminado correctamente");
+        const resp = await fetch(`${API_BASE}/admin/users/${userId}`, {
+          method: 'DELETE',
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json' },
+        });
+        if (resp.ok) {
+          fetchUsers();
+          alert("Usuario eliminado correctamente");
+        } else {
+          const data = await resp.json().catch(() => ({}));
+          alert(data?.error || "Error al eliminar el usuario");
+        }
       } catch (error) {
         console.error("Error al eliminar usuario:", error);
         alert("Error al eliminar el usuario");
@@ -258,54 +269,101 @@ export default function DashboardPage() {
     }
   };
 
-  const handleSaveUser = async (
-    userData: Omit<User, "id" | "created_at" | "updated_at">
-  ) => {
+  const handleSaveUser = async () => {
+    if (!editingUser) return;
     try {
-      // TODO: Implementar creación/actualización de usuario
-      // const method = editingUser ? 'PUT' : 'POST';
-      // const url = editingUser
-      //   ? `${API_BASE}/api/users/${editingUser.id}`
-      //   : `${API_BASE}/api/users`;
-      //
-      // await fetch(url, {
-      //   method,
-      //   headers: { 'Content-Type': 'application/json' },
-      //   credentials: 'include',
-      //   body: JSON.stringify(userData),
-      // });
-
-      // Simulación de guardado
-      if (editingUser) {
-        // Actualizar usuario existente
-        setUsers(
-          users.map((u) =>
-            u.id === editingUser.id ? { ...u, ...userData } : u
-          )
-        );
+      const resp = await fetch(`${API_BASE}/admin/users/${editingUser.id}`, {
+        method: 'PUT',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          full_name: editForm.full_name,
+          email: editForm.email,
+          country: editForm.country,
+        }),
+      });
+      if (resp.ok) {
+        fetchUsers();
+        setShowUserModal(false);
+        setEditingUser(null);
+        alert("Usuario actualizado correctamente");
       } else {
-        // Crear nuevo usuario
-        const newUser: User = {
-          ...userData,
-          id: Math.random().toString(36).substr(2, 9),
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        };
-        setUsers([newUser, ...users]);
+        const data = await resp.json().catch(() => ({}));
+        alert(data?.error || "Error al actualizar el usuario");
       }
-
-      setShowUserModal(false);
-      setEditingUser(null);
-      alert(
-        editingUser
-          ? "Usuario actualizado correctamente"
-          : "Usuario creado correctamente"
-      );
     } catch (error) {
       console.error("Error al guardar usuario:", error);
-      alert(`Error al ${editingUser ? "actualizar" : "crear"} el usuario`);
+      alert("Error al actualizar el usuario");
     }
   };
+  // Modal de edición de usuario
+  const renderUserEditModal = () => (
+    <Modal
+      open={showUserModal}
+      onClose={() => {
+        setShowUserModal(false);
+        setEditingUser(null);
+      }}
+      title="Editar Usuario"
+    >
+      <form
+        onSubmit={e => {
+          e.preventDefault();
+          handleSaveUser();
+        }}
+        className="space-y-4"
+      >
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Nombre completo</label>
+          <input
+            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            value={editForm.full_name}
+            onChange={e => setEditForm(f => ({ ...f, full_name: e.target.value }))}
+            required
+          />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Correo electrónico</label>
+          <input
+            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            type="email"
+            value={editForm.email}
+            onChange={e => setEditForm(f => ({ ...f, email: e.target.value }))}
+            required
+          />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">País</label>
+          <select
+            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+            value={editForm.country}
+            onChange={e => setEditForm(f => ({ ...f, country: e.target.value }))}
+            required
+          >
+            <option value="">Selecciona un país</option>
+            {countries.map((c) => (
+              <option key={c} value={c}>{c}</option>
+            ))}
+          </select>
+        </div>
+        <div className="flex gap-3 justify-end pt-4">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => {
+              setShowUserModal(false);
+              setEditingUser(null);
+            }}
+          >
+            Cancelar
+          </Button>
+          <Button type="submit">Guardar</Button>
+        </div>
+      </form>
+    </Modal>
+  );
+  // ...en el render principal, antes de los modales de producto:
+  {renderUserEditModal()}
 
   // Funciones del ProductAdmin existente
   async function fetchLicenseTypes() {
@@ -335,7 +393,44 @@ export default function DashboardPage() {
     setLoadingProducts(true);
     setError(null);
     try {
-      const resp = await fetch(`${API_BASE}/products`);
+      // If a license filter is active, fetch all products and filter client-side
+      const hasLicenseFilter = selectedLicenseFilter !== "all";
+
+      if (hasLicenseFilter) {
+        const respAll = await fetch(
+          `${API_BASE}/products?search=${encodeURIComponent(searchQuery || "")}&page=1&limit=10000`
+        );
+        let jsonAll: any = undefined;
+        try {
+          jsonAll = await respAll.json();
+        } catch (parseErr) {
+          const text = await respAll.text().catch(() => "");
+          throw new Error(
+            `Server returned ${respAll.status} ${respAll.statusText}: ${text || "non-JSON response"}`
+          );
+        }
+
+        if (!respAll.ok || !jsonAll?.success) {
+          const errObj = jsonAll?.error ?? jsonAll?.message ?? "Failed to fetch products";
+          throw new Error(typeof errObj === 'string' ? errObj : JSON.stringify(errObj));
+        }
+
+        setProducts(jsonAll.data.products ?? []);
+        // Let local filteredProducts (computed below) drive the visible list
+        setTotalProductsCount((jsonAll.data.products ?? []).length);
+        setLoadingProducts(false);
+        return;
+      }
+
+      // Construir query params con paginación - solo búsqueda al servidor
+      const params = new URLSearchParams({
+        page: currentProductPage.toString(),
+        limit: '12',
+      });
+
+      if (searchQuery) params.append('search', searchQuery);
+
+      const resp = await fetch(`${API_BASE}/products?${params.toString()}`);
       let json: any = undefined;
       try {
         json = await resp.json();
@@ -360,8 +455,10 @@ export default function DashboardPage() {
           : errObj?.message ?? JSON.stringify(errObj);
         setError(errMsg || "Failed to fetch products");
         setProducts([]);
+        setTotalProductsCount(0);
       } else {
         setProducts(json.data.products ?? []);
+        setTotalProductsCount(json.data.pagination?.total ?? 0);
       }
     } catch (e: any) {
       setError(e?.message ?? String(e));
@@ -768,20 +865,35 @@ export default function DashboardPage() {
     setShowCreateModal(true);
   }
 
-  // Filtrar productos
-  const filteredProducts = products.filter((product) => {
-    // Filtro por búsqueda (nombre, descripción, categoría)
-    const matchesSearch = searchQuery === "" || 
-      product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      product.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      product.category.toLowerCase().includes(searchQuery.toLowerCase());
+  // Filtrar productos por tipo de licencia en caso de que el backend no lo aplique
+  const filteredProducts =
+    selectedLicenseFilter === "all"
+      ? products
+      : products.filter((product) => {
+          const licenseId =
+            typeof product.license_type === "number"
+              ? product.license_type.toString()
+              : product.license_type ?? undefined;
+          const fallbackId = product.license_category?.id
+            ? product.license_category.id.toString()
+            : undefined;
+          return (
+            licenseId === selectedLicenseFilter ||
+            fallbackId === selectedLicenseFilter
+          );
+        });
 
-    // Filtro por tipo de licencia
-    const matchesLicense = selectedLicenseFilter === "all" || 
-      product.license_type?.toString() === selectedLicenseFilter;
+  // Paginación de productos (calculada desde el servidor cuando no hay filtro)
+  const productsPerPage = 12;
+  // When filtered client-side, make totalProductsCount reflect filtered length
+  const effectiveTotal = selectedLicenseFilter === "all" ? totalProductsCount : filteredProducts.length;
+  const totalProductPages = Math.ceil(effectiveTotal / productsPerPage);
 
-    return matchesSearch && matchesLicense;
-  });
+  // Visible slice for current page (client-side pagination when filtered)
+  const displayedProducts = filteredProducts.slice(
+    (currentProductPage - 1) * productsPerPage,
+    currentProductPage * productsPerPage
+  );
 
   // Componente del formulario mejorado para el modal
   const renderProductForm = () => (
@@ -943,11 +1055,13 @@ export default function DashboardPage() {
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Precio ($)
+                Precio (COP $)
               </label>
               <input
                 type="number"
-                step="0.01"
+                step="1000"
+                min="0"
+                placeholder="Ej: 50000"
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                 value={price as any}
                 onChange={(e) =>
@@ -955,6 +1069,11 @@ export default function DashboardPage() {
                 }
                 required
               />
+              <p className="text-xs text-gray-500 mt-1">
+                {typeof price === "number" && price > 0 
+                  ? `$ ${price.toLocaleString('es-CO')}` 
+                  : "Ingrese el precio en pesos colombianos"}
+              </p>
             </div>
 
             <div>
@@ -979,12 +1098,22 @@ export default function DashboardPage() {
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Categoría
             </label>
-            <input
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            <select
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
               value={category}
               onChange={(e) => setCategory(e.target.value)}
               required
-            />
+            >
+              <option value="">Seleccione una categoría</option>
+              <option value="Licencias">Licencias</option>
+              <option value="Tarjeta de Regalo">Tarjeta de Regalo</option>
+              <option value="Software">Software</option>
+              <option value="Suscripciones">Suscripciones</option>
+              <option value="Juegos">Juegos</option>
+              <option value="Antivirus">Antivirus</option>
+              <option value="Ofimática">Ofimática</option>
+              <option value="Otra">Otra</option>
+            </select>
           </div>
 
           <div>
@@ -1108,6 +1237,72 @@ export default function DashboardPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
+      {/* Modal para editar usuario */}
+      {showUserModal && (
+        <Modal
+          open={showUserModal}
+          onClose={() => {
+            setShowUserModal(false);
+            setEditingUser(null);
+          }}
+          title="Editar Usuario"
+        >
+          <form
+            onSubmit={e => {
+              e.preventDefault();
+              handleSaveUser();
+            }}
+            className="space-y-4"
+          >
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Nombre completo</label>
+              <input
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                value={editForm.full_name}
+                onChange={e => setEditForm(f => ({ ...f, full_name: e.target.value }))}
+                required
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Correo electrónico</label>
+              <input
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                type="email"
+                value={editForm.email}
+                onChange={e => setEditForm(f => ({ ...f, email: e.target.value }))}
+                required
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">País</label>
+              <select
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                value={editForm.country}
+                onChange={e => setEditForm(f => ({ ...f, country: e.target.value }))}
+                required
+              >
+                <option value="">Selecciona un país</option>
+                {countries.map((c) => (
+                  <option key={c} value={c}>{c}</option>
+                ))}
+              </select>
+            </div>
+            <div className="flex gap-3 justify-end pt-4">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  setShowUserModal(false);
+                  setEditingUser(null);
+                }}
+              >
+                Cancelar
+              </Button>
+              <Button type="submit">Guardar</Button>
+            </div>
+          </form>
+        </Modal>
+      )}
       {/* Header del Dashboard */}
       <div className="bg-white shadow-sm border-b">
         <div className="container mx-auto px-4 py-6">
@@ -1284,12 +1479,6 @@ export default function DashboardPage() {
                       scope="col"
                       className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
                     >
-                      Teléfono
-                    </th>
-                    <th
-                      scope="col"
-                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                    >
                       Estado
                     </th>
                     <th
@@ -1348,12 +1537,12 @@ export default function DashboardPage() {
                           <div className="flex items-center">
                             <div className="flex-shrink-0 h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center">
                               <span className="text-blue-600 font-medium">
-                                {user.name.charAt(0).toUpperCase()}
+                                {user.full_name.charAt(0).toUpperCase()}
                               </span>
                             </div>
                             <div className="ml-4">
                               <div className="text-sm font-medium text-gray-900">
-                                {user.name}
+                                {user.full_name}
                               </div>
                             </div>
                           </div>
@@ -1364,19 +1553,16 @@ export default function DashboardPage() {
                           </div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm text-gray-500">
-                            {user.phone || "No especificado"}
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
                           <span
                             className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                              user.status === "active"
-                                ? "bg-green-100 text-green-800"
-                                : "bg-red-100 text-red-800"
+                              user.is_deleted ? "bg-red-100 text-red-800" : "bg-green-100 text-green-800"
                             }`}
                           >
-                            {user.status === "active" ? "Activo" : "Inactivo"}
+                            {user.is_deleted ? (
+                              <span className="px-2 py-1 rounded bg-red-100 text-red-700 text-xs font-semibold">Inactivo</span>
+                            ) : (
+                              <span className="px-2 py-1 rounded bg-green-100 text-green-700 text-xs font-semibold">Activo</span>
+                            )}
                           </span>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
@@ -1569,7 +1755,7 @@ export default function DashboardPage() {
                 <div className="flex items-center justify-between text-sm text-gray-600">
                   <span>
                     Mostrando <span className="font-semibold">{filteredProducts.length}</span> de{" "}
-                    <span className="font-semibold">{products.length}</span> productos
+                    <span className="font-semibold">{totalProductsCount}</span> productos
                   </span>
                 </div>
               </div>
@@ -1643,7 +1829,7 @@ export default function DashboardPage() {
 
                             <div className="flex items-center justify-between">
                               <span className="text-lg font-bold text-green-600">
-                                ${p.price.toFixed(2)}
+                                ${p.price.toLocaleString('es-CO')}
                               </span>
                               <div className="text-right">
                                 <div className="text-sm text-gray-500">
@@ -1680,6 +1866,43 @@ export default function DashboardPage() {
                       </Card>
                     ))
                   )}
+                </div>
+              )}
+
+              {/* Paginación de productos */}
+              {!loadingProducts && totalProductPages > 1 && (
+                <div className="flex justify-center items-center gap-2 mt-8">
+                  <button
+                    onClick={() => setCurrentProductPage((prev) => Math.max(1, prev - 1))}
+                    disabled={currentProductPage === 1}
+                    className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  >
+                    Anterior
+                  </button>
+                  
+                  <div className="flex gap-2">
+                    {Array.from({ length: totalProductPages }, (_, i) => i + 1).map((page) => (
+                      <button
+                        key={page}
+                        onClick={() => setCurrentProductPage(page)}
+                        className={`px-4 py-2 rounded-lg transition-colors ${
+                          currentProductPage === page
+                            ? "bg-blue-600 text-white"
+                            : "border border-gray-300 hover:bg-gray-50"
+                        }`}
+                      >
+                        {page}
+                      </button>
+                    ))}
+                  </div>
+
+                  <button
+                    onClick={() => setCurrentProductPage((prev) => Math.min(totalProductPages, prev + 1))}
+                    disabled={currentProductPage === totalProductPages}
+                    className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  >
+                    Siguiente
+                  </button>
                 </div>
               )}
             </div>

@@ -149,15 +149,19 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   /**
    * Función para sincronizar el carrito con el backend
    * Solo se ejecuta si el usuario está autenticado
+   * @param silent - Si es true, no muestra el indicador de loading
    */
-  const syncCart = useCallback(async () => {
+  const syncCart = useCallback(async (silent: boolean = false) => {
     // No sincronizar si no está autenticado
     if (!isAuthenticated) {
       console.log("User not authenticated, skipping cart sync");
       return;
     }
 
-    setIsLoading(true);
+    if (!silent) {
+      setIsLoading(true);
+    }
+    
     try {
       const response = await fetch(`${API_BASE}/cart`, {
         method: "GET",
@@ -196,7 +200,9 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     } catch (error) {
       console.error("Error syncing cart:", error);
     } finally {
-      setIsLoading(false);
+      if (!silent) {
+        setIsLoading(false);
+      }
     }
   }, [API_BASE, isAuthenticated]);
 
@@ -276,8 +282,19 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       const failed = data.results?.filter((r: any) => r.action === 'failed') || [];
       if (failed.length > 0) {
         console.error("Some operations failed:", failed);
-        setToastMessage(`Algunos productos no se pudieron sincronizar`);
+        
+        // Mostrar mensajes específicos de error
+        failed.forEach((failedOp: any) => {
+          console.error(`Product ${failedOp.productId}: ${failedOp.error}`);
+        });
+        
+        // Sincronizar el carrito con el backend para obtener el estado real
+        await syncCart();
+        
+        setToastMessage(`Error: ${failed[0].error}`);
         setShowToast(true);
+        
+        return { success: false, failed };
       } else {
         console.log(`✅ Batch sync completed: ${operations.length} operations`);
       }
@@ -285,10 +302,13 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       return data;
     } catch (error) {
       console.error("Error syncing batch to backend:", error);
+      // Sincronizar para obtener el estado real del backend
+      await syncCart();
       setToastMessage("Error al sincronizar carrito");
       setShowToast(true);
+      return { success: false };
     }
-  }, [isAuthenticated, API_BASE]);
+  }, [isAuthenticated, API_BASE, syncCart]);
 
   /**
    * Procesa la cola de sincronización y envía operaciones acumuladas al backend
@@ -534,8 +554,8 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
 
   /**
    * Función para agregar un item al carrito.
-   * Si el item ya existe, incrementa su cantidad. Si no existe, lo agrega con cantidad 1.
-   * Si está autenticado, también actualiza el backend usando cola de sincronización.
+   * Usa actualización optimista: actualiza la UI inmediatamente y valida en segundo plano.
+   * Si la validación falla, revierte los cambios.
    *
    * @param {Omit<CartItem, "quantity">} item - Item a agregar (sin cantidad)
    */
@@ -543,8 +563,9 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     // Calcular nueva cantidad
     const currentItem = items.find((i) => i.id === item.id);
     const newQuantity = currentItem ? currentItem.quantity + 1 : 1;
+    const previousItems = [...items]; // Guardar estado anterior para posible rollback
 
-    // Actualizar el estado local primero
+    // ACTUALIZACIÓN OPTIMISTA: Actualizar UI inmediatamente
     setItems((prevItems) => {
       const existingItem = prevItems.find((i) => i.id === item.id);
 
@@ -557,16 +578,54 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       return [...prevItems, { ...item, quantity: 1 }];
     });
     
-    // Si está autenticado, agregar a la cola de sincronización
-    if (isAuthenticated) {
-      queueSync(Number(item.id), newQuantity);
-      console.log(`Item ${item.name} queued for sync with quantity ${newQuantity}`);
-    }
-    
-    // Mostrar notificación
+    // Mostrar notificación inmediata
     setToastMessage(`"${item.name}" agregado al carrito`);
     setShowToast(true);
-  }, [items, isAuthenticated, queueSync]);
+
+    // Si está autenticado, validar en segundo plano
+    if (isAuthenticated) {
+      // Ejecutar en background sin bloquear
+      (async () => {
+        try {
+          const response = await fetch(`${API_BASE}/cart/items/batch`, {
+            method: "POST",
+            credentials: "include",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              operations: [{
+                productId: Number(item.id),
+                quantity: newQuantity,
+              }],
+            }),
+          });
+
+          const data = await response.json();
+          
+          // Verificar si la operación falló
+          const failed = data.results?.filter((r: any) => r.action === 'failed') || [];
+          if (failed.length > 0) {
+            // ROLLBACK: Revertir al estado anterior
+            setItems(previousItems);
+            setToastMessage(`${failed[0].error}`);
+            setShowToast(true);
+            return;
+          }
+
+          // Éxito: sincronizar silenciosamente en segundo plano (sin loading)
+          // No mostramos otra notificación para no molestar al usuario
+          syncCart(true);
+        } catch (error) {
+          console.error("Error adding item to cart:", error);
+          // ROLLBACK: Revertir al estado anterior
+          setItems(previousItems);
+          setToastMessage("Error al agregar producto. Stock insuficiente.");
+          setShowToast(true);
+        }
+      })();
+    }
+  }, [items, isAuthenticated, API_BASE, syncCart]);
 
   const hideToast = () => {
     setShowToast(false);
@@ -574,25 +633,54 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
 
   /**
    * Función para remover completamente un item del carrito.
-   * Si está autenticado, también lo elimina del backend usando cola de sincronización.
+   * Usa actualización optimista: remueve inmediatamente de la UI y sincroniza en segundo plano.
    *
    * @param {string} id - ID del item a remover
    */
   const removeItem = useCallback((id: string) => {
-    // Actualizar el estado local
+    const previousItems = [...items]; // Guardar estado anterior para posible rollback
+    
+    // ACTUALIZACIÓN OPTIMISTA: Remover de UI inmediatamente
     setItems((prevItems) => prevItems.filter((item) => item.id !== id));
     
-    // Si está autenticado, agregar a la cola de sincronización con quantity=0
+    // Si está autenticado, sincronizar con backend en segundo plano
     if (isAuthenticated) {
-      queueSync(Number(id), 0);
-      console.log(`Item ${id} queued for removal`);
+      (async () => {
+        try {
+          const response = await fetch(`${API_BASE}/cart/items/batch`, {
+            method: "POST",
+            credentials: "include",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              operations: [{
+                productId: Number(id),
+                quantity: 0,
+              }],
+            }),
+          });
+
+          if (!response.ok) {
+            throw new Error("Failed to remove item");
+          }
+
+          // Sincronizar silenciosamente en segundo plano (sin loading)
+          syncCart(true);
+        } catch (error) {
+          console.error("Error removing item:", error);
+          // En caso de error, no revertimos porque eliminar suele ser seguro
+          // pero sí sincronizamos para asegurar consistencia
+          syncCart(true);
+        }
+      })();
     }
-  }, [isAuthenticated, queueSync]);
+  }, [items, isAuthenticated, API_BASE, syncCart]);
 
   /**
    * Función para actualizar la cantidad de un item en el carrito.
-   * Si la cantidad es menor a 1, remueve el item completamente.
-   * Si está autenticado, también actualiza el backend usando cola de sincronización.
+   * Usa actualización optimista: actualiza la UI inmediatamente y valida en segundo plano.
+   * Si la validación falla, revierte los cambios.
    *
    * @param {string} id - ID del item a actualizar
    * @param {number} quantity - Nueva cantidad del item
@@ -603,17 +691,56 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       return;
     }
 
-    // Actualizar el estado local
+    const previousItems = [...items]; // Guardar estado anterior para posible rollback
+
+    // ACTUALIZACIÓN OPTIMISTA: Actualizar UI inmediatamente
     setItems((prevItems) =>
       prevItems.map((item) => (item.id === id ? { ...item, quantity } : item))
     );
-    
-    // Si está autenticado, agregar a la cola de sincronización
+
+    // Si está autenticado, validar en segundo plano
     if (isAuthenticated) {
-      queueSync(Number(id), quantity);
-      console.log(`Item ${id} queued for quantity update to ${quantity}`);
+      // Ejecutar en background sin bloquear
+      (async () => {
+        try {
+          const response = await fetch(`${API_BASE}/cart/items/batch`, {
+            method: "POST",
+            credentials: "include",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              operations: [{
+                productId: Number(id),
+                quantity: quantity,
+              }],
+            }),
+          });
+
+          const data = await response.json();
+          
+          // Verificar si la operación falló
+          const failed = data.results?.filter((r: any) => r.action === 'failed') || [];
+          if (failed.length > 0) {
+            // ROLLBACK: Revertir al estado anterior
+            setItems(previousItems);
+            setToastMessage(`${failed[0].error}`);
+            setShowToast(true);
+            return;
+          }
+
+          // Éxito: sincronizar silenciosamente en segundo plano (sin loading)
+          syncCart(true);
+        } catch (error) {
+          console.error("Error updating quantity:", error);
+          // ROLLBACK: Revertir al estado anterior
+          setItems(previousItems);
+          setToastMessage("Error al actualizar cantidad");
+          setShowToast(true);
+        }
+      })();
     }
-  }, [isAuthenticated, queueSync, removeItem]);
+  }, [items, isAuthenticated, API_BASE, syncCart, removeItem]);
 
   /**
    * Función para vaciar completamente el carrito.

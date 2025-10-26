@@ -202,12 +202,14 @@ export function Header() {
                     {/* Dropdown Menu */}
                     {showUserMenu && (
                       <div
-                        className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 z-50 border border-gray-100"
+                        className="absolute right-0 mt-2 w-56 bg-white rounded-md shadow-lg py-1 z-50 border border-gray-100"
                         role="menu"
                         aria-orientation="vertical"
                       >
                         <div className="px-4 py-2 text-sm text-gray-500 border-b border-gray-100">
-                          {user.email}
+                          <p className="truncate" title={user.email}>
+                            {user.email}
+                          </p>
                         </div>
 
                         <Link
@@ -217,6 +219,15 @@ export function Header() {
                           role="menuitem"
                         >
                           Mi perfil
+                        </Link>
+
+                        <Link
+                          href="/orders"
+                          className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors"
+                          onClick={() => setShowUserMenu(false)}
+                          role="menuitem"
+                        >
+                          Historial de compras
                         </Link>
 
                         {isAdmin && (
