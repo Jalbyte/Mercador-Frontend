@@ -25,9 +25,21 @@ type OrderItem = {
   id: number;
   product_name: string;
   quantity: number;
-  unit_price: number;
+  price: number;
   total_price: number;
   license_key?: string;
+  product: Producto;
+};
+
+type Producto = {
+  id: string;
+  name: string;
+  price: number;
+  quantity: number;
+  image: string;
+  max_quantity?: number;
+  is_available?: boolean;
+  has_enough_stock?: boolean;
 };
 
 type Order = {
@@ -36,7 +48,7 @@ type Order = {
   status: string;
   payment_method?: string;
   created_at: string;
-  items?: OrderItem[];
+  order_items?: OrderItem[];
 };
 
 export default function PurchaseHistoryPage() {
@@ -315,8 +327,8 @@ export default function PurchaseHistoryPage() {
                         <div className="flex items-center gap-2">
                           <FiPackage size={16} />
                           <span>
-                            {order.items?.length || 0}{" "}
-                            {(order.items?.length || 0) === 1 ? "producto" : "productos"}
+                            {order.order_items?.length || 0}{" "}
+                            {(order.order_items?.length || 0) === 1 ? "producto" : "productos"}
                           </span>
                         </div>
                         {order.payment_method && (
@@ -359,8 +371,8 @@ export default function PurchaseHistoryPage() {
                       Productos
                     </h4>
                     <div className="space-y-3">
-                      {order.items && order.items.length > 0 ? (
-                        order.items.map((item) => (
+                      {order.order_items && order.order_items.length > 0 ? (
+                        order.order_items.map((item) => (
                           <div
                             key={item.id}
                             className="bg-white rounded-lg p-4 border border-gray-200"
@@ -372,7 +384,7 @@ export default function PurchaseHistoryPage() {
                                 </h5>
                                 <p className="text-sm text-gray-600">
                                   Cantidad: {item.quantity} × $
-                                {item.unit_price.toLocaleString("es-CO")}
+                                {item.price.toLocaleString("es-CO")}
                               </p>
                               {item.license_key && (
                                 <div className="mt-2 p-2 bg-blue-50 border border-blue-200 rounded">

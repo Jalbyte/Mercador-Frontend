@@ -51,6 +51,7 @@ function ProductosContent() {
 
   // Estados de filtros
   const [searchTerm, setSearchTerm] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
   const [priceRange, setPriceRange] = useState<{
     min: number;
@@ -99,6 +100,7 @@ function ProductosContent() {
 
   // Cargar productos con paginación del servidor
   useEffect(() => {
+    let controller: AbortController | null = null;
     async function fetchProducts() {
       setLoading(true);
       setError(null);
@@ -108,10 +110,12 @@ function ProductosContent() {
 
         if (hasLicenseFilter) {
           // Request a large limit (server should support) to retrieve full list for client filtering
+          const signal = (controller = new AbortController()).signal;
           const resAll = await fetch(
             `${API_BASE}/products?search=${encodeURIComponent(
-              searchTerm || ""
-            )}&page=1&limit=10000`
+              debouncedSearch || ""
+            )}&page=1&limit=10000`,
+            { signal }
           );
           if (!resAll.ok) throw new Error(`Error al cargar productos: ${resAll.status}`);
           const bodyAll = await resAll.json();
@@ -134,7 +138,8 @@ function ProductosContent() {
         if (searchTerm) params.append("search", searchTerm);
         // Do not append selectedCategory here because server-side support is inconsistent
 
-        const res = await fetch(`${API_BASE}/products?${params.toString()}`);
+  const signal = (controller = new AbortController()).signal;
+  const res = await fetch(`${API_BASE}/products?${params.toString()}`, { signal });
         if (!res.ok) throw new Error(`Error al cargar productos: ${res.status}`);
         const body = await res.json();
         const items = body?.data?.products ?? [];
@@ -144,14 +149,27 @@ function ProductosContent() {
         setFilteredProducts(items);
         setTotalProducts(total);
       } catch (err: any) {
+        if (err.name === 'AbortError') {
+          // request was cancelled - just return silently
+          return;
+        }
         setError(err.message ?? "Error al cargar productos");
       } finally {
         setLoading(false);
       }
     }
-
     fetchProducts();
-  }, [currentPage, searchTerm, selectedCategory]);
+
+    return () => {
+      if (controller) controller.abort();
+    };
+  }, [currentPage, debouncedSearch, selectedCategory]);
+
+  // Debounce searchTerm -> debouncedSearch (500ms)
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedSearch(searchTerm), 500);
+    return () => clearTimeout(t);
+  }, [searchTerm]);
 
   // Aplicar filtros locales (tipo de licencia, precio y ordenamiento)
   useEffect(() => {
