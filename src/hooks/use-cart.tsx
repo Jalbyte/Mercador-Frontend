@@ -257,7 +257,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   /**
    * Función para sincronizar múltiples operaciones del carrito al backend en batch
    */
-  const syncBatchToBackend = useCallback(async (operations: Array<{ productId: number; quantity: number }>) => {
+  const syncBatchToBackend = useCallback(async (operations: Array<{ productId: number; quantity: number; max_quantity?: number }>) => {
     if (!isAuthenticated || operations.length === 0) return;
 
     try {
@@ -320,6 +320,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     const operations = Array.from(syncQueueRef.current.entries()).map(([productId, quantity]) => ({
       productId,
       quantity,
+      max_quantity: items.find(i => Number(i.id) === Number(productId))?.max_quantity ?? undefined,
     }));
     syncQueueRef.current.clear();
 
@@ -364,6 +365,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       const operations = localItems.map(item => ({
         productId: Number(item.id),
         quantity: item.quantity,
+        max_quantity: item.max_quantity ?? undefined,
       }));
 
       await syncBatchToBackend(operations);
@@ -471,7 +473,30 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       typeof window !== "undefined" ? localStorage.getItem("cart") : null;
     if (savedCart) {
       try {
-        setItems(JSON.parse(savedCart));
+        const parsed = JSON.parse(savedCart);
+        if (Array.isArray(parsed)) {
+          // Normalizar ids y tipos por si vienen como números o strings distintos
+          const normalized: CartItem[] = parsed.map((it: any) => {
+            const id = it?.id != null ? String(it.id) : String(it?.product_id ?? "");
+            const quantity = Number(it?.quantity ?? 0);
+            const max_quantity = it?.max_quantity != null ? Number(it.max_quantity) : undefined;
+            const clampedQuantity = typeof max_quantity === 'number' ? Math.min(quantity, max_quantity) : quantity;
+            return {
+              id,
+              name: it?.name ?? it?.product?.name ?? "Unknown",
+              price: Number(it?.price ?? 0),
+              quantity: clampedQuantity,
+              image: it?.image ?? it?.product?.image_url ?? "/placeholder.png",
+              max_quantity,
+              is_available: it?.is_available,
+              has_enough_stock: it?.has_enough_stock,
+            } as CartItem;
+          });
+          setItems(normalized);
+        } else {
+          // Si no es array, fallback
+          setItems(JSON.parse(savedCart));
+        }
       } catch (error) {
         console.error("Failed to parse cart from localStorage", error);
       }
@@ -560,9 +585,35 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
    * @param {Omit<CartItem, "quantity">} item - Item a agregar (sin cantidad)
    */
   const addItem = useCallback((item: Omit<CartItem, "quantity">) => {
-    // Calcular nueva cantidad
-    const currentItem = items.find((i) => i.id === item.id);
-    const newQuantity = currentItem ? currentItem.quantity + 1 : 1;
+    // Si el item provee max_quantity, respetarlo (stock disponible)
+  const currentItem = items.find((i) => i.id === item.id);
+  const currentQty = currentItem ? currentItem.quantity : 0;
+  // Normalize/parse max_quantity values (accept numeric strings, null)
+  const rawItemMax = (item as any).max_quantity;
+  const rawCurrentMax = currentItem?.max_quantity;
+  const parsedItemMax = rawItemMax != null && (typeof rawItemMax === 'number' || rawItemMax !== '') ? Number(rawItemMax) : undefined;
+  const parsedCurrentMax = rawCurrentMax != null && (typeof rawCurrentMax === 'number' || (typeof rawCurrentMax === 'string' && rawCurrentMax !== '')) ? Number(rawCurrentMax) : undefined;
+  const maxQty = parsedItemMax ?? parsedCurrentMax ?? Infinity;
+  const newQuantity = currentQty + 1;
+
+    // Debug: ayudar a diagnosticar problemas con addItem cuando no hay sesión
+    // (se puede quitar luego)
+    try {
+  // eslint-disable-next-line no-console
+  console.debug(`[cart] addItem called`, { id: item.id, name: item.name, currentQty, rawItemMax, rawCurrentMax, parsedItemMax, parsedCurrentMax, maxQty, newQuantity, isAuthenticated });
+    } catch (e) {
+      // ignore
+    }
+
+    // Si el nuevo valor excede el stock máximo, mostrar mensaje y no agregar
+    if (typeof maxQty === "number" && newQuantity > maxQty) {
+      // eslint-disable-next-line no-console
+      console.warn(`[cart] addItem prevented: exceeding maxQty`, { id: item.id, currentQty, maxQty, newQuantity });
+      setToastMessage(`No hay suficiente stock. Máximo disponible: ${maxQty}`);
+      setShowToast(true);
+      return;
+    }
+
     const previousItems = [...items]; // Guardar estado anterior para posible rollback
 
     // ACTUALIZACIÓN OPTIMISTA: Actualizar UI inmediatamente
@@ -577,10 +628,18 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
 
       return [...prevItems, { ...item, quantity: 1 }];
     });
-    
+
     // Mostrar notificación inmediata
     setToastMessage(`"${item.name}" agregado al carrito`);
     setShowToast(true);
+
+    // Debug: confirmar que el item fue agregado localmente
+    try {
+      // eslint-disable-next-line no-console
+      console.debug(`[cart] added locally`, { id: item.id, name: item.name, newQuantity });
+    } catch (e) {
+      // ignore
+    }
 
     // Si está autenticado, validar en segundo plano
     if (isAuthenticated) {
@@ -596,7 +655,8 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
             body: JSON.stringify({
               operations: [{
                 productId: Number(item.id),
-                quantity: newQuantity,
+                  quantity: newQuantity,
+                  max_quantity: parsedItemMax ?? undefined,
               }],
             }),
           });
@@ -657,6 +717,8 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
               operations: [{
                 productId: Number(id),
                 quantity: 0,
+                // try to include max_quantity if we had it stored
+                max_quantity: items.find(i => i.id === id)?.max_quantity ?? undefined,
               }],
             }),
           });
@@ -691,6 +753,21 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       return;
     }
 
+    // Validar contra stock máximo si existe
+    const currentItem = items.find((i) => i.id === id);
+    const rawCurrentMax = currentItem?.max_quantity;
+    const parsedCurrentMax = rawCurrentMax != null && (typeof rawCurrentMax === 'number' || (typeof rawCurrentMax === 'string' && rawCurrentMax !== '')) ? Number(rawCurrentMax) : undefined;
+    const maxQty = parsedCurrentMax ?? Infinity;
+
+    if (typeof maxQty === 'number' && quantity > maxQty) {
+      // No permitir actualizar por encima del stock
+      // eslint-disable-next-line no-console
+      console.warn(`[cart] updateQuantity prevented: exceeding maxQty`, { id, quantity, maxQty });
+      setToastMessage(`No hay suficiente stock. Máximo disponible: ${maxQty}`);
+      setShowToast(true);
+      return;
+    }
+
     const previousItems = [...items]; // Guardar estado anterior para posible rollback
 
     // ACTUALIZACIÓN OPTIMISTA: Actualizar UI inmediatamente
@@ -713,6 +790,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
               operations: [{
                 productId: Number(id),
                 quantity: quantity,
+                max_quantity: items.find(i => i.id === id)?.max_quantity ?? undefined,
               }],
             }),
           });
@@ -757,6 +835,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
         const operations = currentItems.map(item => ({
           productId: Number(item.id),
           quantity: 0,
+          max_quantity: item.max_quantity ?? undefined,
         }));
 
         await syncBatchToBackend(operations);

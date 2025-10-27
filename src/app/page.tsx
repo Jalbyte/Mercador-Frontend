@@ -44,10 +44,11 @@ const LicenseCard = ({
 
   const handleAddToCart = () => {
     addItem({
-      id,
+      id: String(id),
       name: title,
       price,
       image,
+      max_quantity: Number(stock_quantity ?? 0),
     });
   };
 

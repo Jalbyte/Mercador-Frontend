@@ -207,12 +207,18 @@ function ProductosContent() {
   );
 
   const handleAddToCart = (product: Product) => {
-    addItem({
-      id: product.id,
+    const item = {
+      // Normalizar id como string para mantener consistencia con items desde backend
+      id: String(product.id),
       name: product.name,
       price: product.price,
       image: product.image_url || "/placeholder.png",
-    });
+      // Pasamos el stock disponible para que el hook no permita excederlo desde el front
+      max_quantity: Number(product.stock_quantity ?? 0),
+    };
+    // Loguear el product original y el item normalizado para depuración
+    console.debug("handleAddToCart: product, item", { product, item });
+    addItem(item);
   };
 
   const resetFilters = () => {

@@ -21,6 +21,9 @@ type CartItem = {
   price: number;
   quantity: number;
   image: string;
+  max_quantity?: number;
+  is_available?: boolean;
+  has_enough_stock?: boolean;
 };
 
 export function Cart() {
@@ -192,7 +195,7 @@ export function Cart() {
                             onClick={() =>
                               updateQuantity(item.id, item.quantity + 1)
                             }
-                            disabled={hasIssue}
+                            disabled={hasIssue || (typeof item.max_quantity === 'number' && item.quantity >= item.max_quantity)}
                           >
                             <Plus className="h-3 w-3" />
                           </Button>
