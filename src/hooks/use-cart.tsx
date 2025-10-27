@@ -139,6 +139,8 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   
   // Cola de sincronización para operaciones batch
   const syncQueueRef = useRef<Map<number, number>>(new Map()); // productId -> quantity
+  // Map para almacenar la cantidad previa (antes de la operación) por productId
+  const syncPrevQuantitiesRef = useRef<Map<number, number>>(new Map());
   const syncTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Usar isAuthenticated del AuthProvider
@@ -316,22 +318,55 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   const flushSyncQueue = useCallback(async () => {
     if (!isAuthenticated || syncQueueRef.current.size === 0) return;
 
-    // Copiar y limpiar la cola
-    const operations = Array.from(syncQueueRef.current.entries()).map(([productId, quantity]) => ({
+    // Copiar operaciones desde la cola
+    const entries = Array.from(syncQueueRef.current.entries());
+
+    const operations = entries.map(([productId, quantity]) => ({
       productId,
       quantity,
       max_quantity: items.find(i => Number(i.id) === Number(productId))?.max_quantity ?? undefined,
     }));
-    syncQueueRef.current.clear();
 
-    // Cancelar timeout pendiente
+    // Limpiar la cola y cancelar timeout inmediatamente para evitar reentradas
+    syncQueueRef.current.clear();
     if (syncTimeoutRef.current) {
       clearTimeout(syncTimeoutRef.current);
       syncTimeoutRef.current = null;
     }
 
-    // Enviar operaciones
-    await syncBatchToBackend(operations);
+    // Enviar operaciones usando la función existente
+    const result = await syncBatchToBackend(operations);
+
+    // Si hubo operaciones fallidas, hacer rollback utilizando las cantidades previas
+    const failed = result?.failed || [];
+    if (failed.length > 0) {
+      // Revertir sólo los productos fallidos a su cantidad previa almacenada
+      setItems((prevItems) => {
+        let next = [...prevItems];
+        failed.forEach((f: any) => {
+          const pid = Number(f.productId);
+          const prevQty = syncPrevQuantitiesRef.current.get(pid);
+          // Si no tenemos prevQty, no intentamos revertir
+          if (prevQty == null) return;
+
+          if (prevQty <= 0) {
+            // eliminar el item
+            next = next.filter((it) => Number(it.id) !== pid);
+          } else {
+            // restaurar cantidad previa
+            next = next.map((it) => (Number(it.id) === pid ? { ...it, quantity: prevQty } : it));
+          }
+          // limpiar prev map para este producto
+          syncPrevQuantitiesRef.current.delete(pid);
+        });
+        return next;
+      });
+      // El syncBatchToBackend ya muestra toast y sincroniza, no duplicamos mensajes
+      return;
+    }
+
+    // Si todo fue OK, limpiar los prev stored para las operaciones aplicadas
+    entries.forEach(([productId]) => syncPrevQuantitiesRef.current.delete(Number(productId)));
   }, [isAuthenticated, syncBatchToBackend]);
 
   /**
@@ -614,7 +649,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       return;
     }
 
-    const previousItems = [...items]; // Guardar estado anterior para posible rollback
+  const previousItems = [...items]; // Guardar estado anterior para posible rollback
 
     // ACTUALIZACIÓN OPTIMISTA: Actualizar UI inmediatamente
     setItems((prevItems) => {
@@ -641,49 +676,16 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       // ignore
     }
 
-    // Si está autenticado, validar en segundo plano
+    // Si está autenticado, encolar la operación para batch; almacenar cantidad previa
     if (isAuthenticated) {
-      // Ejecutar en background sin bloquear
-      (async () => {
-        try {
-          const response = await fetch(`${API_BASE}/cart/items/batch`, {
-            method: "POST",
-            credentials: "include",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              operations: [{
-                productId: Number(item.id),
-                  quantity: newQuantity,
-                  max_quantity: parsedItemMax ?? undefined,
-              }],
-            }),
-          });
-
-          const data = await response.json();
-          
-          // Verificar si la operación falló
-          const failed = data.results?.filter((r: any) => r.action === 'failed') || [];
-          if (failed.length > 0) {
-            // ROLLBACK: Revertir al estado anterior
-            setItems(previousItems);
-            setToastMessage(`${failed[0].error}`);
-            setShowToast(true);
-            return;
-          }
-
-          // Éxito: sincronizar silenciosamente en segundo plano (sin loading)
-          // No mostramos otra notificación para no molestar al usuario
-          syncCart(true);
-        } catch (error) {
-          console.error("Error adding item to cart:", error);
-          // ROLLBACK: Revertir al estado anterior
-          setItems(previousItems);
-          setToastMessage("Error al agregar producto. Stock insuficiente.");
-          setShowToast(true);
-        }
-      })();
+      // Guardar la cantidad previa si no está guardada ya
+      const pid = Number(item.id);
+      if (!syncPrevQuantitiesRef.current.has(pid)) {
+        syncPrevQuantitiesRef.current.set(pid, currentQty);
+      }
+      queueSync(pid, newQuantity);
+      // eslint-disable-next-line no-console
+      console.debug(`[cart] queued addItem`, { id: item.id, newQuantity });
     }
   }, [items, isAuthenticated, API_BASE, syncCart]);
 
@@ -703,39 +705,17 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     // ACTUALIZACIÓN OPTIMISTA: Remover de UI inmediatamente
     setItems((prevItems) => prevItems.filter((item) => item.id !== id));
     
-    // Si está autenticado, sincronizar con backend en segundo plano
+    // Si está autenticado, encolar la operación para batch y guardar cantidad previa
     if (isAuthenticated) {
-      (async () => {
-        try {
-          const response = await fetch(`${API_BASE}/cart/items/batch`, {
-            method: "POST",
-            credentials: "include",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              operations: [{
-                productId: Number(id),
-                quantity: 0,
-                // try to include max_quantity if we had it stored
-                max_quantity: items.find(i => i.id === id)?.max_quantity ?? undefined,
-              }],
-            }),
-          });
-
-          if (!response.ok) {
-            throw new Error("Failed to remove item");
-          }
-
-          // Sincronizar silenciosamente en segundo plano (sin loading)
-          syncCart(true);
-        } catch (error) {
-          console.error("Error removing item:", error);
-          // En caso de error, no revertimos porque eliminar suele ser seguro
-          // pero sí sincronizamos para asegurar consistencia
-          syncCart(true);
-        }
-      })();
+      const pid = Number(id);
+      const current = items.find((i) => i.id === id);
+      const prevQty = current ? current.quantity : 0;
+      if (!syncPrevQuantitiesRef.current.has(pid)) {
+        syncPrevQuantitiesRef.current.set(pid, prevQty);
+      }
+      queueSync(pid, 0);
+      // eslint-disable-next-line no-console
+      console.debug(`[cart] queued removeItem`, { id, prevQty });
     }
   }, [items, isAuthenticated, API_BASE, syncCart]);
 
@@ -775,48 +755,19 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       prevItems.map((item) => (item.id === id ? { ...item, quantity } : item))
     );
 
-    // Si está autenticado, validar en segundo plano
+    // Si está autenticado, encolar la operación para que el batch se envíe
+    // solo después del debounce (flushSyncQueue). Esto evita hacer un POST
+    // en cada pulsación y recupera el comportamiento anterior.
     if (isAuthenticated) {
-      // Ejecutar en background sin bloquear
-      (async () => {
-        try {
-          const response = await fetch(`${API_BASE}/cart/items/batch`, {
-            method: "POST",
-            credentials: "include",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              operations: [{
-                productId: Number(id),
-                quantity: quantity,
-                max_quantity: items.find(i => i.id === id)?.max_quantity ?? undefined,
-              }],
-            }),
-          });
-
-          const data = await response.json();
-          
-          // Verificar si la operación falló
-          const failed = data.results?.filter((r: any) => r.action === 'failed') || [];
-          if (failed.length > 0) {
-            // ROLLBACK: Revertir al estado anterior
-            setItems(previousItems);
-            setToastMessage(`${failed[0].error}`);
-            setShowToast(true);
-            return;
-          }
-
-          // Éxito: sincronizar silenciosamente en segundo plano (sin loading)
-          syncCart(true);
-        } catch (error) {
-          console.error("Error updating quantity:", error);
-          // ROLLBACK: Revertir al estado anterior
-          setItems(previousItems);
-          setToastMessage("Error al actualizar cantidad");
-          setShowToast(true);
-        }
-      })();
+      const pid = Number(id);
+      if (!syncPrevQuantitiesRef.current.has(pid)) {
+        // guardar la cantidad previa (desde previousItems)
+        const prev = previousItems.find((i) => i.id === id)?.quantity ?? 0;
+        syncPrevQuantitiesRef.current.set(pid, prev);
+      }
+      queueSync(Number(id), quantity);
+      // eslint-disable-next-line no-console
+      console.debug(`[cart] queued quantity update`, { id, quantity });
     }
   }, [items, isAuthenticated, API_BASE, syncCart, removeItem]);
 
