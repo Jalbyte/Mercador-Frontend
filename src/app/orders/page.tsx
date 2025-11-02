@@ -346,7 +346,7 @@ export default function PurchaseHistoryPage() {
                       <div className="text-right">
                         <p className="text-sm text-gray-600">Total</p>
                         <p className="text-2xl font-bold text-blue-600">
-                          ${order.total_amount.toLocaleString("es-CO")}
+                          ${(order.total_amount||"").toLocaleString("es-CO")}
                         </p>
                       </div>
                       {expandedOrders.has(order.id) ? (
@@ -380,10 +380,10 @@ export default function PurchaseHistoryPage() {
                             <div className="flex justify-between items-start gap-4">
                               <div className="flex-1">
                                 <h5 className="font-medium text-gray-900 mb-1">
-                                  {item.product_name}
+                                  {item.product.name}
                                 </h5>
                                 <p className="text-sm text-gray-600">
-                                  Cantidad: {item.quantity} × $
+                                  Cantidad: {item.quantity} x $
                                 {item.price.toLocaleString("es-CO")}
                               </p>
                               {item.license_key && (
@@ -399,7 +399,7 @@ export default function PurchaseHistoryPage() {
                             </div>
                             <div className="text-right">
                               <p className="font-semibold text-gray-900">
-                                ${item.total_price.toLocaleString("es-CO")}
+                                ${(item.price*item.quantity).toLocaleString("es-CO")}
                               </p>
                             </div>
                           </div>
