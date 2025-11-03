@@ -33,8 +33,51 @@ const pdf = await page.pdf({ format: 'A4' })
 
 ```
 src/app/email/
-└── order-status/
-    └── page.tsx          # Template de estado de orden
+├── order-status/
+│   └── page.tsx          # Template de estado de orden
+└── checkout/
+    └── page.tsx          # Template de factura/checkout
+```
+
+## 📋 Plantillas disponibles
+
+### 1. **Order Status** (`/email/order-status`)
+Notificación de estado de orden (confirmado, pendiente, cancelado, error).
+
+**Parámetros:**
+- `reference` - Referencia de la orden
+- `status` - Estado: confirmed | pending | cancelled | error
+- `orderId` - ID de la orden (opcional)
+- `customerEmail` - Email del cliente (opcional)
+- `totalAmount` - Monto total (opcional)
+- `assigned` - JSON de claves asignadas (opcional)
+
+**Ejemplo:**
+```
+http://localhost:3000/email/order-status?reference=ORDER-123&status=confirmed&orderId=456&totalAmount=150000
+```
+
+### 2. **Checkout/Invoice** (`/email/checkout`)
+Factura detallada con listado de productos, cantidades, precios y resumen.
+
+**Parámetros:**
+- `orderId` - ID de la orden
+- `reference` - Referencia de la orden
+- `items` - JSON array de productos: `[{"id":"1","name":"Producto A","price":50000,"quantity":2}]`
+- `total` - Monto total
+- `subtotal` - Subtotal (opcional, se calcula automáticamente)
+- `tax` - Impuestos (opcional)
+- `discount` - Descuento (opcional)
+- `customerName` - Nombre del cliente
+- `customerEmail` - Email del cliente (opcional)
+- `customerPhone` - Teléfono del cliente (opcional)
+- `paymentMethod` - Método de pago (opcional)
+- `transactionDate` - Fecha de transacción (opcional)
+- `status` - Estado: confirmed | pending | cancelled (default: confirmed)
+
+**Ejemplo:**
+```
+http://localhost:3000/email/checkout?orderId=123&reference=ORDER-123&customerName=Juan&customerEmail=juan@example.com&total=150000&items=[{"id":"1","name":"Licencia Windows 11","price":50000,"quantity":2},{"id":"2","name":"Office 365","price":50000,"quantity":1}]&paymentMethod=Wompi
 ```
 
 ## 🎨 Crear nueva plantilla

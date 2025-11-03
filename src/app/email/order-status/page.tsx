@@ -1,17 +1,16 @@
 /**
- * Página de template de email para estado de orden
+ * Página de template de email para notificación de orden
  * 
- * Esta página se renderiza tanto en el navegador como por Puppeteer
- * para generar PDFs de reportes de compra.
+ * Esta es la página principal del email que se envía al usuario.
+ * Muestra el estado del pago y avisa sobre los archivos adjuntos.
  * 
- * URL: /email/order-status?reference=ORDER-123&status=confirmed&assigned={"101":2}
+ * Los detalles de la factura se encuentran en /email/invoice (PDF adjunto)
+ * 
+ * URL: /email/order-status?reference=ORDER-123&status=confirmed&keysCount=3
  * 
  * @example
  * // Ver en navegador
- * http://localhost:3000/email/order-status?reference=ORDER-123&status=confirmed
- * 
- * // Puppeteer lo convierte a PDF
- * puppeteer.goto('http://localhost:3000/email/order-status?reference=ORDER-123')
+ * http://localhost:3000/email/order-status?reference=ORDER-123&status=confirmed&keysCount=3
  */
 
 import React from 'react'
@@ -20,10 +19,9 @@ interface PageProps {
   searchParams: {
     reference?: string
     status?: string
-    assigned?: string
+    keysCount?: string // Total number of keys assigned
     orderId?: string
-    customerEmail?: string
-    totalAmount?: string
+    customerName?: string
   }
 }
 
@@ -31,21 +29,12 @@ export default function OrderStatusEmailPage({ searchParams }: PageProps) {
   const {
     reference = 'UNKNOWN',
     status = 'pending',
-    assigned,
+    keysCount: keysCountStr,
     orderId,
-    customerEmail,
-    totalAmount
+    customerName = 'Cliente'
   } = searchParams
 
-  // Parse assigned keys if provided
-  let assignedKeys: Record<string, number> = {}
-  if (assigned) {
-    try {
-      assignedKeys = JSON.parse(assigned)
-    } catch (e) {
-      console.error('Error parsing assigned keys:', e)
-    }
-  }
+  const keysCount = parseInt(keysCountStr || '0', 10)
 
   // Status display
   const statusConfig = {
@@ -82,7 +71,7 @@ export default function OrderStatusEmailPage({ searchParams }: PageProps) {
       <head>
         <meta charSet="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
-        <title>Orden {reference} - {currentStatus.title}</title>
+        <title>{`Orden ${reference} - ${currentStatus.title}`}</title>
         <style dangerouslySetInnerHTML={{
           __html: `
             * {
@@ -237,7 +226,7 @@ export default function OrderStatusEmailPage({ searchParams }: PageProps) {
           `
         }} />
       </head>
-      <body>
+      <body suppressHydrationWarning={true}>
         <div className="container">
           {/* Header */}
           <div className="header">
@@ -248,86 +237,115 @@ export default function OrderStatusEmailPage({ searchParams }: PageProps) {
 
           {/* Content */}
           <div className="content">
-            {/* Order Info */}
+            {/* Greeting */}
             <div className="section">
-              <h2 className="section-title">Información de la Orden</h2>
-              <div className="info-row">
-                <span className="info-label">Referencia:</span>
-                <span className="info-value">{reference}</span>
-              </div>
-              {orderId && (
-                <div className="info-row">
-                  <span className="info-label">ID de Orden:</span>
-                  <span className="info-value">#{orderId}</span>
-                </div>
-              )}
-              <div className="info-row">
-                <span className="info-label">Estado:</span>
-                <span className="badge">{status}</span>
-              </div>
-              {totalAmount && (
-                <div className="info-row">
-                  <span className="info-label">Total:</span>
-                  <span className="info-value">${totalAmount} COP</span>
-                </div>
-              )}
-              {customerEmail && (
-                <div className="info-row">
-                  <span className="info-label">Email:</span>
-                  <span className="info-value">{customerEmail}</span>
-                </div>
-              )}
-              <div className="info-row">
-                <span className="info-label">Fecha:</span>
-                <span className="info-value">
-                  {new Date().toLocaleDateString('es-CO', {
-                    year: 'numeric',
-                    month: 'long',
-                    day: 'numeric'
-                  })}
-                </span>
-              </div>
-            </div>
-
-            {/* Assigned Keys (if any) */}
-            {status === 'confirmed' && Object.keys(assignedKeys).length > 0 && (
-              <div className="section">
-                <h2 className="section-title">🔑 Claves Asignadas</h2>
-                <div className="keys-list">
-                  {Object.entries(assignedKeys).map(([productId, count]) => (
-                    <div key={productId} className="key-item">
-                      <span>Producto #{productId}</span>
-                      <span className="info-value">{count} clave(s)</span>
-                    </div>
-                  ))}
-                  <p style={{ marginTop: '16px', fontSize: '14px', color: '#6b7280' }}>
-                    Las claves han sido enviadas a tu perfil. Puedes verlas en tu cuenta.
-                  </p>
-                </div>
-              </div>
-            )}
-
-            {/* Message */}
-            <div className="section">
-              <p style={{ color: '#6b7280', fontSize: '14px' }}>
+              <h2 style={{ fontSize: '20px', marginBottom: '8px' }}>
+                Hola {customerName},
+              </h2>
+              <p style={{ color: '#6b7280', fontSize: '15px', lineHeight: '1.7' }}>
                 {status === 'confirmed' && (
                   <>
-                    ¡Gracias por tu compra! Tu orden ha sido procesada exitosamente.
-                    Puedes ver los detalles de tu orden en tu perfil.
+                    ¡Gracias por tu compra! Tu orden <strong>{reference}</strong> ha sido procesada exitosamente.
                   </>
                 )}
                 {status === 'pending' && (
                   <>
-                    Tu pago está siendo procesado. Te notificaremos cuando se complete.
+                    Tu orden <strong>{reference}</strong> está siendo procesada. Te notificaremos cuando se complete.
                   </>
                 )}
                 {(status === 'cancelled' || status === 'error') && (
                   <>
-                    Si necesitas ayuda o quieres intentar nuevamente, contáctanos.
+                    Tu orden <strong>{reference}</strong> no pudo ser procesada. Si necesitas ayuda, contáctanos.
                   </>
                 )}
               </p>
             </div>
+
+            {/* Attachments Info */}
+            {status === 'confirmed' && keysCount > 0 && (
+              <div className="section">
+                <h2 className="section-title">📎 Archivos Adjuntos</h2>
+                <div style={{ 
+                  background: '#f0f9ff', 
+                  border: '2px solid #0ea5e9', 
+                  borderRadius: '12px',
+                  padding: '20px'
+                }}>
+                  <div style={{ 
+                    display: 'flex', 
+                    gap: '16px',
+                    marginBottom: '16px',
+                    paddingBottom: '16px',
+                    borderBottom: '1px solid #bae6fd'
+                  }}>
+                    <div style={{ fontSize: '32px' }}>📄</div>
+                    <div>
+                      <p style={{ 
+                        fontSize: '16px', 
+                        fontWeight: '600', 
+                        color: '#0c4a6e',
+                        marginBottom: '4px'
+                      }}>
+                        Factura Detallada (PDF)
+                      </p>
+                      <p style={{ fontSize: '14px', color: '#64748b' }}>
+                        Encuentra el detalle completo de tu compra en el archivo <strong>factura-{orderId}.pdf</strong>
+                      </p>
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'flex', gap: '16px' }}>
+                    <div style={{ fontSize: '32px' }}>�</div>
+                    <div>
+                      <p style={{ 
+                        fontSize: '16px', 
+                        fontWeight: '600', 
+                        color: '#0c4a6e',
+                        marginBottom: '4px'
+                      }}>
+                        Claves de Licencia (TXT)
+                      </p>
+                      <p style={{ fontSize: '14px', color: '#64748b', marginBottom: '8px' }}>
+                        Tus <strong>{keysCount} clave(s)</strong> de licencia están en el archivo <strong>claves-orden-{orderId}.txt</strong>
+                      </p>
+                      <p style={{ 
+                        fontSize: '13px', 
+                        color: '#0369a1',
+                        background: '#e0f2fe',
+                        padding: '8px 12px',
+                        borderRadius: '6px'
+                      }}>
+                        💡 Tip: Guarda este archivo en un lugar seguro. También puedes consultar tus claves en tu perfil.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Call to Action */}
+            {status === 'confirmed' && (
+              <div className="section" style={{ textAlign: 'center', paddingTop: '16px' }}>
+                <a 
+                  href="https://mercador.app/profile" 
+                  style={{
+                    display: 'inline-block',
+                    padding: '12px 32px',
+                    background: '#4f46e5',
+                    color: 'white',
+                    textDecoration: 'none',
+                    borderRadius: '8px',
+                    fontWeight: '600',
+                    fontSize: '15px'
+                  }}
+                >
+                  Ver Mi Perfil
+                </a>
+                <p style={{ fontSize: '13px', color: '#9ca3af', marginTop: '12px' }}>
+                  Accede a todas tus compras y claves
+                </p>
+              </div>
+            )}
           </div>
 
           {/* Footer */}
