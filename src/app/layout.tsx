@@ -91,11 +91,6 @@ export default function RootLayout({ children }: RootLayoutProps) {
         className={`${inter.className} min-h-screen bg-background`}
         suppressHydrationWarning={true}
       >
-        {/* Skip link para navegación por teclado */}
-        <a href="#main-content" className="skip-link focus:outline-none">
-          Saltar al contenido principal
-        </a>
-
         <AuthProvider>
           <MFAProvider>
             <CartProvider>

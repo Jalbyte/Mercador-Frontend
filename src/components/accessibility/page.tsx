@@ -6,6 +6,7 @@ import {
   useAccessibility,
   AccessibilitySettings,
 } from "@/hooks/use-accessibility";
+import { usePathname } from "next/navigation";
 
 // Componente del botón flotante
 export const AccessibilityButton = ({ onClick }: { onClick: () => void }) => (
@@ -29,8 +30,14 @@ export const AccessibilityButton = ({ onClick }: { onClick: () => void }) => (
 
 // Componente principal de la barra lateral
 export const AccessibilitySidebar = () => {
+  const pathname = usePathname();
   const { settings, isOpen, setIsOpen, updateSetting, resetSettings } =
     useAccessibility();
+
+  // No renderizar en páginas de email (para PDFs y templates)
+  if (pathname?.startsWith('/email')) {
+    return null;
+  }
 
   if (!isOpen) {
     return <AccessibilityButton onClick={() => setIsOpen(true)} />;

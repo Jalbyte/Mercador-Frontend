@@ -5,7 +5,7 @@ import { useAuthRoute } from "@/hooks/use-auth-route";
 import { useAuth } from "@/components/auth/AuthProvider";
 import { X, Plus, Minus, ShoppingCart } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import { useState, useEffect, useRef } from "react";
 import {
   Card,
@@ -28,6 +28,7 @@ type CartItem = {
 
 export function Cart() {
   const router = useRouter();
+  const pathname = usePathname();
   const { isCartHiddenRoute } = useAuthRoute();
   const {
     isOpen,
@@ -41,6 +42,11 @@ export function Cart() {
     isLoading: isCartLoading,
     fixItem,
   } = useCart();
+
+  // No renderizar en páginas de email (para PDFs y templates)
+  if (pathname?.startsWith('/email')) {
+    return null;
+  }
 
   const subtotal = cartItems.reduce(
     (sum, item) => sum + item.price * item.quantity,
