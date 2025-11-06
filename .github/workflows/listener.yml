@@ -1,0 +1,16 @@
+name: Recibir logs de despliegue
+
+on:
+  repository_dispatch:
+    types: [deploy_log]
+
+jobs:
+  print-log:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Mostrar log
+        run: |
+          echo "::group::Log de despliegue"
+          echo "Nivel: ${{ github.event.client_payload.level }}"
+          echo "Mensaje: ${{ github.event.client_payload.message }}"
+          echo "::endgroup::"
