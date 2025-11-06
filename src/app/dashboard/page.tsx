@@ -10,6 +10,14 @@ import {
   FiEdit,
   FiTrash2,
   FiUpload,
+  FiTrendingUp,
+  FiShoppingCart,
+  FiPackage,
+  FiUsers,
+  FiDollarSign,
+  FiAlertCircle,
+  FiActivity,
+  FiBarChart2,
 } from "react-icons/fi";
 import { Modal } from "@/components/ui/modal";
 import { Button } from "@/components/ui/button";
@@ -88,8 +96,8 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [userName, setUserName] = useState<string | null>(null);
   const [activeSection, setActiveSection] = useState<
-    "products" | "users" | "orders" | "reports"
-  >("products");
+    "dashboard" | "products" | "users" | "orders" | "reports"
+  >("dashboard");
   const [users, setUsers] = useState<User[]>([]);
   const [loadingUsers, setLoadingUsers] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
@@ -143,6 +151,30 @@ export default function DashboardPage() {
   // Estado para paginación de productos
   const [currentProductPage, setCurrentProductPage] = useState(1);
   const [totalProductsCount, setTotalProductsCount] = useState(0);
+
+  // Estados para estadísticas del dashboard
+  type DashboardStats = {
+    totalSales: number;
+    totalRevenue: number;
+    totalProducts: number;
+    totalUsers: number;
+    lowStockProducts: number;
+    recentOrders: number;
+    topSellingProduct: string | null;
+    averageOrderValue: number;
+  };
+
+  const [dashboardStats, setDashboardStats] = useState<DashboardStats>({
+    totalSales: 0,
+    totalRevenue: 0,
+    totalProducts: 0,
+    totalUsers: 0,
+    lowStockProducts: 0,
+    recentOrders: 0,
+    topSellingProduct: null,
+    averageOrderValue: 0,
+  });
+  const [loadingStats, setLoadingStats] = useState(false);
 
   // Reset pagination when filters change
   useEffect(() => {
@@ -231,6 +263,13 @@ export default function DashboardPage() {
       fetchUsers();
     }
   }, [activeSection, currentPage, searchTerm]);
+
+  // Cargar estadísticas cuando se entra a la sección dashboard
+  useEffect(() => {
+    if (activeSection === "dashboard" && isAdmin) {
+      fetchDashboardStats();
+    }
+  }, [activeSection, isAdmin]);
 
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setSearchTerm(e.target.value);
@@ -388,6 +427,96 @@ export default function DashboardPage() {
       setLoadingLicenseTypes(false);
     }
   }
+
+  // Función para cargar estadísticas del dashboard
+  async function fetchDashboardStats() {
+    setLoadingStats(true);
+    try {
+      // Obtener productos
+      const productsResp = await fetch(`${API_BASE}/products`, {
+        credentials: "include",
+      });
+      const productsData = await productsResp.json();
+      const allProducts = productsData?.data?.products || [];
+
+      // Obtener usuarios
+      const usersResp = await fetch(`${API_BASE}/admin/users`, {
+        credentials: "include",
+      });
+      const usersData = await usersResp.json();
+      const allUsers = Array.isArray(usersData) ? usersData : [];
+
+      // Obtener órdenes (asumiendo que existe el endpoint)
+      let allOrders = [];
+      let totalRevenue = 0;
+      let recentOrdersCount = 0;
+      let topProduct = null;
+
+      try {
+        const ordersResp = await fetch(`${API_BASE}/admin/orders`, {
+          credentials: "include",
+        });
+        if (ordersResp.ok) {
+          const ordersData = await ordersResp.json();
+          allOrders = ordersData?.data || ordersData || [];
+
+          // Calcular ingresos totales
+          totalRevenue = allOrders.reduce((sum: number, order: any) => {
+            return sum + (order.total_amount || 0);
+          }, 0);
+
+          // Contar órdenes recientes (últimos 30 días)
+          const thirtyDaysAgo = new Date();
+          thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+          recentOrdersCount = allOrders.filter((order: any) => {
+            const orderDate = new Date(order.created_at);
+            return orderDate >= thirtyDaysAgo;
+          }).length;
+
+          // Encontrar producto más vendido
+          const productSales: { [key: string]: { name: string; count: number } } = {};
+          allOrders.forEach((order: any) => {
+            if (order.items && Array.isArray(order.items)) {
+              order.items.forEach((item: any) => {
+                const productName = item.product_name || "Desconocido";
+                if (!productSales[productName]) {
+                  productSales[productName] = { name: productName, count: 0 };
+                }
+                productSales[productName].count += item.quantity || 1;
+              });
+            }
+          });
+
+          const sortedProducts = Object.values(productSales).sort((a, b) => b.count - a.count);
+          topProduct = sortedProducts.length > 0 ? sortedProducts[0].name : null;
+        }
+      } catch (e) {
+        console.log("No se pudieron cargar las órdenes:", e);
+      }
+
+      // Contar productos con stock bajo (menos de 5 unidades)
+      const lowStock = allProducts.filter((p: Product) => p.stock_quantity < 5).length;
+
+      // Calcular promedio de valor de orden
+      const avgOrderValue = allOrders.length > 0 ? totalRevenue / allOrders.length : 0;
+
+      setDashboardStats({
+        totalSales: allOrders.length,
+        totalRevenue,
+        totalProducts: allProducts.length,
+        totalUsers: allUsers.length,
+        lowStockProducts: lowStock,
+        recentOrders: recentOrdersCount,
+        topSellingProduct: topProduct,
+        averageOrderValue: avgOrderValue,
+      });
+    } catch (error) {
+      console.error("Error al cargar estadísticas:", error);
+    } finally {
+      setLoadingStats(false);
+    }
+  }
+
 
   async function fetchProducts() {
     setLoadingProducts(true);
@@ -1356,6 +1485,21 @@ export default function DashboardPage() {
         <div className="container mx-auto px-4">
           <nav className="flex space-x-1">
             <button
+              onClick={() => setActiveSection("dashboard")}
+              className={`relative py-4 px-6 font-medium transition-all duration-300 ${
+                activeSection === "dashboard"
+                  ? "text-blue-600"
+                  : "text-gray-500 hover:text-gray-700"
+              }`}
+            >
+              Estadísticas
+              <span
+                className={`absolute bottom-0 left-0 w-full h-0.5 bg-blue-600 transition-all duration-300 transform ${
+                  activeSection === "dashboard" ? "scale-x-100" : "scale-x-0"
+                }`}
+              ></span>
+            </button>
+            <button
               onClick={() => setActiveSection("products")}
               className={`relative py-4 px-6 font-medium transition-all duration-300 ${
                 activeSection === "products"
@@ -1424,7 +1568,209 @@ export default function DashboardPage() {
 
       {/* Contenido del Dashboard */}
       <div className="container mx-auto px-4 py-8">
-        {activeSection === "users" ? (
+        {activeSection === "dashboard" ? (
+          <div className="space-y-6">
+            {/* Título de la sección */}
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-2xl font-bold text-gray-900">Estadísticas Generales</h2>
+                <p className="text-gray-600 mt-1">Resumen del estado actual de tu negocio</p>
+              </div>
+              <Button
+                onClick={fetchDashboardStats}
+                disabled={loadingStats}
+                className="flex items-center gap-2"
+              >
+                {loadingStats ? (
+                  <>
+                    <FiLoader className="animate-spin" size={16} />
+                    Actualizando...
+                  </>
+                ) : (
+                  <>
+                    <FiActivity size={16} />
+                    Actualizar
+                  </>
+                )}
+              </Button>
+            </div>
+
+            {loadingStats ? (
+              <div className="flex items-center justify-center py-20">
+                <FiLoader className="animate-spin text-blue-600 mr-2" size={32} />
+                <span className="text-gray-600">Cargando estadísticas...</span>
+              </div>
+            ) : (
+              <>
+                {/* Tarjetas de estadísticas principales */}
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                  {/* Total de Ventas */}
+                  <Card>
+                    <CardHeader className="flex flex-row items-center justify-between pb-2">
+                      <CardTitle className="text-sm font-medium text-gray-600">
+                        Total de Ventas
+                      </CardTitle>
+                      <div className="p-2 bg-blue-100 rounded-lg">
+                        <FiShoppingCart className="text-blue-600" size={20} />
+                      </div>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-3xl font-bold text-gray-900">
+                        {dashboardStats.totalSales}
+                      </div>
+                      <p className="text-xs text-gray-500 mt-1">
+                        Órdenes completadas
+                      </p>
+                    </CardContent>
+                  </Card>
+
+                  {/* Ingresos Totales */}
+                  <Card>
+                    <CardHeader className="flex flex-row items-center justify-between pb-2">
+                      <CardTitle className="text-sm font-medium text-gray-600">
+                        Ingresos Totales
+                      </CardTitle>
+                      <div className="p-2 bg-green-100 rounded-lg">
+                        <FiDollarSign className="text-green-600" size={20} />
+                      </div>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-3xl font-bold text-gray-900">
+                        ${dashboardStats.totalRevenue.toLocaleString('es-CO')}
+                      </div>
+                      <p className="text-xs text-gray-500 mt-1">
+                        Pesos colombianos
+                      </p>
+                    </CardContent>
+                  </Card>
+
+                  {/* Total de Productos */}
+                  <Card>
+                    <CardHeader className="flex flex-row items-center justify-between pb-2">
+                      <CardTitle className="text-sm font-medium text-gray-600">
+                        Productos
+                      </CardTitle>
+                      <div className="p-2 bg-purple-100 rounded-lg">
+                        <FiPackage className="text-purple-600" size={20} />
+                      </div>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-3xl font-bold text-gray-900">
+                        {dashboardStats.totalProducts}
+                      </div>
+                      <p className="text-xs text-gray-500 mt-1">
+                        En catálogo
+                      </p>
+                    </CardContent>
+                  </Card>
+
+                  {/* Total de Usuarios */}
+                  <Card>
+                    <CardHeader className="flex flex-row items-center justify-between pb-2">
+                      <CardTitle className="text-sm font-medium text-gray-600">
+                        Usuarios
+                      </CardTitle>
+                      <div className="p-2 bg-orange-100 rounded-lg">
+                        <FiUsers className="text-orange-600" size={20} />
+                      </div>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-3xl font-bold text-gray-900">
+                        {dashboardStats.totalUsers}
+                      </div>
+                      <p className="text-xs text-gray-500 mt-1">
+                        Registrados
+                      </p>
+                    </CardContent>
+                  </Card>
+                </div>
+
+                {/* Tarjetas de estadísticas secundarias */}
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {/* Órdenes Recientes */}
+                  <Card>
+                    <CardHeader className="flex flex-row items-center justify-between pb-2">
+                      <CardTitle className="text-sm font-medium text-gray-600">
+                        Órdenes Recientes
+                      </CardTitle>
+                      <FiTrendingUp className="text-blue-600" size={20} />
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-2xl font-bold text-gray-900">
+                        {dashboardStats.recentOrders}
+                      </div>
+                      <p className="text-xs text-gray-500 mt-1">
+                        Últimos 30 días
+                      </p>
+                    </CardContent>
+                  </Card>
+
+                  {/* Stock Bajo */}
+                  <Card>
+                    <CardHeader className="flex flex-row items-center justify-between pb-2">
+                      <CardTitle className="text-sm font-medium text-gray-600">
+                        Productos con Stock Bajo
+                      </CardTitle>
+                      <FiAlertCircle className="text-red-600" size={20} />
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-2xl font-bold text-gray-900">
+                        {dashboardStats.lowStockProducts}
+                      </div>
+                      <p className="text-xs text-gray-500 mt-1">
+                        Menos de 5 unidades
+                      </p>
+                    </CardContent>
+                  </Card>
+
+                  {/* Valor Promedio de Orden */}
+                  <Card>
+                    <CardHeader className="flex flex-row items-center justify-between pb-2">
+                      <CardTitle className="text-sm font-medium text-gray-600">
+                        Valor Promedio de Orden
+                      </CardTitle>
+                      <FiBarChart2 className="text-green-600" size={20} />
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-2xl font-bold text-gray-900">
+                        ${dashboardStats.averageOrderValue.toLocaleString('es-CO', { maximumFractionDigits: 0 })}
+                      </div>
+                      <p className="text-xs text-gray-500 mt-1">
+                        Por transacción
+                      </p>
+                    </CardContent>
+                  </Card>
+                </div>
+
+                {/* Tarjeta de producto más vendido */}
+                {dashboardStats.topSellingProduct && (
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="text-lg font-semibold text-gray-900">
+                        Producto Más Vendido
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="flex items-center gap-3">
+                        <div className="p-3 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg">
+                          <FiTrendingUp className="text-white" size={24} />
+                        </div>
+                        <div>
+                          <p className="text-xl font-bold text-gray-900">
+                            {dashboardStats.topSellingProduct}
+                          </p>
+                          <p className="text-sm text-gray-500">
+                            El producto con más ventas
+                          </p>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+              </>
+            )}
+          </div>
+        ) : activeSection === "users" ? (
           <div className="bg-white rounded-lg shadow overflow-hidden">
             <div className="px-6 py-4 border-b border-gray-200">
               <div className="flex items-center justify-between">
