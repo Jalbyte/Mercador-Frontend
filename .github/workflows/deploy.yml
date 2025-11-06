@@ -27,8 +27,10 @@ jobs:
       - name: Upload .env.local to EC2
         run: |
           echo "${{ secrets.ENV_FILE }}" > .env.local
-          scp -i ~/.ssh/id_rsa .env.local ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }}:/home/ec2-user/mercador/.env.local
+          scp -i ~/.ssh/id_rsa .env.local \
+            ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }}:/home/ec2-user/mercador/.env.local
 
       - name: Run deployment script on EC2
         run: |
-          ssh -i ~/.ssh/id_rsa ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} 'nohup bash /home/ec2-user/deploy.sh > /home/ec2-user/deploy.log 2>&1 &'
+          ssh -i ~/.ssh/id_rsa ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} \
+            "export GITHUB_TOKEN='${{ secrets.GHA_PAT }}' && nohup bash /home/ec2-user/deploy.sh > /home/ec2-user/deploy.log 2>&1 &"
