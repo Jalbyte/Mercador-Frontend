@@ -28,6 +28,8 @@ function LoginContent() {
   const [error, setError] = useState("");
   const [info, setInfo] = useState("");
   const [showModal, setShowModal] = useState(false);
+  const [showRestoreModal, setShowRestoreModal] = useState(false);
+  const [restoreCallback, setRestoreCallback] = useState<null | (() => Promise<void>)>(null);
   const formRef = useRef<any>(null);
 
   // Redirect if already authenticated
@@ -51,8 +53,17 @@ function LoginContent() {
     try {
       if (isLogin) {
         // Use AuthProvider login - handles MFA automatically
-        await login(formData.email, formData.password, formData.rememberMe);
-        
+        await login(
+          formData.email,
+          formData.password,
+          formData.rememberMe,
+          {
+            onAccountDeleted: (restoreFn: () => Promise<void>) => {
+              setRestoreCallback(() => restoreFn);
+              setShowRestoreModal(true);
+            },
+          }
+        );
         // If no MFA required, redirect will happen automatically
         // If MFA required, mfaRequired state will be set in AuthProvider
       } else {
@@ -234,6 +245,52 @@ function LoginContent() {
         loading={isLoading}
         error={error}
       />
+      {/* Modal para restaurar cuenta eliminada */}
+      <Modal
+        open={showRestoreModal}
+        onClose={() => {
+          setShowRestoreModal(false);
+          setRestoreCallback(null);
+        }}
+        title="Restaurar cuenta eliminada"
+      >
+        <div className="p-6 text-center">
+          <p className="mb-4 text-gray-700">
+            Tu cuenta fue eliminada previamente. Si continúas, tu cuenta y todos tus datos serán restaurados bajo las condiciones de uso actuales.
+          </p>
+          <div className="flex flex-col gap-3">
+            <button
+              className="w-full bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 transition-colors"
+              onClick={async () => {
+                setShowRestoreModal(false);
+                setIsLoading(true);
+                setError("");
+                try {
+                  if (restoreCallback) {
+                    await restoreCallback();
+                  }
+                } catch (err) {
+                  setError(err instanceof Error ? err.message : "Error al restaurar la cuenta");
+                } finally {
+                  setIsLoading(false);
+                  setRestoreCallback(null);
+                }
+              }}
+            >
+              Restaurar y continuar
+            </button>
+            <button
+              className="w-full border border-gray-300 text-gray-700 py-2 rounded-lg hover:bg-gray-100 transition-colors"
+              onClick={() => {
+                setShowRestoreModal(false);
+                setRestoreCallback(null);
+              }}
+            >
+              Cancelar
+            </button>
+          </div>
+        </div>
+      </Modal>
       <AuthFooter
         isLogin={isLogin}
         onToggleMode={() => !isLoading && setIsLogin(!isLogin)}

@@ -37,7 +37,8 @@ interface AuthContextType {
   login: (
     email: string,
     password: string,
-    rememberMe?: boolean
+    rememberMe?: boolean,
+    opts?: { restore?: boolean; onAccountDeleted?: (restore: () => Promise<void>) => void }
   ) => Promise<void>;
   verifyMFA: (code: string) => Promise<void>;
   cancelMFA: () => void;
@@ -106,95 +107,87 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const login = async (
     email: string,
     password: string,
-    rememberMe = false
+    rememberMe = false,
+    opts?: { restore?: boolean; onAccountDeleted?: (restore: () => Promise<void>) => void }
   ): Promise<void> => {
-    const response = await fetch(`${API_BASE}/auth/login`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      credentials: "include",
-      body: JSON.stringify({ email, password, rememberMe }),
-    });
-
-    if (!response.ok) {
-      const error = await response.json();
-      
-      // Manejar diferentes tipos de errores con mensajes específicos
-      if (response.status === 401) {
-        throw new Error("Credenciales incorrectas. Por favor verifica tu email y contraseña.");
-      }
-      
-      if (response.status === 429) {
-        throw new Error("Demasiados intentos de inicio de sesión. Por favor intenta nuevamente en unos minutos.");
-      }
-      
-      if (response.status >= 500) {
-        throw new Error("Error del servidor. Por favor intenta nuevamente más tarde.");
-      }
-      
-      // Manejar errores de Zod (cuando error.error es un objeto)
-      if (error.error && typeof error.error === "object" && error.error.name === "ZodError") {
-        try {
-          // Si error.error.message es un string JSON, parsearlo
-          const zodErrorsRaw = typeof error.error.message === "string" 
-            ? JSON.parse(error.error.message) 
-            : error.error.message;
-          
-          const messages = zodErrorsRaw.map((e: any) => e.message).join(". ");
-          throw new Error(messages);
-        } catch (parseError) {
-          throw new Error("Los datos ingresados no son válidos. Por favor revisa la información.");
-        }
-      }
-      
-      // Manejar errores específicos del backend
-      if (error.error) {
-        const backendError = error.error.toLowerCase();
-        
-        if (backendError.includes("email") && backendError.includes("not found")) {
-          throw new Error("No existe una cuenta con este email. ¿Deseas crear una cuenta nueva?");
-        }
-        
-        if (backendError.includes("password") && backendError.includes("incorrect")) {
-          throw new Error("Contraseña incorrecta. ¿Olvidaste tu contraseña?");
-        }
-        
-        if (backendError.includes("account") && backendError.includes("locked")) {
-          throw new Error("Tu cuenta ha sido bloqueada temporalmente por seguridad. Intenta más tarde.");
-        }
-        
-        if (backendError.includes("email") && backendError.includes("verify")) {
-          throw new Error("Tu cuenta no ha sido verificada. Por favor revisa tu email y confirma tu cuenta.");
-        }
-        
-        // Error genérico del backend
-        throw new Error(error.error);
-      }
-      
-      // Error genérico
-      throw new Error("Error al iniciar sesión. Por favor intenta nuevamente.");
-    }
-
-    const data = await response.json();
-
-    // Verificar si requiere MFA
-    if (data.mfaRequired) {
-      setMfaRequired({
-        factorId: data.factorId,
-        tempToken: data.tempToken,
+    let triedRestore = false;
+    let lastError: any = null;
+    let restoreCallback: (() => Promise<void>) | undefined;
+    const doLogin = async (restoreFlag = false) => {
+      const response = await fetch(`${API_BASE}/auth/login`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ email, password, rememberMe, ...(restoreFlag ? { restore: true } : {}) }),
       });
-      // No completar el login aún, esperar verificación MFA
-      return;
-    }
-
-    // Login completo sin MFA
-    if (rememberMe) {
-      localStorage.setItem("last-login-email", email);
-    } else {
-      localStorage.removeItem("last-login-email");
-    }
-
-    // Obtener datos del usuario después del login
-    await fetchUser();
+      const data = await response.json();
+      if (!response.ok) {
+        // Soporte para cuenta soft deleted
+        if (data.accountDeleted) {
+          restoreCallback = async () => {
+            await doLogin(true);
+          };
+          if (opts?.onAccountDeleted) {
+            opts.onAccountDeleted(restoreCallback);
+            return;
+          }
+          throw new Error(data.message || "La cuenta está eliminada. ¿Desea restaurarla?");
+        }
+        // ...manejo de errores existente...
+        if (response.status === 401) {
+          throw new Error("Credenciales incorrectas. Por favor verifica tu email y contraseña.");
+        }
+        if (response.status === 429) {
+          throw new Error("Demasiados intentos de inicio de sesión. Por favor intenta nuevamente en unos minutos.");
+        }
+        if (response.status >= 500) {
+          throw new Error("Error del servidor. Por favor intenta nuevamente más tarde.");
+        }
+        if (data.error && typeof data.error === "object" && data.error.name === "ZodError") {
+          try {
+            const zodErrorsRaw = typeof data.error.message === "string"
+              ? JSON.parse(data.error.message)
+              : data.error.message;
+            const messages = zodErrorsRaw.map((e: any) => e.message).join(". ");
+            throw new Error(messages);
+          } catch (parseError) {
+            throw new Error("Los datos ingresados no son válidos. Por favor revisa la información.");
+          }
+        }
+        if (data.error) {
+          const backendError = data.error.toLowerCase();
+          if (backendError.includes("email") && backendError.includes("not found")) {
+            throw new Error("No existe una cuenta con este email. ¿Deseas crear una cuenta nueva?");
+          }
+          if (backendError.includes("password") && backendError.includes("incorrect")) {
+            throw new Error("Contraseña incorrecta. ¿Olvidaste tu contraseña?");
+          }
+          if (backendError.includes("account") && backendError.includes("locked")) {
+            throw new Error("Tu cuenta ha sido bloqueada temporalmente por seguridad. Intenta más tarde.");
+          }
+          if (backendError.includes("email") && backendError.includes("verify")) {
+            throw new Error("Tu cuenta no ha sido verificada. Por favor revisa tu email y confirma tu cuenta.");
+          }
+          throw new Error(data.error);
+        }
+        throw new Error("Error al iniciar sesión. Por favor intenta nuevamente.");
+      }
+      // Verificar si requiere MFA
+      if (data.mfaRequired) {
+        setMfaRequired({
+          factorId: data.factorId,
+          tempToken: data.tempToken,
+        });
+        return;
+      }
+      if (rememberMe) {
+        localStorage.setItem("last-login-email", email);
+      } else {
+        localStorage.removeItem("last-login-email");
+      }
+      await fetchUser();
+    };
+    await doLogin(false);
   };
 
   // Verificar código MFA durante login

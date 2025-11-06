@@ -1,10 +1,11 @@
-"use client";
+ "use client";
 
 import { useAuth } from "@/components/auth/AuthProvider";
 import { FormInput } from "@/components/auth/FormInput";
 import { ChangePasswordModal } from "@/components/auth/ChangePasswordModal";
 import { TwoFactorAuth } from "@/components/auth/TwoFactorAuth";
 import { Button } from "@/components/ui/button";
+import { Modal } from "@/components/ui/modal";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import {
@@ -37,6 +38,32 @@ export default function ProfileContent() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  // Eliminar perfil (soft delete)
+  const handleDeleteProfile = async () => {
+    setDeleting(true);
+    setError("");
+    try {
+      const response = await fetch(`${API_BASE}/profile/delete`, {
+        method: "POST",
+        credentials: "include",
+      });
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Error al eliminar el perfil");
+      }
+      setDeleteModalOpen(false);
+      setSuccess("");
+      // Cerrar sesión y redirigir al home
+      window.dispatchEvent(new CustomEvent("auth-changed"));
+      router.push("/login?deleted=1");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Error al eliminar el perfil");
+    } finally {
+      setDeleting(false);
+    }
+  };
   const [passwordModalOpen, setPasswordModalOpen] = useState(false);
 
   const [formData, setFormData] = useState({
@@ -324,6 +351,20 @@ export default function ProfileContent() {
               loading={authLoading}
             />
 
+            {/* Botón de borrar perfil */}
+            <div className="bg-white rounded-lg shadow p-6 mt-6">
+              <h2 className="text-lg font-semibold text-gray-900 mb-4">Eliminar cuenta</h2>
+              <p className="text-sm text-gray-600 mb-4">Esta acción marcará tu cuenta como eliminada. Podrás restaurarla si vuelves a iniciar sesión, pero no podrás acceder mientras esté eliminada.</p>
+              <Button
+                variant="destructive"
+                onClick={() => setDeleteModalOpen(true)}
+                className="w-full md:w-auto"
+              >
+                <FiX className="h-4 w-4 mr-2" />
+                Borrar mi perfil
+              </Button>
+            </div>
+
             <div className="mt-6 pt-6 border-t border-gray-200">
               <Button
                 onClick={() => setPasswordModalOpen(true)}
@@ -335,6 +376,24 @@ export default function ProfileContent() {
           </div>
 
           {/* Mensajes de estado */}
+      {/* Modal de confirmación de borrado */}
+      <Modal open={deleteModalOpen} onClose={() => setDeleteModalOpen(false)} title="¿Eliminar tu cuenta?">
+        <div className="space-y-4">
+          <p className="text-gray-700">¿Estás seguro de que deseas eliminar tu cuenta? Esta acción es reversible, pero no podrás acceder hasta restaurarla.</p>
+          {error && (
+            <div className="bg-red-100 border border-red-200 text-red-700 px-4 py-2 rounded-lg">{error}</div>
+          )}
+          <div className="flex gap-2 justify-end">
+            <Button variant="outline" onClick={() => setDeleteModalOpen(false)} disabled={deleting}>
+              Cancelar
+            </Button>
+            <Button variant="destructive" onClick={handleDeleteProfile} disabled={deleting}>
+              {deleting ? <FiLoader className="animate-spin h-4 w-4 mr-2" /> : <FiX className="h-4 w-4 mr-2" />}
+              Sí, eliminar cuenta
+            </Button>
+          </div>
+        </div>
+      </Modal>
           {error && (
             <div className="bg-red-100 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
               {error}
