@@ -53,6 +53,7 @@ export interface ReturnItem {
   price: number; // Precio de la clave
   reason?: string; // Razón específica de esta clave
   created_at: string;
+  quantity: number;
 }
 
 /**
