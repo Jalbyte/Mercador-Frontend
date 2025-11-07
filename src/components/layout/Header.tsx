@@ -139,7 +139,7 @@ export function Header() {
               </li>
 
               <li>
-                <a href="#" className="hover:text-blue-600 transition-colors">
+                <a href="/returns" className="hover:text-blue-600 transition-colors">
                   Soporte
                 </a>
               </li>
@@ -231,14 +231,25 @@ export function Header() {
                         </Link>
 
                         {isAdmin && (
-                          <Link
-                            href="/dashboard"
-                            className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors"
-                            onClick={() => setShowUserMenu(false)}
-                            role="menuitem"
-                          >
-                            Panel de control
-                          </Link>
+                          <>
+                            <Link
+                              href="/dashboard"
+                              className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors"
+                              onClick={() => setShowUserMenu(false)}
+                              role="menuitem"
+                            >
+                              Panel de control
+                            </Link>
+
+                            <Link
+                              href="/logs"
+                              className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors"
+                              onClick={() => setShowUserMenu(false)}
+                              role="menuitem"
+                            >
+                              Logs del sistema
+                            </Link>
+                          </>
                         )}
 
                         <div className="border-t border-gray-100 mt-1 pt-1">

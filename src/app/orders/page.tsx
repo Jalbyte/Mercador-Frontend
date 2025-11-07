@@ -13,6 +13,8 @@ import {
   FiChevronUp,
   FiLoader,
   FiAlertCircle,
+  FiRotateCcw,
+  FiMail,
 } from "react-icons/fi";
 
 const API_BASE =
@@ -23,31 +25,33 @@ const API_BASE =
 
 type OrderItem = {
   id: number;
-  product_name: string;
-  quantity: number;
   price: number;
-  total_price: number;
+  quantity: number;
+  order_id: number;
+  product_id: number;
+  product: {
+    id: number;
+    name: string;
+    image_url?: string;
+  };
   license_key?: string;
-  product: Producto;
-};
-
-type Producto = {
-  id: string;
-  name: string;
-  price: number;
-  quantity: number;
-  image: string;
-  max_quantity?: number;
-  is_available?: boolean;
-  has_enough_stock?: boolean;
 };
 
 type Order = {
   id: number;
+  user_id: string;
   total_amount: number;
   status: string;
-  payment_method?: string;
   created_at: string;
+  updated_at: string;
+  shipping_address?: {
+    city: string;
+    region: string;
+    country: string;
+    phoneNumber: string;
+    addressLine1: string;
+  };
+  payment_method?: string;
   order_items?: OrderItem[];
 };
 
@@ -60,6 +64,9 @@ export default function PurchaseHistoryPage() {
   const [expandedOrders, setExpandedOrders] = useState<Set<number>>(new Set());
   const [sortBy, setSortBy] = useState<"date" | "price">("date");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
+  const [resendingKeys, setResendingKeys] = useState<Set<number>>(new Set());
+  const [resendSuccess, setResendSuccess] = useState<number | null>(null);
+  const [resendError, setResendError] = useState<number | null>(null);
 
   useEffect(() => {
     if (!authLoading && !isAuthenticated) {
@@ -121,6 +128,51 @@ export default function PurchaseHistoryPage() {
       }
       return newSet;
     });
+  };
+
+  const handleResendKeys = async (orderId: number, e: React.MouseEvent) => {
+    e.stopPropagation(); // Prevent order expansion toggle
+    
+    setResendingKeys((prev) => new Set(prev).add(orderId));
+    setResendSuccess(null);
+    setResendError(null);
+
+    try {
+      const response = await fetch(`${API_BASE}/orders/${orderId}/resend-keys`, {
+        method: "POST",
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      });
+
+      const data = await response.json();
+
+      if (!response.ok || !data.success) {
+        throw new Error(data.error || "Error al reenviar las claves");
+      }
+
+      setResendSuccess(orderId);
+      
+      // Clear success message after 5 seconds
+      setTimeout(() => {
+        setResendSuccess(null);
+      }, 5000);
+    } catch (err) {
+      console.error("Error resending keys:", err);
+      setResendError(orderId);
+      
+      // Clear error message after 5 seconds
+      setTimeout(() => {
+        setResendError(null);
+      }, 5000);
+    } finally {
+      setResendingKeys((prev) => {
+        const newSet = new Set(prev);
+        newSet.delete(orderId);
+        return newSet;
+      });
+    }
   };
 
   const getStatusColor = (status: string) => {
@@ -367,9 +419,60 @@ export default function PurchaseHistoryPage() {
                 {/* Order Details (Expandable) */}
                 {expandedOrders.has(order.id) && (
                   <div className="border-t border-gray-200 bg-gray-50 p-6">
-                    <h4 className="font-semibold text-gray-900 mb-4">
-                      Productos
-                    </h4>
+                    {/* Resend Keys Notification */}
+                    {resendSuccess === order.id && (
+                      <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-lg flex items-center gap-2 text-green-800">
+                        <FiMail size={18} />
+                        <span className="text-sm font-medium">
+                          ¡Claves enviadas exitosamente! Revisa tu correo electrónico.
+                        </span>
+                      </div>
+                    )}
+                    
+                    {resendError === order.id && (
+                      <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg flex items-center gap-2 text-red-800">
+                        <FiAlertCircle size={18} />
+                        <span className="text-sm font-medium">
+                          Error al reenviar las claves. Inténtalo de nuevo.
+                        </span>
+                      </div>
+                    )}
+                    
+                    <div className="flex items-center justify-between mb-4">
+                      <h4 className="font-semibold text-gray-900">
+                        Productos
+                      </h4>
+                      <div className="flex gap-2">
+                        {order.order_items && order.order_items.some(item => item.license_key) && (
+                          <button
+                            onClick={(e) => handleResendKeys(order.id, e)}
+                            disabled={resendingKeys.has(order.id)}
+                            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:bg-blue-400 disabled:cursor-not-allowed"
+                          >
+                            {resendingKeys.has(order.id) ? (
+                              <>
+                                <FiLoader className="animate-spin" size={16} />
+                                Enviando...
+                              </>
+                            ) : (
+                              <>
+                                <FiMail size={16} />
+                                Reenviar claves
+                              </>
+                            )}
+                          </button>
+                        )}
+                        {(order.status === 'confirmed' || order.status === 'delivered') && (
+                          <button
+                            onClick={() => router.push(`/returns/request/${order.id}`)}
+                            className="flex items-center gap-2 px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors"
+                          >
+                            <FiRotateCcw size={16} />
+                            Solicitar devolución
+                          </button>
+                        )}
+                      </div>
+                    </div>
                     <div className="space-y-3">
                       {order.order_items && order.order_items.length > 0 ? (
                         order.order_items.map((item) => (
@@ -378,33 +481,41 @@ export default function PurchaseHistoryPage() {
                             className="bg-white rounded-lg p-4 border border-gray-200"
                           >
                             <div className="flex justify-between items-start gap-4">
-                              <div className="flex-1">
-                                <h5 className="font-medium text-gray-900 mb-1">
-                                  {item.product.name}
-                                </h5>
-                                <p className="text-sm text-gray-600">
-                                  Cantidad: {item.quantity} x $
-                                {item.price.toLocaleString("es-CO")}
-                              </p>
-                              {item.license_key && (
-                                <div className="mt-2 p-2 bg-blue-50 border border-blue-200 rounded">
-                                  <p className="text-xs text-blue-800 font-medium mb-1">
-                                    Clave de licencia:
+                              <div className="flex gap-4 flex-1">
+                                {item.product.image_url && (
+                                  <img
+                                    src={item.product.image_url}
+                                    alt={item.product.name}
+                                    className="w-20 h-20 object-cover rounded-lg"
+                                  />
+                                )}
+                                <div className="flex-1">
+                                  <h5 className="font-medium text-gray-900 mb-1">
+                                    {item.product.name}
+                                  </h5>
+                                  <p className="text-sm text-gray-600">
+                                    Cantidad: {item.quantity} x ${item.price.toLocaleString("es-CO")}
                                   </p>
-                                  <code className="text-sm text-blue-900 font-mono">
-                                    {item.license_key}
-                                  </code>
+                                  {item.license_key && (
+                                    <div className="mt-2 p-2 bg-blue-50 border border-blue-200 rounded">
+                                      <p className="text-xs text-blue-800 font-medium mb-1">
+                                        Clave de licencia:
+                                      </p>
+                                      <code className="text-sm text-blue-900 font-mono">
+                                        {item.license_key}
+                                      </code>
+                                    </div>
+                                  )}
                                 </div>
-                              )}
-                            </div>
-                            <div className="text-right">
-                              <p className="font-semibold text-gray-900">
-                                ${(item.price*item.quantity).toLocaleString("es-CO")}
-                              </p>
+                              </div>
+                              <div className="text-right">
+                                <p className="font-semibold text-gray-900">
+                                  ${(item.price * item.quantity).toLocaleString("es-CO")}
+                                </p>
+                              </div>
                             </div>
                           </div>
-                        </div>
-                      ))
+                        ))
                       ) : (
                         <p className="text-gray-500 text-center py-4">
                           No hay productos en esta orden
