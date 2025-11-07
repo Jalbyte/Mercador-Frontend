@@ -60,16 +60,14 @@ export default function LogsPage() {
 
     // Verificar que sea admin
     useEffect(() => {
-        // if (!authLoading && (!isAuthenticated || user?.role !== "admin")) {
-        if (!authLoading && (!isAuthenticated)) {
+        if (!authLoading && (!isAuthenticated || user?.role !== "admin")) {
             router.push("/");
         }
     }, [isAuthenticated, authLoading, user, router]);
 
     // Cargar información inicial
     useEffect(() => {
-        // if (isAuthenticated && user?.role === "admin") {
-        if (isAuthenticated) {
+        if (isAuthenticated && user?.role === "admin") {
             fetchLogsInfo();
         }
     }, [isAuthenticated, user, logSource]);
