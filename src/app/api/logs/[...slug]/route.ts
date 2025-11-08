@@ -106,7 +106,7 @@ export async function GET(request: NextRequest, { params }: { params: { slug: st
         const backendUrl = `${API_BASE}/logs/${slug}${searchParams.toString() ? `?${searchParams.toString()}` : ''}`;
         
         const backendResponse = await fetch(backendUrl, {
-            headers: { 'Cookie': `auth_token=${token}` },
+            headers: { 'Authorization': `Bearer ${token}` },
         });
 
         const data = await backendResponse.json();
@@ -163,7 +163,7 @@ export async function DELETE(request: NextRequest, { params }: { params: { slug:
         const backendUrl = `${API_BASE}/logs/${type}`;
         const backendResponse = await fetch(backendUrl, {
             method: 'DELETE',
-            headers: { 'Cookie': `auth_token=${token}` },
+            headers: { 'Authorization': `Bearer ${token}` },
         });
         const data = await backendResponse.json();
         return NextResponse.json(data, { status: backendResponse.status });
