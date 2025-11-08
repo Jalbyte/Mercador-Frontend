@@ -23,16 +23,14 @@ type LogSource = 'frontend' | 'backend';
 async function verifyAdmin(): Promise<{ isAdmin: boolean; token?: string }> {
     try {
         const cookieStore = cookies();
-        const token = cookieStore.get('auth_token')?.value;
+        const token = cookieStore.get('sb_access_token')?.value;
 
         if (!token) {
             return { isAdmin: false };
         }
 
-        const response = await fetch(`${API_BASE}/users/me`, {
-            headers: {
-                'Cookie': `sb_access_token=${token}`,
-            },
+        const response = await fetch(`${API_BASE}/auth/me`, {
+            headers: { 'Authorization': `Bearer ${token}` },
         });
 
         if (!response.ok) {
