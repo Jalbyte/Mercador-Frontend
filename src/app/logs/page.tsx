@@ -57,6 +57,7 @@ export default function LogsPage() {
     const [maxLines, setMaxLines] = useState(100);
     const [autoRefresh, setAutoRefresh] = useState(false);
     const [lastUpdate, setLastUpdate] = useState<Date | null>(null);
+    const [autoScroll, setAutoScroll] = useState(true);
 
     // Verificar que sea admin
     useEffect(() => {
@@ -129,8 +130,19 @@ export default function LogsPage() {
 
             const data = await response.json();
             if (data.success) {
-                setLogs(data.data.lines);
+                // Invertir el orden para mostrar los más recientes primero (abajo hacia arriba)
+                setLogs(data.data.lines.reverse());
                 setLastUpdate(new Date());
+                
+                // Auto-scroll al final si está activado
+                if (autoScroll) {
+                    setTimeout(() => {
+                        const container = document.getElementById('logs-container');
+                        if (container) {
+                            container.scrollTop = container.scrollHeight;
+                        }
+                    }, 100);
+                }
             }
         } catch (err) {
             console.error("Error fetching logs:", err);
@@ -213,6 +225,76 @@ export default function LogsPage() {
 
     const isWarningLine = (line: string): boolean => {
         return line.toLowerCase().includes("warn") || line.toLowerCase().includes("warning");
+    };
+
+    // Parsear y formatear líneas de log JSON
+    const parseLogLine = (line: string): { timestamp: string; level: string; message: string; data: any } | null => {
+        try {
+            // Extraer timestamp y JSON del formato: "2025-11-08T03:26:21: {...}"
+            const match = line.match(/^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}):\s*({.*})$/);
+            if (match) {
+                const timestamp = match[1];
+                const jsonData = JSON.parse(match[2]);
+                
+                return {
+                    timestamp,
+                    level: jsonData.level || jsonData.level === 30 ? getLevelName(jsonData.level) : 'info',
+                    message: jsonData.msg || jsonData.message || '',
+                    data: jsonData
+                };
+            }
+            return null;
+        } catch (e) {
+            return null;
+        }
+    };
+
+    // Convertir nivel numérico a nombre
+    const getLevelName = (level: number | string): string => {
+        if (typeof level === 'string') return level;
+        
+        const levels: Record<number, string> = {
+            10: 'trace',
+            20: 'debug',
+            30: 'info',
+            40: 'warn',
+            50: 'error',
+            60: 'fatal'
+        };
+        return levels[level] || 'info';
+    };
+
+    // Obtener color según el nivel
+    const getLevelColor = (level: string): string => {
+        switch (level.toLowerCase()) {
+            case 'error':
+            case 'fatal':
+                return 'bg-red-900/30 text-red-300';
+            case 'warn':
+            case 'warning':
+                return 'bg-yellow-900/30 text-yellow-300';
+            case 'info':
+                return 'bg-blue-900/30 text-blue-300';
+            case 'debug':
+            case 'trace':
+                return 'bg-gray-700/30 text-gray-400';
+            default:
+                return 'text-gray-300 hover:bg-gray-800/50';
+        }
+    };
+
+    // Formatear objeto JSON para mostrar
+    const formatJsonData = (data: any): string => {
+        const exclude = ['level', 'time', 'msg', 'message', 'pid', 'hostname'];
+        const filtered = Object.keys(data)
+            .filter(key => !exclude.includes(key))
+            .reduce((obj: any, key) => {
+                obj[key] = data[key];
+                return obj;
+            }, {});
+
+        if (Object.keys(filtered).length === 0) return '';
+        return JSON.stringify(filtered, null, 2);
     };
 
     if (authLoading) {
@@ -342,6 +424,19 @@ export default function LogsPage() {
                             </label>
                         </div>
 
+                        <div className="flex items-center gap-2">
+                            <input
+                                type="checkbox"
+                                id="autoScroll"
+                                checked={autoScroll}
+                                onChange={(e) => setAutoScroll(e.target.checked)}
+                                className="w-4 h-4 text-blue-600 rounded"
+                            />
+                            <label htmlFor="autoScroll" className="text-sm font-medium text-gray-700">
+                                Auto-scroll
+                            </label>
+                        </div>
+
                         <div className="flex gap-2 ml-auto">
                             <button
                                 onClick={fetchLogs}
@@ -397,7 +492,7 @@ export default function LogsPage() {
                         </div>
                     </div>
 
-                    <div className="p-6 max-h-[600px] overflow-y-auto">
+                    <div className="p-6 max-h-[600px] overflow-y-auto" id="logs-container">
                         {loading && logs.length === 0 ? (
                             <div className="flex items-center justify-center py-12">
                                 <FiLoader className="animate-spin text-blue-400 mr-3" size={24} />
@@ -415,22 +510,73 @@ export default function LogsPage() {
                                 </button>
                             </div>
                         ) : (
-                            <pre className="font-mono text-sm space-y-1">
-                                {logs.map((line, index) => (
-                                    <div
-                                        key={index}
-                                        className={`py-1 px-3 rounded ${isErrorLine(line)
-                                            ? "bg-red-900/30 text-red-300"
-                                            : isWarningLine(line)
-                                                ? "bg-yellow-900/30 text-yellow-300"
-                                                : "text-gray-300 hover:bg-gray-800/50"
-                                            }`}
-                                    >
-                                        <span className="text-gray-600 mr-3">{index + 1}</span>
-                                        {line}
-                                    </div>
-                                ))}
-                            </pre>
+                            <div className="space-y-2">
+                                {logs.map((line, index) => {
+                                    const parsed = parseLogLine(line);
+                                    
+                                    if (parsed) {
+                                        // Log estructurado (JSON)
+                                        const extraData = formatJsonData(parsed.data);
+                                        
+                                        return (
+                                            <div
+                                                key={index}
+                                                className={`py-2 px-4 rounded-lg border border-gray-700 ${getLevelColor(parsed.level)}`}
+                                            >
+                                                <div className="flex items-start gap-3">
+                                                    <span className="text-gray-500 text-xs font-mono shrink-0">
+                                                        {logs.length - index}
+                                                    </span>
+                                                    <div className="flex-1 min-w-0">
+                                                        <div className="flex items-center gap-2 mb-1">
+                                                            <span className="text-xs font-semibold uppercase px-2 py-0.5 rounded bg-gray-800/50">
+                                                                {parsed.level}
+                                                            </span>
+                                                            <span className="text-xs text-gray-400 font-mono">
+                                                                {parsed.timestamp}
+                                                            </span>
+                                                        </div>
+                                                        <div className="text-sm break-words">
+                                                            {parsed.message}
+                                                        </div>
+                                                        {extraData && (
+                                                            <details className="mt-2">
+                                                                <summary className="text-xs text-gray-400 cursor-pointer hover:text-gray-300">
+                                                                    Ver detalles
+                                                                </summary>
+                                                                <pre className="mt-2 text-xs bg-gray-800/50 p-3 rounded overflow-x-auto">
+                                                                    {extraData}
+                                                                </pre>
+                                                            </details>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        );
+                                    } else {
+                                        // Log no estructurado (texto plano)
+                                        return (
+                                            <div
+                                                key={index}
+                                                className={`py-2 px-4 rounded ${
+                                                    isErrorLine(line)
+                                                        ? "bg-red-900/30 text-red-300"
+                                                        : isWarningLine(line)
+                                                        ? "bg-yellow-900/30 text-yellow-300"
+                                                        : "text-gray-300 hover:bg-gray-800/50"
+                                                }`}
+                                            >
+                                                <span className="text-gray-500 text-xs mr-3">
+                                                    {logs.length - index}
+                                                </span>
+                                                <span className="text-sm break-words font-mono">
+                                                    {line}
+                                                </span>
+                                            </div>
+                                        );
+                                    }
+                                })}
+                            </div>
                         )}
                     </div>
                 </div>
