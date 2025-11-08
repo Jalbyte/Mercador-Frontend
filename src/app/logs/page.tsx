@@ -13,8 +13,6 @@ import {
     FiTrash2,
     FiDownload,
     FiInfo,
-    FiServer,
-    FiMonitor,
 } from "react-icons/fi";
 
 const API_BASE =
@@ -23,8 +21,13 @@ const API_BASE =
         ? `${window.location.protocol}//${window.location.hostname}:3010`
         : "");
 
+// API local del frontend para leer logs del sistema de archivos
+const LOGS_API = "/api/logs";
+
 type LogType = "error" | "output" | "combined";
-type LogSource = "backend" | "frontend";
+
+// Ya no necesitamos el selector de fuente, siempre lee del frontend
+// type LogSource = "backend" | "frontend";
 
 interface LogFileInfo {
     type: LogType;
@@ -48,7 +51,7 @@ export default function LogsPage() {
     const router = useRouter();
     const { user, isAuthenticated, isLoading: authLoading } = useAuth();
 
-    const [logSource, setLogSource] = useState<LogSource>("backend");
+    // const [logSource, setLogSource] = useState<LogSource>("backend"); // Ya no se usa
     const [selectedLog, setSelectedLog] = useState<LogType>("error");
     const [logs, setLogs] = useState<string[]>([]);
     const [filesInfo, setFilesInfo] = useState<LogFileInfo[]>([]);
@@ -72,14 +75,14 @@ export default function LogsPage() {
         if (isAuthenticated && user?.role === "admin") {
             fetchLogsInfo();
         }
-    }, [isAuthenticated, user, logSource]);
+    }, [isAuthenticated, user]); // Removido logSource
 
     // Cargar logs automáticamente cuando cambia el tipo de log seleccionado
     useEffect(() => {
         if (isAuthenticated && user?.role === "admin" && selectedLog) {
             fetchLogs();
         }
-    }, [selectedLog, logSource]);
+    }, [selectedLog]); // Removido logSource
 
     // Auto-refresh
     useEffect(() => {
@@ -90,13 +93,13 @@ export default function LogsPage() {
 
             return () => clearInterval(interval);
         }
-    }, [autoRefresh, selectedLog, maxLines, logSource]);
+    }, [autoRefresh, selectedLog, maxLines]); // Removido logSource
 
     const fetchLogsInfo = async () => {
         try {
             setError(null);
-            // Ambas fuentes usan /logs (no /frontend/logs)
-            const response = await fetch(`${API_BASE}/logs/info`, {
+            // Usar API local del frontend para leer logs
+            const response = await fetch(`${LOGS_API}/info`, {
                 credentials: "include",
                 headers: {
                     "Content-Type": "application/json",
@@ -146,9 +149,9 @@ export default function LogsPage() {
         }
 
         try {
-            // Ambas fuentes usan /logs (no /frontend/logs)
+            // Usar API local del frontend para leer logs
             const response = await fetch(
-                `${API_BASE}/logs/${selectedLog}?lines=${maxLines}`,
+                `${LOGS_API}/${selectedLog}?lines=${maxLines}`,
                 {
                     credentials: "include",
                     headers: {
@@ -205,8 +208,8 @@ export default function LogsPage() {
 
         try {
             setError(null);
-            // Ambas fuentes usan /logs (no /frontend/logs)
-            const response = await fetch(`${API_BASE}/logs/${selectedLog}`, {
+            // Usar API local del frontend para limpiar logs
+            const response = await fetch(`${LOGS_API}/${selectedLog}`, {
                 method: "DELETE",
                 credentials: "include",
                 headers: {
@@ -367,50 +370,21 @@ export default function LogsPage() {
                     <div className="flex items-center gap-3 mb-4">
                         <FiFileText size={40} />
                         <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold">
-                            Logs del Sistema
+                            Logs del Frontend
                         </h1>
                     </div>
                     <p className="text-base sm:text-lg text-slate-300">
-                        Monitoreo y gestión de logs de aplicación
+                        Monitoreo y gestión de logs de la aplicación frontend
                     </p>
+                    {lastUpdate && (
+                        <p className="text-sm text-slate-400 mt-2">
+                            Última actualización: {lastUpdate.toLocaleTimeString()}
+                        </p>
+                    )}
                 </div>
             </section>
 
             <div className="container mx-auto px-4 py-8">
-                {/* Source Selector */}
-                <div className="bg-white rounded-xl shadow-md p-6 mb-6 border border-gray-100">
-                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                        <div className="flex items-center gap-4">
-                            <button
-                                onClick={() => setLogSource("backend")}
-                                className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-colors ${logSource === "backend"
-                                    ? "bg-blue-600 text-white"
-                                    : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-                                    }`}
-                            >
-                                <FiServer size={20} />
-                                Backend Logs
-                            </button>
-                            <button
-                                onClick={() => setLogSource("frontend")}
-                                className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-colors ${logSource === "frontend"
-                                    ? "bg-blue-600 text-white"
-                                    : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-                                    }`}
-                            >
-                                <FiMonitor size={20} />
-                                Frontend Logs
-                            </button>
-                        </div>
-
-                        {lastUpdate && (
-                            <div className="text-sm text-gray-600">
-                                Última actualización: {lastUpdate.toLocaleTimeString()}
-                            </div>
-                        )}
-                    </div>
-                </div>
-
                 {/* Files Info Cards */}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
                     {filesInfo.map((file) => (
