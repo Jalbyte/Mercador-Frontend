@@ -44,8 +44,6 @@ import { AccessibilitySidebar } from "@/components/accessibility/page";
 import { AuthProvider } from "@/components/auth/AuthProvider";
 import { MFAProvider } from "@/components/auth/MFAProvider";
 import { CartToastManager } from "@/components/cart/CartToastManager";
-import { Analytics } from "@vercel/analytics/react";
-import { SpeedInsights } from "@vercel/speed-insights/next";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -87,7 +85,7 @@ interface RootLayoutProps {
 export default function RootLayout({ children }: RootLayoutProps) {
   return (
     <html lang="es" className="h-full">
-      <body 
+      <body
         className={`${inter.className} min-h-screen bg-background`}
         suppressHydrationWarning={true}
       >
@@ -105,12 +103,6 @@ export default function RootLayout({ children }: RootLayoutProps) {
             </CartProvider>
           </MFAProvider>
         </AuthProvider>
-
-        {/* Vercel Analytics - Monitoreo de métricas de uso */}
-        <Analytics />
-        
-        {/* Vercel Speed Insights - Monitoreo de rendimiento */}
-        <SpeedInsights />
       </body>
     </html>
   );
