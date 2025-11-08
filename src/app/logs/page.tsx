@@ -13,6 +13,8 @@ import {
     FiTrash2,
     FiDownload,
     FiInfo,
+    FiServer,
+    FiMonitor,
 } from "react-icons/fi";
 
 const API_BASE =
@@ -25,9 +27,7 @@ const API_BASE =
 const LOGS_API = "/api/logs";
 
 type LogType = "error" | "output" | "combined";
-
-// Ya no necesitamos el selector de fuente, siempre lee del frontend
-// type LogSource = "backend" | "frontend";
+type LogSource = "backend" | "frontend";
 
 interface LogFileInfo {
     type: LogType;
@@ -51,7 +51,7 @@ export default function LogsPage() {
     const router = useRouter();
     const { user, isAuthenticated, isLoading: authLoading } = useAuth();
 
-    // const [logSource, setLogSource] = useState<LogSource>("backend"); // Ya no se usa
+    const [logSource, setLogSource] = useState<LogSource>("frontend");
     const [selectedLog, setSelectedLog] = useState<LogType>("error");
     const [logs, setLogs] = useState<string[]>([]);
     const [filesInfo, setFilesInfo] = useState<LogFileInfo[]>([]);
@@ -75,14 +75,14 @@ export default function LogsPage() {
         if (isAuthenticated && user?.role === "admin") {
             fetchLogsInfo();
         }
-    }, [isAuthenticated, user]); // Removido logSource
+    }, [isAuthenticated, user, logSource]);
 
     // Cargar logs automáticamente cuando cambia el tipo de log seleccionado
     useEffect(() => {
         if (isAuthenticated && user?.role === "admin" && selectedLog) {
             fetchLogs();
         }
-    }, [selectedLog]); // Removido logSource
+    }, [selectedLog, logSource]);
 
     // Auto-refresh
     useEffect(() => {
@@ -93,13 +93,17 @@ export default function LogsPage() {
 
             return () => clearInterval(interval);
         }
-    }, [autoRefresh, selectedLog, maxLines]); // Removido logSource
+    }, [autoRefresh, selectedLog, maxLines, logSource]);
 
     const fetchLogsInfo = async () => {
         try {
             setError(null);
-            // Usar API local del frontend para leer logs
-            const response = await fetch(`${LOGS_API}/info`, {
+            // Frontend: API local, Backend: API del backend
+            const endpoint = logSource === "frontend" 
+                ? `${LOGS_API}/info` 
+                : `${API_BASE}/logs/info`;
+            
+            const response = await fetch(endpoint, {
                 credentials: "include",
                 headers: {
                     "Content-Type": "application/json",
@@ -107,7 +111,17 @@ export default function LogsPage() {
             });
 
             if (!response.ok) {
-                throw new Error("Error al obtener información de logs");
+                const errorData = await response.json().catch(() => ({}));
+                
+                if (response.status === 403) {
+                    throw new Error(errorData.error || "Acceso denegado - requiere rol de administrador");
+                } else if (response.status === 401) {
+                    throw new Error("No autenticado - por favor inicia sesión");
+                } else if (response.status === 503) {
+                    throw new Error(errorData.error || "Logs no disponibles en este entorno");
+                } else {
+                    throw new Error(errorData.error || `Error al obtener información de logs (${response.status})`);
+                }
             }
 
             const data = await response.json();
@@ -149,9 +163,13 @@ export default function LogsPage() {
         }
 
         try {
-            // Usar API local del frontend para leer logs
+            // Frontend: API local, Backend: API del backend
+            const endpoint = logSource === "frontend"
+                ? `${LOGS_API}/${selectedLog}?lines=${maxLines}`
+                : `${API_BASE}/logs/${selectedLog}?lines=${maxLines}`;
+            
             const response = await fetch(
-                `${LOGS_API}/${selectedLog}?lines=${maxLines}`,
+                endpoint,
                 {
                     credentials: "include",
                     headers: {
@@ -161,8 +179,19 @@ export default function LogsPage() {
             );
 
             if (!response.ok) {
-                const errorData = await response.json();
-                throw new Error(errorData.error || "Error al cargar logs");
+                const errorData = await response.json().catch(() => ({}));
+                
+                if (response.status === 403) {
+                    throw new Error(errorData.error || "Acceso denegado - requiere rol de administrador");
+                } else if (response.status === 401) {
+                    throw new Error("No autenticado - por favor inicia sesión");
+                } else if (response.status === 404) {
+                    throw new Error(errorData.error || "Archivo de log no encontrado");
+                } else if (response.status === 503) {
+                    throw new Error(errorData.error || "Logs no disponibles en este entorno");
+                } else {
+                    throw new Error(errorData.error || `Error al cargar logs (${response.status})`);
+                }
             }
 
             const data = await response.json();
@@ -208,8 +237,12 @@ export default function LogsPage() {
 
         try {
             setError(null);
-            // Usar API local del frontend para limpiar logs
-            const response = await fetch(`${LOGS_API}/${selectedLog}`, {
+            // Frontend: API local, Backend: API del backend
+            const endpoint = logSource === "frontend"
+                ? `${LOGS_API}/${selectedLog}`
+                : `${API_BASE}/logs/${selectedLog}`;
+            
+            const response = await fetch(endpoint, {
                 method: "DELETE",
                 credentials: "include",
                 headers: {
@@ -218,8 +251,17 @@ export default function LogsPage() {
             });
 
             if (!response.ok) {
-                const errorData = await response.json();
-                throw new Error(errorData.error || "Error al limpiar logs");
+                const errorData = await response.json().catch(() => ({}));
+                
+                if (response.status === 403) {
+                    throw new Error(errorData.error || "Acceso denegado - requiere rol de administrador");
+                } else if (response.status === 401) {
+                    throw new Error("No autenticado - por favor inicia sesión");
+                } else if (response.status === 404) {
+                    throw new Error(errorData.error || "Archivo de log no encontrado");
+                } else {
+                    throw new Error(errorData.error || `Error al limpiar logs (${response.status})`);
+                }
             }
 
             setLogs([]);
@@ -370,21 +412,50 @@ export default function LogsPage() {
                     <div className="flex items-center gap-3 mb-4">
                         <FiFileText size={40} />
                         <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold">
-                            Logs del Frontend
+                            Logs del Sistema
                         </h1>
                     </div>
                     <p className="text-base sm:text-lg text-slate-300">
-                        Monitoreo y gestión de logs de la aplicación frontend
+                        Monitoreo y gestión de logs de aplicación
                     </p>
-                    {lastUpdate && (
-                        <p className="text-sm text-slate-400 mt-2">
-                            Última actualización: {lastUpdate.toLocaleTimeString()}
-                        </p>
-                    )}
                 </div>
             </section>
 
             <div className="container mx-auto px-4 py-8">
+                {/* Source Selector */}
+                <div className="bg-white rounded-xl shadow-md p-6 mb-6 border border-gray-100">
+                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                        <div className="flex items-center gap-4">
+                            <button
+                                onClick={() => setLogSource("backend")}
+                                className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-colors ${logSource === "backend"
+                                    ? "bg-blue-600 text-white"
+                                    : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                                    }`}
+                            >
+                                <FiServer size={20} />
+                                Backend Logs
+                            </button>
+                            <button
+                                onClick={() => setLogSource("frontend")}
+                                className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-colors ${logSource === "frontend"
+                                    ? "bg-blue-600 text-white"
+                                    : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                                    }`}
+                            >
+                                <FiMonitor size={20} />
+                                Frontend Logs
+                            </button>
+                        </div>
+
+                        {lastUpdate && (
+                            <div className="text-sm text-gray-600">
+                                Última actualización: {lastUpdate.toLocaleTimeString()}
+                            </div>
+                        )}
+                    </div>
+                </div>
+
                 {/* Files Info Cards */}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
                     {filesInfo.map((file) => (
