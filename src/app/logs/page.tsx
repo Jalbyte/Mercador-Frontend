@@ -87,7 +87,11 @@ export default function LogsPage() {
     const fetchLogsInfo = async () => {
         try {
             setError(null);
-            const response = await fetch(`${API_BASE}/logs/info`, {
+            const endpoint = logSource === "backend" 
+                ? `${API_BASE}/logs/info`
+                : `${API_BASE}/logs/frontend/info`;
+
+            const response = await fetch(endpoint, {
                 credentials: "include",
                 headers: {
                     "Content-Type": "application/json",
@@ -112,16 +116,21 @@ export default function LogsPage() {
         setLoading(true);
         setError(null);
 
+        // Guardar la posición actual del scroll
+        const container = document.getElementById('logs-container');
+        const scrollPosition = container?.scrollTop || 0;
+
         try {
-            const response = await fetch(
-                `${API_BASE}/logs/${selectedLog}?lines=${maxLines}`,
-                {
-                    credentials: "include",
-                    headers: {
-                        "Content-Type": "application/json",
-                    },
-                }
-            );
+            const endpoint = logSource === "backend" 
+                ? `${API_BASE}/logs/${selectedLog}?lines=${maxLines}`
+                : `${API_BASE}/logs/frontend/${selectedLog}?lines=${maxLines}`;
+
+            const response = await fetch(endpoint, {
+                credentials: "include",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+            });
 
             if (!response.ok) {
                 const errorData = await response.json();
@@ -134,15 +143,18 @@ export default function LogsPage() {
                 setLogs(data.data.lines.reverse());
                 setLastUpdate(new Date());
                 
-                // Auto-scroll al final si está activado
-                if (autoScroll) {
-                    setTimeout(() => {
-                        const container = document.getElementById('logs-container');
-                        if (container) {
+                // Restaurar la posición del scroll después de actualizar
+                setTimeout(() => {
+                    if (container) {
+                        if (autoScroll) {
+                            // Si auto-scroll está activado, ir al final
                             container.scrollTop = container.scrollHeight;
+                        } else {
+                            // Si no, mantener la posición anterior
+                            container.scrollTop = scrollPosition;
                         }
-                    }, 100);
-                }
+                    }
+                }, 100);
             }
         } catch (err) {
             console.error("Error fetching logs:", err);
@@ -159,7 +171,11 @@ export default function LogsPage() {
 
         try {
             setError(null);
-            const response = await fetch(`${API_BASE}/logs/${selectedLog}`, {
+            const endpoint = logSource === "backend" 
+                ? `${API_BASE}/logs/${selectedLog}`
+                : `${API_BASE}/logs/frontend/${selectedLog}`;
+
+            const response = await fetch(endpoint, {
                 method: "DELETE",
                 credentials: "include",
                 headers: {
@@ -432,8 +448,8 @@ export default function LogsPage() {
                                 onChange={(e) => setAutoScroll(e.target.checked)}
                                 className="w-4 h-4 text-blue-600 rounded"
                             />
-                            <label htmlFor="autoScroll" className="text-sm font-medium text-gray-700">
-                                Auto-scroll
+                            <label htmlFor="autoScroll" className="text-sm font-medium text-gray-700" title="Desplazar al final al actualizar logs">
+                                Scroll al actualizar
                             </label>
                         </div>
 
@@ -525,7 +541,7 @@ export default function LogsPage() {
                                             >
                                                 <div className="flex items-start gap-3">
                                                     <span className="text-gray-500 text-xs font-mono shrink-0">
-                                                        {logs.length - index}
+                                                        {index + 1}
                                                     </span>
                                                     <div className="flex-1 min-w-0">
                                                         <div className="flex items-center gap-2 mb-1">
@@ -567,7 +583,7 @@ export default function LogsPage() {
                                                 }`}
                                             >
                                                 <span className="text-gray-500 text-xs mr-3">
-                                                    {logs.length - index}
+                                                    {index + 1}
                                                 </span>
                                                 <span className="text-sm break-words font-mono">
                                                     {line}
