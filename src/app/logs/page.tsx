@@ -58,6 +58,7 @@ export default function LogsPage() {
     const [autoRefresh, setAutoRefresh] = useState(false);
     const [lastUpdate, setLastUpdate] = useState<Date | null>(null);
     const [autoScroll, setAutoScroll] = useState(true);
+    const [currentVisibleLog, setCurrentVisibleLog] = useState<string | null>(null);
 
     // Verificar que sea admin
     useEffect(() => {
@@ -73,6 +74,13 @@ export default function LogsPage() {
         }
     }, [isAuthenticated, user, logSource]);
 
+    // Cargar logs automáticamente cuando cambia el tipo de log seleccionado
+    useEffect(() => {
+        if (isAuthenticated && user?.role === "admin" && selectedLog) {
+            fetchLogs();
+        }
+    }, [selectedLog, logSource]);
+
     // Auto-refresh
     useEffect(() => {
         if (autoRefresh) {
@@ -87,11 +95,8 @@ export default function LogsPage() {
     const fetchLogsInfo = async () => {
         try {
             setError(null);
-            const endpoint = logSource === "backend" 
-                ? `${API_BASE}/logs/info`
-                : `${API_BASE}/logs/frontend/info`;
-
-            const response = await fetch(endpoint, {
+            // Ambas fuentes usan /logs (no /frontend/logs)
+            const response = await fetch(`${API_BASE}/logs/info`, {
                 credentials: "include",
                 headers: {
                     "Content-Type": "application/json",
@@ -116,21 +121,41 @@ export default function LogsPage() {
         setLoading(true);
         setError(null);
 
-        // Guardar la posición actual del scroll
+        // Obtener el elemento visible actual antes de actualizar
         const container = document.getElementById('logs-container');
-        const scrollPosition = container?.scrollTop || 0;
+        let visibleLogContent: string | null = null;
+        
+        if (!autoScroll && container && logs.length > 0) {
+            // Encontrar qué log está visible actualmente
+            const scrollTop = container.scrollTop;
+            const containerHeight = container.clientHeight;
+            const children = container.querySelectorAll('[data-log-index]');
+            
+            // Buscar el primer log visible en el viewport
+            for (let i = 0; i < children.length; i++) {
+                const child = children[i] as HTMLElement;
+                const rect = child.getBoundingClientRect();
+                const containerRect = container.getBoundingClientRect();
+                
+                if (rect.top >= containerRect.top && rect.top <= containerRect.bottom) {
+                    const logIndex = parseInt(child.getAttribute('data-log-index') || '0');
+                    visibleLogContent = logs[logIndex];
+                    break;
+                }
+            }
+        }
 
         try {
-            const endpoint = logSource === "backend" 
-                ? `${API_BASE}/logs/${selectedLog}?lines=${maxLines}`
-                : `${API_BASE}/logs/frontend/${selectedLog}?lines=${maxLines}`;
-
-            const response = await fetch(endpoint, {
-                credentials: "include",
-                headers: {
-                    "Content-Type": "application/json",
-                },
-            });
+            // Ambas fuentes usan /logs (no /frontend/logs)
+            const response = await fetch(
+                `${API_BASE}/logs/${selectedLog}?lines=${maxLines}`,
+                {
+                    credentials: "include",
+                    headers: {
+                        "Content-Type": "application/json",
+                    },
+                }
+            );
 
             if (!response.ok) {
                 const errorData = await response.json();
@@ -140,18 +165,27 @@ export default function LogsPage() {
             const data = await response.json();
             if (data.success) {
                 // Invertir el orden para mostrar los más recientes primero (abajo hacia arriba)
-                setLogs(data.data.lines.reverse());
+                const newLogs = data.data.lines.reverse();
+                setLogs(newLogs);
                 setLastUpdate(new Date());
                 
-                // Restaurar la posición del scroll después de actualizar
+                // Restaurar la vista al mismo elemento después de actualizar
                 setTimeout(() => {
                     if (container) {
                         if (autoScroll) {
                             // Si auto-scroll está activado, ir al final
                             container.scrollTop = container.scrollHeight;
-                        } else {
-                            // Si no, mantener la posición anterior
-                            container.scrollTop = scrollPosition;
+                        } else if (visibleLogContent) {
+                            // Buscar el mismo log en los nuevos datos
+                            const newIndex = newLogs.findIndex((log: string) => log === visibleLogContent);
+                            
+                            if (newIndex !== -1) {
+                                // Encontrar el elemento correspondiente y scrollear a él
+                                const targetElement = container.querySelector(`[data-log-index="${newIndex}"]`);
+                                if (targetElement) {
+                                    targetElement.scrollIntoView({ block: 'start', behavior: 'instant' });
+                                }
+                            }
                         }
                     }
                 }, 100);
@@ -171,11 +205,8 @@ export default function LogsPage() {
 
         try {
             setError(null);
-            const endpoint = logSource === "backend" 
-                ? `${API_BASE}/logs/${selectedLog}`
-                : `${API_BASE}/logs/frontend/${selectedLog}`;
-
-            const response = await fetch(endpoint, {
+            // Ambas fuentes usan /logs (no /frontend/logs)
+            const response = await fetch(`${API_BASE}/logs/${selectedLog}`, {
                 method: "DELETE",
                 credentials: "include",
                 headers: {
@@ -537,6 +568,7 @@ export default function LogsPage() {
                                         return (
                                             <div
                                                 key={index}
+                                                data-log-index={index}
                                                 className={`py-2 px-4 rounded-lg border border-gray-700 ${getLevelColor(parsed.level)}`}
                                             >
                                                 <div className="flex items-start gap-3">
@@ -574,6 +606,7 @@ export default function LogsPage() {
                                         return (
                                             <div
                                                 key={index}
+                                                data-log-index={index}
                                                 className={`py-2 px-4 rounded ${
                                                     isErrorLine(line)
                                                         ? "bg-red-900/30 text-red-300"
