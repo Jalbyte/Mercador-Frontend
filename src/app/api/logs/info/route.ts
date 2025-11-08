@@ -9,13 +9,15 @@ import { promises as fs } from 'fs';
 import path from 'path';
 import { cookies } from 'next/headers';
 
-const LOG_BASE_PATH = '/home/ec2-user/mercador/logs';
+// Rutas de logs
+const FRONTEND_LOGS_PATH = '/home/ec2-user/mercador/logs';
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3010';
 
 type LogType = 'error' | 'output' | 'combined';
+type LogSource = 'frontend' | 'backend';
 
 /**
- * Verifica si el usuario es admin llamando al backend
+ * Verifica si el usuario es admin (usando el contexto de autenticación)
  */
 async function verifyAdmin(request: NextRequest): Promise<{ isAdmin: boolean; userId?: string }> {
     try {
@@ -25,8 +27,7 @@ async function verifyAdmin(request: NextRequest): Promise<{ isAdmin: boolean; us
         if (!token) {
             return { isAdmin: false };
         }
-
-        // Verificar con el backend
+        
         const response = await fetch(`${API_BASE}/users/me`, {
             headers: {
                 'Cookie': `auth_token=${token}`,
@@ -53,9 +54,9 @@ async function verifyAdmin(request: NextRequest): Promise<{ isAdmin: boolean; us
 /**
  * Busca el archivo de log más reciente para el tipo especificado
  */
-async function findLogFile(logType: LogType): Promise<string> {
+async function findLogFile(logType: LogType, basePath: string): Promise<string> {
     try {
-        const files = await fs.readdir(LOG_BASE_PATH);
+        const files = await fs.readdir(basePath);
 
         // Filtrar archivos que coincidan con el tipo de log
         const matchingFiles = files.filter(file =>
@@ -71,7 +72,7 @@ async function findLogFile(logType: LogType): Promise<string> {
         let latestMtimeMs = 0;
 
         for (const file of matchingFiles) {
-            const filePath = path.join(LOG_BASE_PATH, file);
+            const filePath = path.join(basePath, file);
             const stats = await fs.stat(filePath);
 
             if (stats.mtimeMs > latestMtimeMs) {
@@ -87,7 +88,7 @@ async function findLogFile(logType: LogType): Promise<string> {
         return latestFile;
     } catch (error: any) {
         if (error.code === 'ENOENT') {
-            throw new Error(`Directorio de logs no encontrado: ${LOG_BASE_PATH}`);
+            throw new Error(`Directorio de logs no encontrado: ${basePath}`);
         }
         throw error;
     }
@@ -96,9 +97,9 @@ async function findLogFile(logType: LogType): Promise<string> {
 /**
  * Obtiene información de un archivo de log
  */
-async function getLogFileInfo(logType: LogType): Promise<{ size: number; lastModified: Date; filePath: string; exists: boolean }> {
+async function getLogFileInfo(logType: LogType, basePath: string): Promise<{ size: number; lastModified: Date; filePath: string; exists: boolean }> {
     try {
-        const filePath = await findLogFile(logType);
+        const filePath = await findLogFile(logType, basePath);
         const stats = await fs.stat(filePath);
 
         return {
@@ -111,7 +112,7 @@ async function getLogFileInfo(logType: LogType): Promise<{ size: number; lastMod
         return {
             size: 0,
             lastModified: new Date(0),
-            filePath: path.join(LOG_BASE_PATH, `${logType}-...log`),
+            filePath: path.join(basePath, `${logType}-...log`),
             exists: false,
         };
     }
@@ -122,31 +123,65 @@ async function getLogFileInfo(logType: LogType): Promise<{ size: number; lastMod
  */
 export async function GET(request: NextRequest) {
     try {
-        // Verificar que sea admin
-        const { isAdmin, userId } = await verifyAdmin(request);
-
+        // Verificar permisos de admin
+        const isAdmin = await verifyAdmin(request);
         if (!isAdmin) {
             return NextResponse.json(
                 {
                     success: false,
-                    error: 'Acceso denegado - requiere rol de administrador',
+                    error: "Acceso denegado - requiere rol de administrador",
                 },
                 { status: 403 }
             );
         }
 
-        const logTypes: LogType[] = ['error', 'output', 'combined'];
+        // Obtener el source de los query params
+        const { searchParams } = new URL(request.url);
+        const source = (searchParams.get('source') || 'frontend') as LogSource;
+
+        // Si es backend, hacer proxy a la API del backend
+        if (source === 'backend') {
+            const cookieStore = await cookies();
+            const token = cookieStore.get('auth_token')?.value;
+            
+            const backendResponse = await fetch(`${API_BASE}/logs/info`, {
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                },
+            });
+
+            const data = await backendResponse.json();
+            
+            if (!backendResponse.ok) {
+                return NextResponse.json(data, { status: backendResponse.status });
+            }
+
+            return NextResponse.json(data);
+        }
+
+        // Si es frontend, leer archivos locales
+        const logTypes: LogType[] = ["error", "output", "combined"];
 
         const filesInfo = await Promise.all(
             logTypes.map(async (logType) => {
-                const info = await getLogFileInfo(logType);
-                return {
-                    type: logType,
-                    path: info.filePath,
-                    size: info.size,
-                    lastModified: info.lastModified.toISOString(),
-                    exists: info.exists,
-                };
+                try {
+                    const info = await getLogFileInfo(logType, FRONTEND_LOGS_PATH);
+                    return {
+                        type: logType,
+                        path: info.filePath,
+                        size: info.size,
+                        lastModified: info.lastModified.toISOString(),
+                        exists: info.size > 0,
+                    };
+                } catch (error) {
+                    return {
+                        type: logType,
+                        path: path.join(FRONTEND_LOGS_PATH, `${logType}-<ID>.log`),
+                        size: 0,
+                        lastModified: new Date(0).toISOString(),
+                        exists: false,
+                    };
+                }
             })
         );
 
@@ -159,11 +194,11 @@ export async function GET(request: NextRequest) {
             },
         });
     } catch (error: any) {
-        console.error('Error al obtener información de logs:', error);
+        console.error("Error al obtener información de logs:", error);
         return NextResponse.json(
             {
                 success: false,
-                error: error.message || 'Error al obtener información de logs',
+                error: error.message || "Error al obtener información de logs",
             },
             { status: 500 }
         );

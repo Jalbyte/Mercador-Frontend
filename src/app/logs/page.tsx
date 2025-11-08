@@ -51,7 +51,7 @@ export default function LogsPage() {
     const router = useRouter();
     const { user, isAuthenticated, isLoading: authLoading } = useAuth();
 
-    const [logSource, setLogSource] = useState<LogSource>("frontend");
+    const [logSource, setLogSource] = useState<LogSource>("backend");
     const [selectedLog, setSelectedLog] = useState<LogType>("error");
     const [logs, setLogs] = useState<string[]>([]);
     const [filesInfo, setFilesInfo] = useState<LogFileInfo[]>([]);
@@ -61,7 +61,6 @@ export default function LogsPage() {
     const [autoRefresh, setAutoRefresh] = useState(false);
     const [lastUpdate, setLastUpdate] = useState<Date | null>(null);
     const [autoScroll, setAutoScroll] = useState(true);
-    const [currentVisibleLog, setCurrentVisibleLog] = useState<string | null>(null);
 
     // Verificar que sea admin
     useEffect(() => {
@@ -98,12 +97,10 @@ export default function LogsPage() {
     const fetchLogsInfo = async () => {
         try {
             setError(null);
-            // Frontend: API local, Backend: API del backend
-            const endpoint = logSource === "frontend" 
-                ? `${LOGS_API}/info` 
-                : `${API_BASE}/logs/info`;
             
-            const response = await fetch(endpoint, {
+            // Usar siempre la API local del frontend
+            // La validación de admin ya se hizo en el useEffect inicial
+            const response = await fetch(`${LOGS_API}/info?source=${logSource}`, {
                 credentials: "include",
                 headers: {
                     "Content-Type": "application/json",
@@ -163,13 +160,10 @@ export default function LogsPage() {
         }
 
         try {
-            // Frontend: API local, Backend: API del backend
-            const endpoint = logSource === "frontend"
-                ? `${LOGS_API}/${selectedLog}?lines=${maxLines}`
-                : `${API_BASE}/logs/${selectedLog}?lines=${maxLines}`;
-            
+            // Usar siempre la API local del frontend
+            // La validación de admin ya se hizo en el useEffect inicial
             const response = await fetch(
-                endpoint,
+                `${LOGS_API}/${selectedLog}?lines=${maxLines}&source=${logSource}`,
                 {
                     credentials: "include",
                     headers: {
@@ -237,12 +231,10 @@ export default function LogsPage() {
 
         try {
             setError(null);
-            // Frontend: API local, Backend: API del backend
-            const endpoint = logSource === "frontend"
-                ? `${LOGS_API}/${selectedLog}`
-                : `${API_BASE}/logs/${selectedLog}`;
             
-            const response = await fetch(endpoint, {
+            // Usar siempre la API local del frontend
+            // La validación de admin ya se hizo en el useEffect inicial
+            const response = await fetch(`${LOGS_API}/${selectedLog}?source=${logSource}`, {
                 method: "DELETE",
                 credentials: "include",
                 headers: {
