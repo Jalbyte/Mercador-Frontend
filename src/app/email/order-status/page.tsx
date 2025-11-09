@@ -313,9 +313,26 @@ export default function OrderStatusEmailPage({ searchParams }: PageProps) {
                         color: '#0369a1',
                         background: '#e0f2fe',
                         padding: '8px 12px',
+                        borderRadius: '6px',
+                        marginBottom: '8px'
+                      }}>
+                        💡 <strong>Importante:</strong> Cada clave incluye su ID único para validación: <code style={{ 
+                          background: '#0c4a6e', 
+                          color: '#e0f2fe', 
+                          padding: '2px 6px', 
+                          borderRadius: '4px',
+                          fontFamily: 'monospace',
+                          fontSize: '12px'
+                        }}>[ID: XXX]</code>
+                      </p>
+                      <p style={{ 
+                        fontSize: '13px', 
+                        color: '#0369a1',
+                        background: '#e0f2fe',
+                        padding: '8px 12px',
                         borderRadius: '6px'
                       }}>
-                        💡 Tip: Guarda este archivo en un lugar seguro. También puedes consultar tus claves en tu perfil.
+                        💾 Tip: Guarda este archivo en un lugar seguro. No puedes consultar tus claves en tu perfil.
                       </p>
                     </div>
                   </div>
@@ -354,7 +371,6 @@ export default function OrderStatusEmailPage({ searchParams }: PageProps) {
             <p>Marketplace de licencias y productos digitales</p>
             <div className="footer-links">
               <a href="https://mercador.app" className="footer-link">Sitio Web</a>
-              <a href="https://mercador.app/help" className="footer-link">Ayuda</a>
               <a href="https://mercador.app/terms" className="footer-link">Términos</a>
             </div>
             <p style={{ marginTop: '16px', fontSize: '12px' }}>

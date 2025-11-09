@@ -297,8 +297,12 @@ export default function RequestReturnPage() {
                               <h3 className="font-semibold text-gray-900">
                                 {key.product_name}
                               </h3>
+                              
                               <p className="text-sm text-gray-600 mt-1">
-                                Clave: <code className="bg-gray-100 px-2 py-1 rounded text-xs">{key.license_key}</code>
+                                id: <code className="bg-gray-100 px-2 py-1 rounded text-xs">{key.id}</code>
+                              </p>
+                              <p className="text-sm text-gray-600 mt-1">
+                                Clave: <code className="bg-gray-100 px-2 py-1 rounded text-xs">{key.license_key_preview}</code>
                               </p>
                             </div>
                             <div className="text-right">
@@ -344,7 +348,7 @@ export default function RequestReturnPage() {
               <div className="space-y-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Razón de la devolución *
+                    Razón de la devolución <span className="text-red-600">*</span>
                   </label>
                   <textarea
                     value={generalReason}

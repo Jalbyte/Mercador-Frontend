@@ -184,7 +184,7 @@ export const AuthForm = forwardRef<any, AuthFormProps>(({
                 onChange={handleInputChange}
                 className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
               />
-              <span className="ml-2 text-sm text-gray-600">Recordarme</span>
+              <span className="ml-2 text-sm text-gray-600">Recordar usuario</span>
             </label>
             <button
               type="button"
