@@ -1562,6 +1562,12 @@ export default function DashboardPage() {
               ></span>
             </button>
             <button
+              onClick={() => router.push("/dashboard/returns")}
+              className="relative py-4 px-6 font-medium text-gray-500 hover:text-gray-700 transition-all duration-300"
+            >
+              Devoluciones
+            </button>
+            <button
               onClick={() => setActiveSection("reports")}
               className={`relative py-4 px-6 font-medium transition-all duration-300 ${
                 activeSection === "reports"
