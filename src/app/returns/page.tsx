@@ -247,13 +247,13 @@ export default function ReturnsPage() {
                     {returnItem.items && returnItem.items.length > 0 && (
                       <div className="mb-4 p-3 bg-gray-50 rounded-lg">
                         <p className="text-sm text-gray-600 mb-2">
-                          Productos ({returnItem.items.length}):
+                          Claves ({returnItem.items.length}):
                         </p>
                         <div className="space-y-1">
                           {returnItem.items.slice(0, 2).map((item) => (
                             <p key={item.id} className="text-sm text-gray-700">
-                              • {item.product_name || `Producto ${item.product_id}`} (x
-                              {item.quantity})
+                              • {item.product_name || `Clave de ${item.product.name}`} (
+                              {item.product_key_id})
                             </p>
                           ))}
                           {returnItem.items.length > 2 && (

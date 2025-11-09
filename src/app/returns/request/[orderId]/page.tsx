@@ -60,14 +60,6 @@ type OrderPoints = {
   discount_amount: number;
 };
 
-type ProportionalRefund = {
-  totalRefund: number;
-  moneyRefund: number;
-  pointsRefund: number;
-  originalMoney: number;
-  originalPoints: number;
-};
-
 export default function RequestReturnPage() {
   const router = useRouter();
   const params = useParams();
@@ -186,6 +178,11 @@ export default function RequestReturnPage() {
       return;
     }
 
+    if (generalReason.trim().length < 10) {
+      setError("La razón debe tener al menos 10 caracteres");
+      return;
+    }
+
     try {
       const returnData: CreateReturnRequest = {
         order_id: parseInt(orderId),
@@ -219,37 +216,47 @@ export default function RequestReturnPage() {
     return total;
   };
 
-  const calculateProportionalRefund = (): ProportionalRefund | null => {
-    if (!order || !orderPoints || selectedKeys.size === 0) return null;
+  const calculateRefundPoints = (): number => {
+    if (!order || !orderPoints) return 0;
 
-    const totalRefund = calculateRefundAmount();
-    if (totalRefund === 0) return null;
+    const refundAmount = calculateRefundAmount(); // Monto en pesos de las claves seleccionadas
+    const orderTotal = order.total_amount; // Total original de la orden
+    const pointsUsed = orderPoints.points_used; // Puntos que se usaron en esta orden
+    const discountAmount = orderPoints.discount_amount; // Descuento aplicado por puntos
 
-    const totalPaid = order.total_amount;
-    const pointsUsed = orderPoints.points_used;
+    if (refundAmount === 0 || orderTotal === 0) return 0;
+
+    // Calcular la proporción del reembolso respecto al total de la orden
+    const refundProportion = refundAmount / orderTotal;
+
+    // Calcular cuántos puntos corresponden proporcionalmente
+    const proportionalPoints = Math.floor(pointsUsed * refundProportion);
+
+    return proportionalPoints;
+  };
+
+  const calculateRefundMoney = (): number => {
+    if (!order || !orderPoints) return 0;
+
+    const refundAmount = calculateRefundAmount();
+    const orderTotal = order.total_amount;
     const discountAmount = orderPoints.discount_amount;
 
-    // Calculate original payment composition
-    const originalMoney = totalPaid - discountAmount;
-    const originalPoints = pointsUsed;
+    if (refundAmount === 0 || orderTotal === 0) return 0;
 
-    // Calculate refund split based on proportion
-    const moneyRatio = originalMoney / totalPaid;
-    const pointsRatio = discountAmount / totalPaid;
+    // Si no se usaron puntos, todo se devuelve en puntos equivalentes al monto
+    if (orderPoints.points_used === 0) {
+      return Math.floor(refundAmount / 10); // 10 pesos = 1 punto
+    }
 
-    const moneyRefund = Math.round(totalRefund * moneyRatio);
-    const pointsRefundValue = Math.round(totalRefund * pointsRatio);
-    
-    // Convert money back to points (100 points = $1,000)
-    const pointsRefund = Math.round((pointsRefundValue * 100) / 1000);
+    // Si se usaron puntos, el "dinero" se devuelve también en puntos
+    // Calcular proporción de dinero pagado (no puntos)
+    const moneyPaid = orderTotal - discountAmount; // Lo que pagó en dinero
+    const refundProportion = refundAmount / orderTotal;
+    const moneyRefund = moneyPaid * refundProportion;
 
-    return {
-      totalRefund,
-      moneyRefund,
-      pointsRefund,
-      originalMoney,
-      originalPoints,
-    };
+    // Convertir dinero a puntos: 10 pesos = 1 punto
+    return Math.floor(moneyRefund / 10);
   };
 
   if (loading) {
@@ -418,12 +425,27 @@ export default function RequestReturnPage() {
                     onChange={(e) => setGeneralReason(e.target.value)}
                     required
                     rows={4}
-                    placeholder="Describe el motivo de tu devolución..."
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                    placeholder="Describe el motivo de tu devolución... (mínimo 10 caracteres)"
+                    className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 ${
+                      generalReason.trim().length > 0 && generalReason.trim().length < 10
+                        ? "border-red-500"
+                        : "border-gray-300"
+                    }`}
                   />
-                  <p className="text-xs text-gray-500 mt-1">
-                    Por favor, explica detalladamente por qué deseas devolver estas licencias.
-                  </p>
+                  <div className="flex justify-between items-center mt-1">
+                    <p className="text-xs text-gray-500">
+                      Por favor, explica detalladamente por qué deseas devolver estas licencias.
+                    </p>
+                    <p
+                      className={`text-xs font-medium ${
+                        generalReason.trim().length < 10
+                          ? "text-red-600"
+                          : "text-green-600"
+                      }`}
+                    >
+                      {generalReason.trim().length}/10 caracteres
+                    </p>
+                  </div>
                 </div>
               </div>
             </div>
@@ -437,84 +459,104 @@ export default function RequestReturnPage() {
                   <span className="font-semibold">{selectedKeys.size}</span>
                 </div>
                 
-                {/* Show payment composition if order used points */}
-                {orderPoints && orderPoints.points_used > 0 && (
-                  <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                    <div className="flex items-start gap-2 mb-2">
-                      <FiInfo className="text-blue-600 mt-0.5 flex-shrink-0" />
-                      <p className="text-sm text-blue-900 font-medium">
-                        Esta orden fue pagada con una combinación de dinero y puntos
+                {/* Info: Solo se devuelve en puntos */}
+                <div className="mt-4 p-4 bg-gradient-to-r from-yellow-50 to-amber-50 border-2 border-amber-300 rounded-lg">
+                  <div className="flex items-start gap-2 mb-3">
+                    <FiInfo className="text-amber-600 mt-0.5 flex-shrink-0" size={20} />
+                    <div>
+                      <p className="text-sm font-bold text-amber-900 mb-1">
+                        💰 Política de Devolución - Solo Puntos
+                      </p>
+                      <p className="text-xs text-amber-800">
+                        Todas las devoluciones se procesan únicamente en puntos de recompensa.
+                        Estos puntos podrás usarlos en futuras compras.
                       </p>
                     </div>
-                    <div className="ml-6 space-y-1 text-sm">
-                      <div className="flex justify-between">
-                        <span className="text-blue-800">Pago en dinero:</span>
-                        <span className="font-semibold text-green-700">
-                          ${(order!.total_amount - orderPoints.discount_amount).toLocaleString()}
-                        </span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-blue-800">Pago en puntos:</span>
-                        <span className="font-semibold text-amber-600">
-                          {orderPoints.points_used} pts (${orderPoints.discount_amount.toLocaleString()})
-                        </span>
+                  </div>
+
+                  {/* Order points summary */}
+                  {orderPoints && (
+                    <div className="mt-3 p-3 bg-blue-50 bg-opacity-60 rounded-lg border border-blue-200">
+                      <p className="text-xs font-semibold text-blue-900 mb-2">
+                        📊 Resumen de puntos de esta orden:
+                      </p>
+                      <div className="space-y-1 text-xs">
+                        <div className="flex justify-between text-blue-800">
+                          <span>Total de la orden:</span>
+                          <span className="font-semibold">
+                            ${order?.total_amount.toLocaleString()} COP
+                          </span>
+                        </div>
+                        {orderPoints.points_used > 0 && (
+                          <>
+                            <div className="flex justify-between text-blue-800">
+                              <span>Puntos usados:</span>
+                              <span className="font-semibold text-purple-600">
+                                {orderPoints.points_used} pts 
+                                ({orderPoints.discount_amount.toLocaleString()} COP)
+                              </span>
+                            </div>
+                            <div className="flex justify-between text-blue-800 pt-1 border-t border-blue-200">
+                              <span>Monto pagado:</span>
+                              <span className="font-bold">
+                                ${(order ? order.total_amount - orderPoints.discount_amount : 0).toLocaleString()} COP
+                              </span>
+                            </div>
+                          </>
+                        )}
                       </div>
                     </div>
-                  </div>
-                )}
+                  )}
 
-                {/* Proportional refund calculation */}
-                {(() => {
-                  const refundInfo = calculateProportionalRefund();
-                  if (!refundInfo) {
-                    return (
-                      <div className="flex justify-between text-lg pt-2">
-                        <span className="text-gray-900 font-semibold">
-                          Monto estimado de reembolso:
+                  {/* Refund calculation */}
+                  {selectedKeys.size > 0 && (
+                    <div className="mt-3 p-3 bg-white bg-opacity-60 rounded-lg border border-amber-200">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-sm font-semibold text-gray-700">
+                          Valor de claves a devolver:
                         </span>
-                        <span className="font-bold text-blue-600">
-                          ${calculateRefundAmount().toLocaleString()}
+                        <span className="text-sm text-gray-600">
+                          ${calculateRefundAmount().toLocaleString()} COP
                         </span>
                       </div>
-                    );
-                  }
-
-                  return (
-                    <div className="mt-4 space-y-3">
-                      <div className="p-4 bg-gradient-to-r from-green-50 to-amber-50 border border-gray-200 rounded-lg">
-                        <p className="text-sm font-medium text-gray-700 mb-2">
-                          Reembolso proporcional estimado:
-                        </p>
-                        <div className="space-y-2">
-                          <div className="flex justify-between items-center p-2 bg-green-100 rounded">
-                            <span className="text-sm text-green-900">💵 Dinero:</span>
-                            <span className="font-bold text-green-700">
-                              ${refundInfo.moneyRefund.toLocaleString()}
+                      
+                      {orderPoints && orderPoints.points_used > 0 && (
+                        <div className="space-y-1 text-xs text-gray-600 mb-2">
+                          <div className="flex justify-between">
+                            <span>• Puntos usados a devolver:</span>
+                            <span className="font-semibold text-purple-600">
+                              {calculateRefundPoints()} pts
                             </span>
                           </div>
-                          <div className="flex justify-between items-center p-2 bg-amber-100 rounded">
-                            <span className="text-sm text-amber-900">⭐ Puntos:</span>
-                            <span className="font-bold text-amber-700">
-                              {refundInfo.pointsRefund} pts (${Math.round((refundInfo.pointsRefund * 1000) / 100).toLocaleString()})
-                            </span>
-                          </div>
-                          <div className="flex justify-between items-center pt-2 border-t border-gray-300">
-                            <span className="text-sm font-semibold text-gray-900">Total:</span>
-                            <span className="font-bold text-blue-600">
-                              ${refundInfo.totalRefund.toLocaleString()}
+                          <div className="flex justify-between">
+                            <span>• Dinero pagado (en puntos):</span>
+                            <span className="font-semibold text-green-600">
+                              {calculateRefundMoney()} pts
                             </span>
                           </div>
                         </div>
+                      )}
+
+                      <div className="flex items-center justify-between pt-2 border-t border-amber-200">
+                        <span className="text-base font-bold text-amber-900 flex items-center gap-1">
+                          ⭐ Total puntos a recibir:
+                        </span>
+                        <span className="text-2xl font-bold text-amber-600">
+                          {calculateRefundPoints() + calculateRefundMoney()} pts
+                        </span>
                       </div>
-                      <p className="text-xs text-gray-500 italic">
-                        💡 El reembolso se divide proporcionalmente: recibirás dinero y puntos de vuelta según cómo pagaste originalmente.
+                      <p className="text-xs text-gray-500 mt-2 text-right">
+                        {orderPoints && orderPoints.points_used > 0 
+                          ? "(Devolución proporcional de puntos usados + dinero pagado)"
+                          : "(10 pesos = 1 punto)"
+                        }
                       </p>
                     </div>
-                  );
-                })()}
+                  )}
+                </div>
 
-                <p className="text-xs text-gray-500 mt-2">
-                  * El monto final será determinado por el administrador al procesar tu devolución
+                <p className="text-xs text-gray-500 mt-2 italic">
+                  * El monto final de puntos será determinado por el administrador al procesar tu devolución
                 </p>
               </div>
             </div>

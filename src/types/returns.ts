@@ -44,6 +44,7 @@ export type ReturnReason =
  * Item de una devolución
  */
 export interface ReturnItem {
+  product: any;
   id: number;
   return_id: number;
   product_key_id: string; // UUID de la clave de licencia devuelta

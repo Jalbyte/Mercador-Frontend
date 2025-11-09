@@ -83,7 +83,7 @@ export function useReturns(): UseReturnsResult {
       setError(null);
 
       try {
-        const response = await fetch(`${API_BASE}/returns/my-returns`, {
+        const response = await fetch(`${API_BASE}/returns`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -140,8 +140,18 @@ export function useReturns(): UseReturnsResult {
           throw new Error(errorData.message || 'Error al obtener las devoluciones');
         }
 
-        const data: ReturnsResponse = await response.json();
-        setReturns(data.returns);
+        const result = await response.json();
+        
+        // Handle both response formats:
+        // New format: { success: true, data: [...], pagination: {...} }
+        // Old format: { returns: [...] }
+        if (result.success && result.data) {
+          setReturns(result.data);
+        } else if (result.returns) {
+          setReturns(result.returns);
+        } else {
+          setReturns([]);
+        }
       } catch (err) {
         const message = err instanceof Error ? err.message : 'Error desconocido';
         setError(message);
@@ -175,8 +185,19 @@ export function useReturns(): UseReturnsResult {
           throw new Error(errorData.message || 'Error al obtener la devolución');
         }
 
-        const returnData = await response.json();
-        return returnData;
+        const result = await response.json();
+        
+        // Handle both response formats:
+        // New format: { success: true, data: {...} }
+        // Old format: direct return object
+        if (result.success && result.data) {
+          return result.data;
+        } else if (result.id) {
+          // Direct return object (old format)
+          return result;
+        }
+        
+        return null;
       } catch (err) {
         const message = err instanceof Error ? err.message : 'Error desconocido';
         setError(message);
