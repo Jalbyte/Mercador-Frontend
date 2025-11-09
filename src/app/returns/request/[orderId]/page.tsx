@@ -11,6 +11,7 @@ import {
   FiAlertCircle,
   FiCheckCircle,
   FiLoader,
+  FiInfo,
 } from "react-icons/fi";
 import type { CreateReturnRequest } from "@/types/returns";
 
@@ -53,6 +54,20 @@ type Order = {
   order_items: OrderItem[];
 };
 
+type OrderPoints = {
+  points_used: number;
+  points_earned: number;
+  discount_amount: number;
+};
+
+type ProportionalRefund = {
+  totalRefund: number;
+  moneyRefund: number;
+  pointsRefund: number;
+  originalMoney: number;
+  originalPoints: number;
+};
+
 export default function RequestReturnPage() {
   const router = useRouter();
   const params = useParams();
@@ -64,6 +79,7 @@ export default function RequestReturnPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
+  const [orderPoints, setOrderPoints] = useState<OrderPoints | null>(null);
 
   // Estado del formulario
   const [selectedKeys, setSelectedKeys] = useState<Set<string>>(new Set()); // UUIDs de las claves seleccionadas
@@ -109,6 +125,20 @@ export default function RequestReturnPage() {
 
       const data = await response.json();
       setOrder(data.data);
+
+      // Fetch order points information
+      const pointsResponse = await fetch(`${API_BASE}/points/order/${orderId}`, {
+        headers: {
+          "Content-Type": "application/json",
+          ...(authToken && { Authorization: `Bearer ${authToken}` }),
+        },
+        credentials: "include",
+      });
+
+      if (pointsResponse.ok) {
+        const pointsData = await pointsResponse.json();
+        setOrderPoints(pointsData.data);
+      }
 
       // Cargar información de elegibilidad (claves disponibles)
       const eligibilityResponse = await fetch(
@@ -187,6 +217,39 @@ export default function RequestReturnPage() {
       }
     });
     return total;
+  };
+
+  const calculateProportionalRefund = (): ProportionalRefund | null => {
+    if (!order || !orderPoints || selectedKeys.size === 0) return null;
+
+    const totalRefund = calculateRefundAmount();
+    if (totalRefund === 0) return null;
+
+    const totalPaid = order.total_amount;
+    const pointsUsed = orderPoints.points_used;
+    const discountAmount = orderPoints.discount_amount;
+
+    // Calculate original payment composition
+    const originalMoney = totalPaid - discountAmount;
+    const originalPoints = pointsUsed;
+
+    // Calculate refund split based on proportion
+    const moneyRatio = originalMoney / totalPaid;
+    const pointsRatio = discountAmount / totalPaid;
+
+    const moneyRefund = Math.round(totalRefund * moneyRatio);
+    const pointsRefundValue = Math.round(totalRefund * pointsRatio);
+    
+    // Convert money back to points (100 points = $1,000)
+    const pointsRefund = Math.round((pointsRefundValue * 100) / 1000);
+
+    return {
+      totalRefund,
+      moneyRefund,
+      pointsRefund,
+      originalMoney,
+      originalPoints,
+    };
   };
 
   if (loading) {
@@ -373,14 +436,83 @@ export default function RequestReturnPage() {
                   <span className="text-gray-600">Claves seleccionadas:</span>
                   <span className="font-semibold">{selectedKeys.size}</span>
                 </div>
-                <div className="flex justify-between text-lg">
-                  <span className="text-gray-900 font-semibold">
-                    Monto estimado de reembolso:
-                  </span>
-                  <span className="font-bold text-blue-600">
-                    ${calculateRefundAmount().toLocaleString()}
-                  </span>
-                </div>
+                
+                {/* Show payment composition if order used points */}
+                {orderPoints && orderPoints.points_used > 0 && (
+                  <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                    <div className="flex items-start gap-2 mb-2">
+                      <FiInfo className="text-blue-600 mt-0.5 flex-shrink-0" />
+                      <p className="text-sm text-blue-900 font-medium">
+                        Esta orden fue pagada con una combinación de dinero y puntos
+                      </p>
+                    </div>
+                    <div className="ml-6 space-y-1 text-sm">
+                      <div className="flex justify-between">
+                        <span className="text-blue-800">Pago en dinero:</span>
+                        <span className="font-semibold text-green-700">
+                          ${(order!.total_amount - orderPoints.discount_amount).toLocaleString()}
+                        </span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-blue-800">Pago en puntos:</span>
+                        <span className="font-semibold text-amber-600">
+                          {orderPoints.points_used} pts (${orderPoints.discount_amount.toLocaleString()})
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Proportional refund calculation */}
+                {(() => {
+                  const refundInfo = calculateProportionalRefund();
+                  if (!refundInfo) {
+                    return (
+                      <div className="flex justify-between text-lg pt-2">
+                        <span className="text-gray-900 font-semibold">
+                          Monto estimado de reembolso:
+                        </span>
+                        <span className="font-bold text-blue-600">
+                          ${calculateRefundAmount().toLocaleString()}
+                        </span>
+                      </div>
+                    );
+                  }
+
+                  return (
+                    <div className="mt-4 space-y-3">
+                      <div className="p-4 bg-gradient-to-r from-green-50 to-amber-50 border border-gray-200 rounded-lg">
+                        <p className="text-sm font-medium text-gray-700 mb-2">
+                          Reembolso proporcional estimado:
+                        </p>
+                        <div className="space-y-2">
+                          <div className="flex justify-between items-center p-2 bg-green-100 rounded">
+                            <span className="text-sm text-green-900">💵 Dinero:</span>
+                            <span className="font-bold text-green-700">
+                              ${refundInfo.moneyRefund.toLocaleString()}
+                            </span>
+                          </div>
+                          <div className="flex justify-between items-center p-2 bg-amber-100 rounded">
+                            <span className="text-sm text-amber-900">⭐ Puntos:</span>
+                            <span className="font-bold text-amber-700">
+                              {refundInfo.pointsRefund} pts (${Math.round((refundInfo.pointsRefund * 1000) / 100).toLocaleString()})
+                            </span>
+                          </div>
+                          <div className="flex justify-between items-center pt-2 border-t border-gray-300">
+                            <span className="text-sm font-semibold text-gray-900">Total:</span>
+                            <span className="font-bold text-blue-600">
+                              ${refundInfo.totalRefund.toLocaleString()}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                      <p className="text-xs text-gray-500 italic">
+                        💡 El reembolso se divide proporcionalmente: recibirás dinero y puntos de vuelta según cómo pagaste originalmente.
+                      </p>
+                    </div>
+                  );
+                })()}
+
                 <p className="text-xs text-gray-500 mt-2">
                   * El monto final será determinado por el administrador al procesar tu devolución
                 </p>

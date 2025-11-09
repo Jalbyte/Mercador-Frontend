@@ -4,6 +4,7 @@ import { useAuth } from "@/components/auth/AuthProvider";
 import { FormInput } from "@/components/auth/FormInput";
 import { ChangePasswordModal } from "@/components/auth/ChangePasswordModal";
 import { TwoFactorAuth } from "@/components/auth/TwoFactorAuth";
+import { PointsHistory } from "@/components/points/PointsHistory";
 import { Button } from "@/components/ui/button";
 import { Modal } from "@/components/ui/modal";
 import { useRouter } from "next/navigation";
@@ -81,6 +82,22 @@ export default function ProfileContent() {
       return;
     }
   }, [isAuthenticated, authLoading, router]);
+
+  // Scroll to points section if ?tab=points
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const searchParams = new URLSearchParams(window.location.search);
+      if (searchParams.get('tab') === 'points') {
+        // Wait a bit for the component to render
+        setTimeout(() => {
+          const pointsSection = document.getElementById('points-section');
+          if (pointsSection) {
+            pointsSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          }
+        }, 300);
+      }
+    }
+  }, []);
 
   // Initialize form data when user is loaded
   useEffect(() => {
@@ -337,6 +354,14 @@ export default function ProfileContent() {
                 Guardar Cambios
               </Button>
             </form>
+          </div>
+
+          {/* Mis Puntos */}
+          <div id="points-section" className="bg-white rounded-lg shadow p-6">
+            <h2 className="text-lg font-semibold text-gray-900 mb-4">
+              Mis Puntos
+            </h2>
+            <PointsHistory />
           </div>
 
           {/* Seguridad */}

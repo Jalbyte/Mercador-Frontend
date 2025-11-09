@@ -22,6 +22,9 @@ interface PageProps {
     keysCount?: string // Total number of keys assigned
     orderId?: string
     customerName?: string
+    pointsUsed?: string // Points used in this order
+    pointsEarned?: string // Points earned from this order
+    discountAmount?: string // Discount amount from points
   }
 }
 
@@ -31,10 +34,16 @@ export default function OrderStatusEmailPage({ searchParams }: PageProps) {
     status = 'pending',
     keysCount: keysCountStr,
     orderId,
-    customerName = 'Cliente'
+    customerName = 'Cliente',
+    pointsUsed: pointsUsedStr,
+    pointsEarned: pointsEarnedStr,
+    discountAmount: discountAmountStr
   } = searchParams
 
   const keysCount = parseInt(keysCountStr || '0', 10)
+  const pointsUsed = parseInt(pointsUsedStr || '0', 10)
+  const pointsEarned = parseInt(pointsEarnedStr || '0', 10)
+  const discountAmount = parseFloat(discountAmountStr || '0')
 
   // Status display
   const statusConfig = {
@@ -336,6 +345,94 @@ export default function OrderStatusEmailPage({ searchParams }: PageProps) {
                       </p>
                     </div>
                   </div>
+                </div>
+              </div>
+            )}
+
+            {/* Points Summary */}
+            {status === 'confirmed' && (pointsUsed > 0 || pointsEarned > 0) && (
+              <div className="section">
+                <h2 className="section-title">🎁 Resumen de Puntos</h2>
+                <div style={{ 
+                  background: '#fefce8', 
+                  border: '2px solid #fbbf24', 
+                  borderRadius: '12px',
+                  padding: '20px'
+                }}>
+                  {pointsUsed > 0 && (
+                    <div style={{ 
+                      marginBottom: pointsEarned > 0 ? '16px' : '0',
+                      paddingBottom: pointsEarned > 0 ? '16px' : '0',
+                      borderBottom: pointsEarned > 0 ? '1px solid #fde68a' : 'none'
+                    }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '8px' }}>
+                        <div style={{ fontSize: '24px' }}>💰</div>
+                        <div>
+                          <p style={{ 
+                            fontSize: '15px', 
+                            fontWeight: '600', 
+                            color: '#78350f',
+                            marginBottom: '2px'
+                          }}>
+                            Puntos Usados
+                          </p>
+                          <p style={{ fontSize: '14px', color: '#92400e' }}>
+                            Utilizaste <strong>{pointsUsed.toLocaleString('es-CO')} puntos</strong> en esta compra
+                          </p>
+                        </div>
+                      </div>
+                      <div style={{ 
+                        background: '#fef3c7',
+                        padding: '12px',
+                        borderRadius: '8px',
+                        marginLeft: '36px'
+                      }}>
+                        <p style={{ fontSize: '13px', color: '#78350f', marginBottom: '4px' }}>
+                          💵 Descuento Aplicado
+                        </p>
+                        <p style={{ fontSize: '20px', fontWeight: '700', color: '#92400e' }}>
+                          ${discountAmount.toLocaleString('es-CO', { minimumFractionDigits: 0, maximumFractionDigits: 0 })} COP
+                        </p>
+                      </div>
+                    </div>
+                  )}
+
+                  {pointsEarned > 0 && (
+                    <div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '8px' }}>
+                        <div style={{ fontSize: '24px' }}>⭐</div>
+                        <div>
+                          <p style={{ 
+                            fontSize: '15px', 
+                            fontWeight: '600', 
+                            color: '#78350f',
+                            marginBottom: '2px'
+                          }}>
+                            Puntos Ganados
+                          </p>
+                          <p style={{ fontSize: '14px', color: '#92400e' }}>
+                            ¡Has ganado <strong>{pointsEarned.toLocaleString('es-CO')} puntos</strong> con esta compra!
+                          </p>
+                        </div>
+                      </div>
+                      <div style={{ 
+                        background: '#fef3c7',
+                        padding: '12px',
+                        borderRadius: '8px',
+                        marginLeft: '36px'
+                      }}>
+                        <p style={{ fontSize: '13px', color: '#78350f', marginBottom: '4px' }}>
+                          💎 Valor Equivalente
+                        </p>
+                        <p style={{ fontSize: '20px', fontWeight: '700', color: '#92400e' }}>
+                          ${(pointsEarned * 10).toLocaleString('es-CO', { minimumFractionDigits: 0, maximumFractionDigits: 0 })} COP
+                        </p>
+                        <p style={{ fontSize: '12px', color: '#92400e', marginTop: '8px' }}>
+                          Puedes usar estos puntos en tu próxima compra. <strong>100 puntos = $1,000 COP</strong>
+                        </p>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
             )}

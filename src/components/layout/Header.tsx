@@ -9,6 +9,7 @@ import { useCart } from "@/hooks";
 import { useAuth } from "@/components/auth/AuthProvider";
 import { useState, useRef, useEffect } from "react";
 import { createPortal } from "react-dom";
+import { PointsBalance } from "@/components/points/PointsBalance";
 
 export function Header() {
   const router = useRouter();
@@ -142,6 +143,11 @@ export function Header() {
                 <a href="/returns" className="hover:text-blue-600 transition-colors">
                   Soporte
                 </a>
+              </li>
+
+              {/* Balance de Puntos */}
+              <li>
+                <PointsBalance />
               </li>
 
               {/* Carrito de compras */}

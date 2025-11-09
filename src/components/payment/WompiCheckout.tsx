@@ -21,6 +21,7 @@ interface WompiCheckoutProps {
   customerName?: string;
   customerPhone?: string;
   customerPhonePrefix?: string; // Nuevo: prefijo del país
+  customerData?: Record<string, any>; // Datos adicionales del cliente (ej: points_to_use)
   onSuccess?: (transaction: any) => void;
   onError?: (error: any) => void;
 }
@@ -33,6 +34,7 @@ export default function WompiCheckout({
   customerName = "Cliente",
   customerPhone = "3001234567",
   customerPhonePrefix = "+57", // Por defecto Colombia
+  customerData = {},
   onSuccess,
   onError,
 }: WompiCheckoutProps) {
@@ -175,6 +177,7 @@ export default function WompiCheckout({
           fullName: customerName,
           phoneNumber: customerPhone,
           phoneNumberPrefix: customerPhonePrefix, // Prefijo del país
+          ...customerData, // Datos adicionales del cliente (ej: points_to_use)
         },
       };
 

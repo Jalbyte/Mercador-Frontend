@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/components/auth/AuthProvider";
+import { AdminPointsManagement } from "@/components/admin/AdminPointsManagement";
 import {
   FiLoader,
   FiArrowLeft,
@@ -18,6 +19,7 @@ import {
   FiAlertCircle,
   FiActivity,
   FiBarChart2,
+  FiGift,
 } from "react-icons/fi";
 import { Modal } from "@/components/ui/modal";
 import { Button } from "@/components/ui/button";
@@ -96,7 +98,7 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [userName, setUserName] = useState<string | null>(null);
   const [activeSection, setActiveSection] = useState<
-    "dashboard" | "products" | "users" | "orders" | "reports"
+    "dashboard" | "products" | "users" | "orders" | "reports" | "points"
   >("dashboard");
   const [users, setUsers] = useState<User[]>([]);
   const [loadingUsers, setLoadingUsers] = useState(false);
@@ -1545,6 +1547,21 @@ export default function DashboardPage() {
               ></span>
             </button>
             <button
+              onClick={() => setActiveSection("points")}
+              className={`relative py-4 px-6 font-medium transition-all duration-300 ${
+                activeSection === "points"
+                  ? "text-blue-600"
+                  : "text-gray-500 hover:text-gray-700"
+              }`}
+            >
+              Puntos
+              <span
+                className={`absolute bottom-0 left-0 w-full h-0.5 bg-blue-600 transition-all duration-300 transform ${
+                  activeSection === "points" ? "scale-x-100" : "scale-x-0"
+                }`}
+              ></span>
+            </button>
+            <button
               onClick={() => setActiveSection("reports")}
               className={`relative py-4 px-6 font-medium transition-all duration-300 ${
                 activeSection === "reports"
@@ -2001,6 +2018,16 @@ export default function DashboardPage() {
                 </button>
               </div>
             </div>
+          </div>
+        ) : activeSection === "points" ? (
+          <div className="space-y-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-2xl font-bold text-gray-900">Gestión de Puntos</h2>
+                <p className="text-gray-600 mt-1">Administra los puntos de todos los usuarios del sistema</p>
+              </div>
+            </div>
+            <AdminPointsManagement />
           </div>
         ) : (
           <div className="bg-white rounded-lg shadow-sm">
