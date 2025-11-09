@@ -20,8 +20,8 @@ interface WompiCheckoutProps {
   customerEmail: string;
   customerName?: string;
   customerPhone?: string;
-  customerPhonePrefix?: string; // Nuevo: prefijo del país
-  customerData?: Record<string, any>; // Datos adicionales del cliente (ej: points_to_use)
+  customerPhonePrefix?: string; // Prefijo del país
+  onBeforePayment?: () => Promise<void>; // Callback antes de iniciar el pago
   onSuccess?: (transaction: any) => void;
   onError?: (error: any) => void;
 }
@@ -34,7 +34,7 @@ export default function WompiCheckout({
   customerName = "Cliente",
   customerPhone = "3001234567",
   customerPhonePrefix = "+57", // Por defecto Colombia
-  customerData = {},
+  onBeforePayment,
   onSuccess,
   onError,
 }: WompiCheckoutProps) {
@@ -117,6 +117,12 @@ export default function WompiCheckout({
     setError(null);
 
     try {
+      // Ejecutar callback antes del pago (si existe)
+      if (onBeforePayment) {
+        console.log("🎯 Ejecutando acciones antes del pago...");
+        await onBeforePayment();
+      }
+
       // Generar firma de integridad en el backend
       const response = await fetch(`${API_BASE}/wompi/generate-signature`, {
         method: "POST",
@@ -177,7 +183,7 @@ export default function WompiCheckout({
           fullName: customerName,
           phoneNumber: customerPhone,
           phoneNumberPrefix: customerPhonePrefix, // Prefijo del país
-          ...customerData, // Datos adicionales del cliente (ej: points_to_use)
+          // NO incluir campos adicionales aquí - Wompi solo acepta campos específicos
         },
       };
 

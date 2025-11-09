@@ -177,8 +177,8 @@ export default function PurchaseHistoryPage() {
 
   const getStatusColor = (status: string) => {
     switch (status.toLowerCase()) {
-      case "completed":
-      case "completado":
+      case "confirmed":
+      case "Confirmada":
         return "bg-green-100 text-green-800";
       case "pending":
       case "pendiente":
@@ -193,8 +193,8 @@ export default function PurchaseHistoryPage() {
 
   const getStatusText = (status: string) => {
     switch (status.toLowerCase()) {
-      case "completed":
-        return "Completado";
+      case "confirmed":
+        return "Confirmada";
       case "pending":
         return "Pendiente";
       case "cancelled":
@@ -443,6 +443,15 @@ export default function PurchaseHistoryPage() {
                         Productos
                       </h4>
                       <div className="flex gap-2">
+                        {order.status === 'pending' && (
+                          <button
+                            onClick={() => router.push(`/checkout?orderId=${order.id}`)}
+                            className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                          >
+                            <FiDollarSign size={16} />
+                            Pagar ahora
+                          </button>
+                        )}
                         {order.order_items && order.order_items.some(item => item.license_key) && (
                           <button
                             onClick={(e) => handleResendKeys(order.id, e)}

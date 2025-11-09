@@ -1,6 +1,6 @@
 "use client";
 
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useState, useEffect } from "react";
 import WompiCheckout from "@/components/payment/WompiCheckout";
 import { useAuth } from "@/components/auth/AuthProvider";
@@ -14,7 +14,7 @@ interface Order {
   id: string;
   status: string;
   total_amount: number;
-  items?: any[];
+  order_items?: any[];
 }
 
 interface PointsBalance {
@@ -31,17 +31,22 @@ interface PointsBalance {
 
 function CheckoutPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { isAuthenticated, isLoading: isAuthLoading, user } = useAuth();
   const { items: cartItems, clearCart } = useCart();
   const [order, setOrder] = useState<Order | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isExistingOrder, setIsExistingOrder] = useState(false);
   
   // Estados para puntos
   const [pointsBalance, setPointsBalance] = useState<PointsBalance | null>(null);
   const [usePoints, setUsePoints] = useState(false);
   const [pointsToUse, setPointsToUse] = useState(0);
   const [loadingPoints, setLoadingPoints] = useState(true);
+
+  // Obtener orderId desde la URL
+  const orderIdFromUrl = searchParams.get('orderId');
 
   // Verificar autenticación y carrito
   useEffect(() => {
@@ -54,16 +59,24 @@ function CheckoutPage() {
       return;
     }
 
-    // Si el carrito está vacío, redirigir al inicio
+    // Si hay un orderId en la URL, cargar esa orden (orden pendiente)
+    if (orderIdFromUrl) {
+      setIsExistingOrder(true);
+      loadExistingOrder(orderIdFromUrl);
+      fetchPointsBalance();
+      return;
+    }
+
+    // Si no hay orderId y el carrito está vacío, redirigir al inicio
     if (!cartItems || cartItems.length === 0) {
       router.push("/");
       return;
     }
 
-    // Todo OK, crear la orden y obtener balance de puntos
+    // Todo OK, crear la orden desde el carrito y obtener balance de puntos
     createOrder();
     fetchPointsBalance();
-  }, [isAuthLoading, isAuthenticated, cartItems]);
+  }, [isAuthLoading, isAuthenticated, cartItems, orderIdFromUrl]);
 
   // Obtener balance de puntos
   const fetchPointsBalance = async () => {
@@ -83,6 +96,41 @@ function CheckoutPage() {
       console.error('Error fetching points balance:', err);
     } finally {
       setLoadingPoints(false);
+    }
+  };
+
+  // Cargar orden existente desde el backend (para órdenes pendientes)
+  const loadExistingOrder = async (orderId: string) => {
+    try {
+      console.log("📦 Cargando orden existente:", orderId);
+
+      const response = await fetch(`${API_BASE}/orders/${orderId}`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || `Error: ${response.status}`);
+      }
+
+      const result = await response.json();
+      console.log("✅ Orden cargada:", result.data);
+
+      // Validar que la orden esté pendiente
+      if (result.data.status !== 'pending') {
+        throw new Error('Esta orden ya ha sido procesada o no está disponible para pago');
+      }
+
+      setOrder(result.data);
+      setLoading(false);
+    } catch (err: any) {
+      console.error("❌ Error cargando orden:", err);
+      setError(err.message || "No se pudo cargar la orden");
+      setLoading(false);
     }
   };
 
@@ -199,9 +247,45 @@ function CheckoutPage() {
     );
   }
 
+  // Función para guardar los puntos en order_points antes del pago
+  const savePointsBeforePayment = async () => {
+    if (!usePoints || pointsToUse === 0) {
+      console.log("💎 No se usan puntos en esta compra");
+      return;
+    }
+
+    try {
+      console.log("💎 Guardando puntos para usar:", pointsToUse);
+      
+      const response = await fetch(`${API_BASE}/points/pre-use`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+        body: JSON.stringify({
+          orderId: order.id,
+          pointsToUse: pointsToUse
+        }),
+      });
+
+      if (!response.ok) {
+        console.error("❌ Error guardando puntos");
+        throw new Error("No se pudieron guardar los puntos");
+      }
+
+      console.log("✅ Puntos guardados correctamente");
+    } catch (err: any) {
+      console.error("❌ Error en savePointsBeforePayment:", err);
+      throw err; // Re-lanzar error para que Wompi no abra
+    }
+  };
+
   return (
     <div className="p-4 md:p-8 max-w-4xl mx-auto">
-      <h1 className="text-3xl font-bold mb-6">Checkout - Mercador</h1>
+      <h1 className="text-3xl font-bold mb-6">
+        {isExistingOrder ? `Completar Pago - Orden #${order.id}` : 'Checkout - Mercador'}
+      </h1>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Columna izquierda - Resumen y Puntos */}
@@ -222,14 +306,58 @@ function CheckoutPage() {
                 <span className="text-gray-600">Subtotal:</span>
                 <span className="font-medium">${order.total_amount?.toLocaleString('es-CO') || '0'} COP</span>
               </div>
-              {order.items && (
+              {order.order_items && (
                 <div className="flex justify-between">
                   <span className="text-gray-600">Items:</span>
-                  <span className="font-medium">{order.items.length}</span>
+                  <span className="font-medium">{order.order_items.length}</span>
                 </div>
               )}
             </div>
           </div>
+
+          {/* Productos en la orden */}
+          {order.order_items && order.order_items.length > 0 && (
+            <div className="bg-white rounded-lg shadow-md p-6">
+              <h2 className="text-xl font-semibold mb-4">Productos</h2>
+              <div className="flex flex-col space-y-4">
+                {order.order_items.map((item: any) => (
+                  <div key={item.id} className="flex gap-4 pb-4 border-b last:border-b-0 last:pb-0">
+                    {/* Imagen del producto */}
+                    <div className="flex-shrink-0">
+                      <img
+                        src={item.product?.image_url || '/placeholder.png'}
+                        alt={item.product?.name || 'Producto'}
+                        className="w-20 h-20 object-cover rounded-lg"
+                      />
+                    </div>
+
+                    {/* Detalles del producto */}
+                    <div className="flex-grow">
+                      <h3 className="font-semibold text-gray-900 mb-1">
+                        {item.product?.name || 'Producto sin nombre'}
+                      </h3>
+                      <div className="flex flex-col gap-1 text-sm text-gray-600">
+                        <div className="flex justify-between">
+                          <span>Cantidad:</span>
+                          <span className="font-medium">{item.quantity}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>Precio unitario:</span>
+                          <span className="font-medium">${item.price?.toLocaleString('es-CO')} COP</span>
+                        </div>
+                        <div className="flex justify-between pt-1 border-t">
+                          <span className="font-semibold">Subtotal:</span>
+                          <span className="font-semibold text-purple-600">
+                            ${((item.price || 0) * (item.quantity || 0)).toLocaleString('es-CO')} COP
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* Sección de Puntos */}
           {!loadingPoints && pointsBalance && pointsBalance.balance > 0 && (
@@ -419,17 +547,18 @@ function CheckoutPage() {
               customerEmail={user.email || ""}
               customerName={user.full_name || "Cliente"}
               customerPhone="3001234567"
-              customerData={{
-                points_to_use: usePoints ? pointsToUse : 0
-              }}
+              onBeforePayment={savePointsBeforePayment}
               onSuccess={(transaction) => {
                 console.log("✅ Pago exitoso:", transaction);
-                clearCart();
+                // Solo limpiar el carrito si no es una orden existente
+                if (!isExistingOrder) {
+                  clearCart();
+                }
                 router.push(`/checkout/success?orderId=${order.id}&transactionId=${transaction.id}`);
               }}
               onError={(error) => {
                 console.error("❌ Error en el pago:", error);
-                router.push(`/checkout/failure?orderId=${order.id}&error=${encodeURIComponent(error.message || 'Error desconocido')}`);
+                // router.push(`/checkout/failure?orderId=${order.id}&error=${encodeURIComponent(error.message || 'Error desconocido')}`);
               }}
             />
           </div>
