@@ -25,6 +25,14 @@ import { Modal } from "@/components/ui/modal";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { convertFileToBase64 } from "@/lib/utils.client";
+import { StatCard } from "@/components/dashboard/StatCard";
+import { SalesChart } from "@/components/dashboard/SalesChart";
+import { TopProductsList } from "@/components/dashboard/TopProductsList";
+import { RecentOrders } from "@/components/dashboard/RecentOrders";
+import { LowStockAlerts } from "@/components/dashboard/LowStockAlerts";
+import { CategoryDistribution } from "@/components/dashboard/CategoryDistribution";
+import { RecentUsers } from "@/components/dashboard/RecentUsers";
+import { PeriodSelector } from "@/components/dashboard/PeriodSelector";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "";
 
@@ -178,6 +186,69 @@ export default function DashboardPage() {
   });
   const [loadingStats, setLoadingStats] = useState(false);
 
+  // Estados para el nuevo dashboard analítico
+  const [selectedPeriod, setSelectedPeriod] = useState<"7d" | "30d" | "90d">("30d");
+  const [analyticsLoading, setAnalyticsLoading] = useState(false);
+  
+  // Datos de estadísticas generales con tendencias
+  const [overviewStats, setOverviewStats] = useState({
+    totalRevenue: { value: 0, trend: 0, trendLabel: "" },
+    totalOrders: { value: 0, trend: 0, trendLabel: "" },
+    totalUsers: { value: 0, trend: 0, trendLabel: "" },
+    totalProducts: { value: 0, trend: 0, trendLabel: "" },
+  });
+
+  // Datos de ventas para gráficos
+  const [salesData, setSalesData] = useState<
+    Array<{ date: string; revenue: number; orders: number }>
+  >([]);
+
+  // Top productos
+  const [topProducts, setTopProducts] = useState<
+    Array<{ id: string; name: string; sales: number; revenue: number; stock: number }>
+  >([]);
+
+  // Órdenes recientes
+  const [recentOrdersData, setRecentOrdersData] = useState<
+    Array<{
+      id: string;
+      user: { id: string; full_name: string; email: string };
+      total: number;
+      status: string;
+      items_count: number;
+      created_at: string;
+    }>
+  >([]);
+
+  // Alertas de stock bajo
+  const [lowStockItems, setLowStockItems] = useState<
+    Array<{
+      id: string;
+      name: string;
+      current_stock: number;
+      min_stock: number;
+      sales_last_30d: number;
+      category: string;
+    }>
+  >([]);
+
+  // Distribución por categorías
+  const [categoryData, setCategoryData] = useState<
+    Array<{ category: string; revenue: number; orders: number; percentage: number }>
+  >([]);
+
+  // Usuarios recientes
+  const [recentUsersData, setRecentUsersData] = useState<
+    Array<{
+      id: string;
+      full_name: string;
+      email: string;
+      created_at: string;
+      total_orders: number;
+      total_spent: number;
+    }>
+  >([]);
+
   // Reset pagination when filters change
   useEffect(() => {
     setCurrentProductPage(1);
@@ -272,6 +343,13 @@ export default function DashboardPage() {
       fetchDashboardStats();
     }
   }, [activeSection, isAdmin]);
+
+  // Cargar datos analíticos cuando cambia el período o se entra al dashboard
+  useEffect(() => {
+    if (activeSection === "dashboard" && isAdmin) {
+      fetchAnalyticsData();
+    }
+  }, [activeSection, isAdmin, selectedPeriod]);
 
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setSearchTerm(e.target.value);
@@ -519,6 +597,135 @@ export default function DashboardPage() {
     }
   }
 
+
+  // Función para cargar datos analíticos del dashboard
+  async function fetchAnalyticsData() {
+    setAnalyticsLoading(true);
+    try {
+      // Fetch overview stats with trends
+      try {
+        const overviewResp = await fetch(
+          `${API_BASE}/admin/stats/overview?period=${selectedPeriod}`,
+          { credentials: "include" }
+        );
+        if (overviewResp.ok) {
+          const data = await overviewResp.json();
+          setOverviewStats({
+            totalRevenue: {
+              value: data.total_revenue || 0,
+              trend: data.revenue_growth || 0,
+              trendLabel: `vs período anterior`,
+            },
+            totalOrders: {
+              value: data.total_orders || 0,
+              trend: data.orders_growth || 0,
+              trendLabel: `vs período anterior`,
+            },
+            totalUsers: {
+              value: data.total_users || 0,
+              trend: data.users_growth || 0,
+              trendLabel: `vs período anterior`,
+            },
+            totalProducts: {
+              value: data.total_products || 0,
+              trend: data.products_growth || 0,
+              trendLabel: `vs período anterior`,
+            },
+          });
+        }
+      } catch (e) {
+        console.log("No se pudo cargar overview stats:", e);
+      }
+
+      // Fetch sales data for charts
+      try {
+        const salesResp = await fetch(
+          `${API_BASE}/admin/stats/sales?period=${selectedPeriod}`,
+          { credentials: "include" }
+        );
+        if (salesResp.ok) {
+          const data = await salesResp.json();
+          setSalesData(data.sales || []);
+        }
+      } catch (e) {
+        console.log("No se pudo cargar sales data:", e);
+      }
+
+      // Fetch top products
+      try {
+        const topProductsResp = await fetch(
+          `${API_BASE}/admin/stats/top-products?limit=10`,
+          { credentials: "include" }
+        );
+        if (topProductsResp.ok) {
+          const data = await topProductsResp.json();
+          setTopProducts(data.products || []);
+        }
+      } catch (e) {
+        console.log("No se pudo cargar top products:", e);
+      }
+
+      // Fetch recent orders
+      try {
+        const ordersResp = await fetch(
+          `${API_BASE}/admin/orders/recent?limit=10`,
+          { credentials: "include" }
+        );
+        if (ordersResp.ok) {
+          const data = await ordersResp.json();
+          setRecentOrdersData(data.orders || []);
+        }
+      } catch (e) {
+        console.log("No se pudo cargar recent orders:", e);
+      }
+
+      // Fetch low stock alerts
+      try {
+        const lowStockResp = await fetch(
+          `${API_BASE}/admin/stats/low-stock?threshold=10`,
+          { credentials: "include" }
+        );
+        if (lowStockResp.ok) {
+          const data = await lowStockResp.json();
+          setLowStockItems(data.products || []);
+        }
+      } catch (e) {
+        console.log("No se pudo cargar low stock alerts:", e);
+      }
+
+      // Fetch category distribution
+      try {
+        const categoryResp = await fetch(
+          `${API_BASE}/admin/stats/top-categories`,
+          { credentials: "include" }
+        );
+        if (categoryResp.ok) {
+          const data = await categoryResp.json();
+          setCategoryData(data.categories || []);
+        }
+      } catch (e) {
+        console.log("No se pudo cargar category data:", e);
+      }
+
+      // Fetch recent users
+      try {
+        const usersResp = await fetch(
+          `${API_BASE}/admin/stats/recent-users?limit=10`,
+          { credentials: "include" }
+        );
+        if (usersResp.ok) {
+          const data = await usersResp.json();
+          setRecentUsersData(data.users || []);
+        }
+      } catch (e) {
+        console.log("No se pudo cargar recent users:", e);
+      }
+    } catch (error) {
+      console.error("Error al cargar datos analíticos:", error);
+    } finally {
+      setAnalyticsLoading(false);
+    }
+  }
 
   async function fetchProducts() {
     setLoadingProducts(true);
@@ -1593,205 +1800,90 @@ export default function DashboardPage() {
       <div className="container mx-auto px-4 py-8">
         {activeSection === "dashboard" ? (
           <div className="space-y-6">
-            {/* Título de la sección */}
-            <div className="flex items-center justify-between">
+            {/* Header con título y selector de período */}
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
               <div>
-                <h2 className="text-2xl font-bold text-gray-900">Estadísticas Generales</h2>
-                <p className="text-gray-600 mt-1">Resumen del estado actual de tu negocio</p>
+                <h2 className="text-2xl font-bold text-gray-900">Dashboard Analítico</h2>
+                <p className="text-gray-600 mt-1">Análisis detallado del rendimiento de tu negocio</p>
               </div>
-              <Button
-                onClick={fetchDashboardStats}
-                disabled={loadingStats}
-                className="flex items-center gap-2"
-              >
-                {loadingStats ? (
-                  <>
-                    <FiLoader className="animate-spin" size={16} />
-                    Actualizando...
-                  </>
-                ) : (
-                  <>
-                    <FiActivity size={16} />
-                    Actualizar
-                  </>
-                )}
-              </Button>
+              <div className="flex items-center gap-3">
+                <PeriodSelector
+                  selectedPeriod={selectedPeriod}
+                  onPeriodChange={setSelectedPeriod}
+                />
+                <Button
+                  onClick={fetchAnalyticsData}
+                  disabled={analyticsLoading}
+                  className="flex items-center gap-2 whitespace-nowrap"
+                >
+                  {analyticsLoading ? (
+                    <>
+                      <FiLoader className="animate-spin" size={16} />
+                      Cargando...
+                    </>
+                  ) : (
+                    <>
+                      <FiActivity size={16} />
+                      Actualizar
+                    </>
+                  )}
+                </Button>
+              </div>
             </div>
 
-            {loadingStats ? (
-              <div className="flex items-center justify-center py-20">
-                <FiLoader className="animate-spin text-blue-600 mr-2" size={32} />
-                <span className="text-gray-600">Cargando estadísticas...</span>
-              </div>
-            ) : (
-              <>
-                {/* Tarjetas de estadísticas principales */}
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                  {/* Total de Ventas */}
-                  <Card>
-                    <CardHeader className="flex flex-row items-center justify-between pb-2">
-                      <CardTitle className="text-sm font-medium text-gray-600">
-                        Total de Ventas
-                      </CardTitle>
-                      <div className="p-2 bg-blue-100 rounded-lg">
-                        <FiShoppingCart className="text-blue-600" size={20} />
-                      </div>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="text-3xl font-bold text-gray-900">
-                        {dashboardStats.totalSales}
-                      </div>
-                      <p className="text-xs text-gray-500 mt-1">
-                        Órdenes completadas
-                      </p>
-                    </CardContent>
-                  </Card>
+            {/* KPI Cards - Estadísticas Principales */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
+              <StatCard
+                title="Ingresos Totales"
+                value={`$${overviewStats.totalRevenue.value.toLocaleString("es-ES")}`}
+                icon={<FiDollarSign size={24} />}
+                trend={overviewStats.totalRevenue.trend}
+                trendLabel={overviewStats.totalRevenue.trendLabel}
+                loading={analyticsLoading}
+              />
+              <StatCard
+                title="Órdenes"
+                value={overviewStats.totalOrders.value.toString()}
+                icon={<FiShoppingCart size={24} />}
+                trend={overviewStats.totalOrders.trend}
+                trendLabel={overviewStats.totalOrders.trendLabel}
+                loading={analyticsLoading}
+              />
+              <StatCard
+                title="Usuarios"
+                value={overviewStats.totalUsers.value.toString()}
+                icon={<FiUsers size={24} />}
+                trend={overviewStats.totalUsers.trend}
+                trendLabel={overviewStats.totalUsers.trendLabel}
+                loading={analyticsLoading}
+              />
+              <StatCard
+                title="Productos"
+                value={overviewStats.totalProducts.value.toString()}
+                icon={<FiPackage size={24} />}
+                trend={overviewStats.totalProducts.trend}
+                trendLabel={overviewStats.totalProducts.trendLabel}
+                loading={analyticsLoading}
+              />
+            </div>
 
-                  {/* Ingresos Totales */}
-                  <Card>
-                    <CardHeader className="flex flex-row items-center justify-between pb-2">
-                      <CardTitle className="text-sm font-medium text-gray-600">
-                        Ingresos Totales
-                      </CardTitle>
-                      <div className="p-2 bg-green-100 rounded-lg">
-                        <FiDollarSign className="text-green-600" size={20} />
-                      </div>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="text-3xl font-bold text-gray-900">
-                        ${dashboardStats.totalRevenue.toLocaleString('es-CO')}
-                      </div>
-                      <p className="text-xs text-gray-500 mt-1">
-                        Pesos colombianos
-                      </p>
-                    </CardContent>
-                  </Card>
+            {/* Charts Section - Gráficos */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <SalesChart data={salesData} loading={analyticsLoading} />
+              <CategoryDistribution data={categoryData} loading={analyticsLoading} />
+            </div>
 
-                  {/* Total de Productos */}
-                  <Card>
-                    <CardHeader className="flex flex-row items-center justify-between pb-2">
-                      <CardTitle className="text-sm font-medium text-gray-600">
-                        Productos
-                      </CardTitle>
-                      <div className="p-2 bg-purple-100 rounded-lg">
-                        <FiPackage className="text-purple-600" size={20} />
-                      </div>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="text-3xl font-bold text-gray-900">
-                        {dashboardStats.totalProducts}
-                      </div>
-                      <p className="text-xs text-gray-500 mt-1">
-                        En catálogo
-                      </p>
-                    </CardContent>
-                  </Card>
+            {/* Top Products and Recent Orders */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <TopProductsList products={topProducts} loading={analyticsLoading} />
+              <RecentOrders orders={recentOrdersData} loading={analyticsLoading} />
+            </div>
 
-                  {/* Total de Usuarios */}
-                  <Card>
-                    <CardHeader className="flex flex-row items-center justify-between pb-2">
-                      <CardTitle className="text-sm font-medium text-gray-600">
-                        Usuarios
-                      </CardTitle>
-                      <div className="p-2 bg-orange-100 rounded-lg">
-                        <FiUsers className="text-orange-600" size={20} />
-                      </div>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="text-3xl font-bold text-gray-900">
-                        {dashboardStats.totalUsers}
-                      </div>
-                      <p className="text-xs text-gray-500 mt-1">
-                        Registrados
-                      </p>
-                    </CardContent>
-                  </Card>
-                </div>
-
-                {/* Tarjetas de estadísticas secundarias */}
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {/* Órdenes Recientes */}
-                  <Card>
-                    <CardHeader className="flex flex-row items-center justify-between pb-2">
-                      <CardTitle className="text-sm font-medium text-gray-600">
-                        Órdenes Recientes
-                      </CardTitle>
-                      <FiTrendingUp className="text-blue-600" size={20} />
-                    </CardHeader>
-                    <CardContent>
-                      <div className="text-2xl font-bold text-gray-900">
-                        {dashboardStats.recentOrders}
-                      </div>
-                      <p className="text-xs text-gray-500 mt-1">
-                        Últimos 30 días
-                      </p>
-                    </CardContent>
-                  </Card>
-
-                  {/* Stock Bajo */}
-                  <Card>
-                    <CardHeader className="flex flex-row items-center justify-between pb-2">
-                      <CardTitle className="text-sm font-medium text-gray-600">
-                        Productos con Stock Bajo
-                      </CardTitle>
-                      <FiAlertCircle className="text-red-600" size={20} />
-                    </CardHeader>
-                    <CardContent>
-                      <div className="text-2xl font-bold text-gray-900">
-                        {dashboardStats.lowStockProducts}
-                      </div>
-                      <p className="text-xs text-gray-500 mt-1">
-                        Menos de 5 unidades
-                      </p>
-                    </CardContent>
-                  </Card>
-
-                  {/* Valor Promedio de Orden */}
-                  <Card>
-                    <CardHeader className="flex flex-row items-center justify-between pb-2">
-                      <CardTitle className="text-sm font-medium text-gray-600">
-                        Valor Promedio de Orden
-                      </CardTitle>
-                      <FiBarChart2 className="text-green-600" size={20} />
-                    </CardHeader>
-                    <CardContent>
-                      <div className="text-2xl font-bold text-gray-900">
-                        ${dashboardStats.averageOrderValue.toLocaleString('es-CO', { maximumFractionDigits: 0 })}
-                      </div>
-                      <p className="text-xs text-gray-500 mt-1">
-                        Por transacción
-                      </p>
-                    </CardContent>
-                  </Card>
-                </div>
-
-                {/* Tarjeta de producto más vendido */}
-                {dashboardStats.topSellingProduct && (
-                  <Card>
-                    <CardHeader>
-                      <CardTitle className="text-lg font-semibold text-gray-900">
-                        Producto Más Vendido
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="flex items-center gap-3">
-                        <div className="p-3 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg">
-                          <FiTrendingUp className="text-white" size={24} />
-                        </div>
-                        <div>
-                          <p className="text-xl font-bold text-gray-900">
-                            {dashboardStats.topSellingProduct}
-                          </p>
-                          <p className="text-sm text-gray-500">
-                            El producto con más ventas
-                          </p>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                )}
-              </>
-            )}
+            {/* Alerts and Recent Users */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <LowStockAlerts items={lowStockItems} loading={analyticsLoading} />
+              <RecentUsers users={recentUsersData} loading={analyticsLoading} />
+            </div>
           </div>
         ) : activeSection === "users" ? (
           <div className="bg-white rounded-lg shadow overflow-hidden">

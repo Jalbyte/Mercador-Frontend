@@ -180,6 +180,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         });
         return;
       }
+
+      // Guardar token si el backend lo devuelve en la respuesta
+      if (data.session?.access_token) {
+        const storage = rememberMe ? localStorage : sessionStorage;
+        storage.setItem("auth_token", data.session.access_token);
+        
+        if (data.session.refresh_token) {
+          storage.setItem("refresh_token", data.session.refresh_token);
+        }
+
+        if (data.session.expires_at) {
+          storage.setItem("token_expires_at", data.session.expires_at.toString());
+        }
+      }
+
       if (rememberMe) {
         localStorage.setItem("last-login-email", email);
       } else {
