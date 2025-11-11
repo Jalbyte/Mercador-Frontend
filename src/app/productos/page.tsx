@@ -25,13 +25,16 @@ type Product = {
   description: string;
   price: number;
   category: string;
+  image_url?: string | null;
   license_type?: number | string;
   license_category?: {
     id: number;
     type: string;
   } | null;
-  image_url?: string | null;
   stock_quantity: number;
+  available_keys?: number; // Nuevo campo calculado del backend
+  created_at?: string;
+  updated_at?: string;
 };
 
 type LicenseType = {
@@ -224,6 +227,13 @@ function ProductosContent() {
     currentPage * itemsPerPage
   );
 
+  // Función para obtener el stock real (prioriza available_keys)
+  const getProductStock = (product: Product): number => {
+    return typeof product.available_keys === 'number' 
+      ? product.available_keys 
+      : product.stock_quantity;
+  };
+
   const handleAddToCart = (product: Product) => {
     const item = {
       // Normalizar id como string para mantener consistencia con items desde backend
@@ -232,7 +242,7 @@ function ProductosContent() {
       price: product.price,
       image: product.image_url || "/placeholder.png",
       // Pasamos el stock disponible para que el hook no permita excederlo desde el front
-      max_quantity: Number(product.stock_quantity ?? 0),
+      max_quantity: Number(getProductStock(product) ?? 0),
     };
     // Loguear el product original y el item normalizado para depuración
     console.debug("handleAddToCart: product, item", { product, item });
@@ -486,7 +496,7 @@ function ProductosContent() {
                       {product.category}
                     </span>
                   </div>
-                  {product.stock_quantity === 0 && (
+                  {getProductStock(product) === 0 && (
                     <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
                       <span className="text-white font-bold text-lg">
                         Agotado
@@ -510,13 +520,13 @@ function ProductosContent() {
                         ${product.price.toLocaleString('es-CO')}
                       </span>
                       <span className="text-xs text-gray-500">
-                        Stock: {product.stock_quantity}
+                        {getProductStock(product)} keys disponibles
                       </span>
                     </div>
 
                     <button
                       onClick={() => handleAddToCart(product)}
-                      disabled={product.stock_quantity === 0}
+                      disabled={getProductStock(product) === 0}
                       className="bg-gradient-to-r from-blue-600 to-blue-700 text-white px-4 py-2.5 rounded-lg hover:from-blue-700 hover:to-blue-800 transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-xl font-medium flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
                     >
                       <FiShoppingCart className="w-4 h-4" />

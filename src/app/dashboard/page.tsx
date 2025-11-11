@@ -79,6 +79,7 @@ type Product = {
   } | null;
   image_url?: string | null;
   stock_quantity: number;
+  available_keys?: number; // Nuevo campo calculado del backend
   created_at?: string;
   updated_at?: string;
 };
@@ -89,6 +90,13 @@ type LicenseType = {
 };
 
 export default function DashboardPage() {
+  // Función helper para obtener el stock (prioriza available_keys si está disponible)
+  const getProductStock = (product: Product): number => {
+    return typeof product.available_keys === 'number' 
+      ? product.available_keys 
+      : product.stock_quantity;
+  };
+
   // Lista de países comunes
   const countries = [
     "Argentina", "Bolivia", "Brasil", "Chile", "Colombia", "Costa Rica", "Cuba", "Ecuador", "El Salvador", "Guatemala", "Honduras", "México", "Nicaragua", "Panamá", "Paraguay", "Perú", "Puerto Rico", "República Dominicana", "Uruguay", "Venezuela", "Estados Unidos", "Canadá", "España", "Francia", "Italia", "Reino Unido", "Alemania", "Portugal", "Otros"
@@ -106,7 +114,7 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [userName, setUserName] = useState<string | null>(null);
   const [activeSection, setActiveSection] = useState<
-    "dashboard" | "products" | "users" | "orders" | "reports" | "points"
+    "dashboard" | "products" | "users" | "returns" | "reports" | "points"
   >("dashboard");
   const [users, setUsers] = useState<User[]>([]);
   const [loadingUsers, setLoadingUsers] = useState(false);
@@ -1739,17 +1747,17 @@ export default function DashboardPage() {
               ></span>
             </button>
             <button
-              onClick={() => setActiveSection("orders")}
+              onClick={() => setActiveSection("returns")}
               className={`relative py-4 px-6 font-medium transition-all duration-300 ${
-                activeSection === "orders"
+                activeSection === "returns"
                   ? "text-blue-600"
                   : "text-gray-500 hover:text-gray-700"
               }`}
             >
-              Pedidos
+              Devoluciones
               <span
                 className={`absolute bottom-0 left-0 w-full h-0.5 bg-blue-600 transition-all duration-300 transform ${
-                  activeSection === "orders" ? "scale-x-100" : "scale-x-0"
+                  activeSection === "returns" ? "scale-x-100" : "scale-x-0"
                 }`}
               ></span>
             </button>
@@ -1769,12 +1777,6 @@ export default function DashboardPage() {
               ></span>
             </button>
             <button
-              onClick={() => router.push("/dashboard/returns")}
-              className="relative py-4 px-6 font-medium text-gray-500 hover:text-gray-700 transition-all duration-300"
-            >
-              Devoluciones
-            </button>
-            <button
               onClick={() => setActiveSection("reports")}
               className={`relative py-4 px-6 font-medium transition-all duration-300 ${
                 activeSection === "reports"
@@ -1788,9 +1790,6 @@ export default function DashboardPage() {
                   activeSection === "reports" ? "scale-x-100" : "scale-x-0"
                 }`}
               ></span>
-            </button>
-            <button className="py-4 px-2 text-gray-500 hover:text-gray-700 font-medium">
-              Configuración
             </button>
           </nav>
         </div>
@@ -2307,7 +2306,7 @@ export default function DashboardPage() {
                                   {p.category}
                                 </div>
                                 <div className="text-sm text-gray-500">
-                                  Stock: {p.stock_quantity}
+                                  Stock: {getProductStock(p)} keys disponibles
                                 </div>
                               </div>
                             </div>

@@ -33,6 +33,7 @@ interface AuthContextType {
   user: User | null;
   isAuthenticated: boolean;
   isLoading: boolean;
+  isLoggingOut: boolean;
   mfaRequired: MFARequiredData | null;
   login: (
     email: string,
@@ -52,6 +53,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [mfaRequired, setMfaRequired] = useState<MFARequiredData | null>(null);
   const router = useRouter();
 
@@ -274,16 +276,30 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   // Logout function
   const logout = async (): Promise<void> => {
+    setIsLoggingOut(true);
     try {
       await fetch(`${API_BASE}/auth/logout`, {
         method: "POST",
         credentials: "include",
       });
+      
+      // Limpiar todo el estado de autenticación
+      setUser(null);
+      localStorage.removeItem("last-login-email");
+      localStorage.removeItem("auth_token");
+      localStorage.removeItem("refresh_token");
+      localStorage.removeItem("token_expires_at");
+      sessionStorage.removeItem("auth_token");
+      sessionStorage.removeItem("refresh_token");
+      sessionStorage.removeItem("token_expires_at");
+      
+      // Esperar un momento para asegurar que el logout se complete
+      await new Promise(resolve => setTimeout(resolve, 300));
+      
     } catch (error) {
       console.error("Error during logout:", error);
     } finally {
-      setUser(null);
-      localStorage.removeItem("last-login-email");
+      setIsLoggingOut(false);
       router.push("/");
     }
   };
@@ -357,6 +373,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     user,
     isAuthenticated,
     isLoading,
+    isLoggingOut,
     mfaRequired,
     login,
     verifyMFA,

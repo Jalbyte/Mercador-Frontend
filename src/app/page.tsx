@@ -26,6 +26,7 @@ type LicenseCardProps = {
   category: string;
   image: string;
   stock_quantity: number;
+  available_keys?: number;
 };
 
 // Client-side API base (must be set via NEXT_PUBLIC_API_URL)
@@ -39,8 +40,14 @@ const LicenseCard = ({
   category,
   image,
   stock_quantity,
+  available_keys,
 }: LicenseCardProps) => {
   const { addItem } = useCart();
+
+  // Función para obtener el stock real (prioriza available_keys)
+  const getStock = () => {
+    return typeof available_keys === 'number' ? available_keys : stock_quantity;
+  };
 
   const handleAddToCart = () => {
     addItem({
@@ -48,7 +55,7 @@ const LicenseCard = ({
       name: title,
       price,
       image,
-      max_quantity: Number(stock_quantity ?? 0),
+      max_quantity: Number(getStock() ?? 0),
     });
   };
 
@@ -73,7 +80,7 @@ const LicenseCard = ({
             {category}
           </span>
         </div>
-        {stock_quantity === 0 && (
+        {getStock() === 0 && (
           <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
             <span className="text-white font-bold text-lg">
               Agotado
@@ -96,14 +103,14 @@ const LicenseCard = ({
               ${price.toLocaleString('es-CO')}
             </span>
             <span className="text-xs text-gray-500">
-              Stock: {stock_quantity}
+              {getStock()} keys disponibles
             </span>
           </div>
 
           <button
             onClick={handleAddToCart}
-            disabled={stock_quantity === 0}
-            className="bg-gradient-to-r from-blue-600 to-blue-700 text-white px-6 py-2.5 rounded-lg hover:from-blue-700 hover:to-blue-800 transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-xl font-medium flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
+            disabled={getStock() === 0}
+            className="bg-gradient-to-r from-blue-600 to-blue-700 text-white px-4 py-2.5 rounded-lg hover:from-blue-700 hover:to-blue-800 transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-xl font-medium flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
           >
             <FiShoppingCart className="w-4 h-4" />
             Agregar
@@ -163,6 +170,7 @@ export default function Home() {
             process.env.NEXT_PUBLIC_PLACEHOLDER_URL ??
             "/placeholder.png",
           stock_quantity: p.stock_quantity ?? 0,
+          available_keys: p.available_keys, // Nuevo campo calculado del backend
         }));
         if (mounted) setProducts(mapped);
       } catch (err: any) {

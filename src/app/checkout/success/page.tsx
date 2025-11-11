@@ -2,17 +2,19 @@
 
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState, Suspense } from "react";
+import { useCart } from "@/hooks/use-cart";
 
 function CheckoutSuccessContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const orderId = searchParams.get('orderId');
   const transactionId = searchParams.get('transactionId');
+  const { clearCart } = useCart();
 
   const [order, setOrder] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
-  // Obtener detalles de la orden
+  // Obtener detalles de la orden y limpiar el carrito
   useEffect(() => {
     if (!orderId) return;
 
@@ -29,6 +31,10 @@ function CheckoutSuccessContent() {
         if (response.ok) {
           const result = await response.json();
           setOrder(result.data);
+          
+          // Limpiar el carrito después de una compra exitosa
+          await clearCart();
+          console.log('✅ Carrito limpiado después de compra exitosa');
         }
       } catch (error) {
         console.error('Error fetching order:', error);
@@ -38,7 +44,7 @@ function CheckoutSuccessContent() {
     };
 
     fetchOrder();
-  }, [orderId]);
+  }, [orderId, clearCart]);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-green-50 to-emerald-100 flex items-center justify-center p-4">
