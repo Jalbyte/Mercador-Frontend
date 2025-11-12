@@ -47,8 +47,8 @@ export function CartMergeDialog({
               ¿Qué carrito quieres usar?
             </h2>
             <p className="text-sm text-gray-500 dark:text-gray-400">
-              Tienes un carrito local con <strong>{localItemCount} producto{localItemCount !== 1 ? 's' : ''}</strong> y
-              un carrito guardado con <strong>{backendItemCount} producto{backendItemCount !== 1 ? 's' : ''}</strong>.
+              Tienes un carrito local con <strong>{localItemCount} clave{localItemCount !== 1 ? 's' : ''} a pedir</strong> y
+              un carrito guardado con <strong>{backendItemCount} clave{backendItemCount !== 1 ? 's' : ''} a pedir</strong>.
               <br /><br />
               ¿Cuál te gustaría usar?
             </p>
@@ -61,14 +61,14 @@ export function CartMergeDialog({
               variant="default"
               className="w-full"
             >
-              Mantener carrito actual ({localItemCount} producto{localItemCount !== 1 ? 's' : ''})
+              Mantener carrito actual ({localItemCount} clave{localItemCount !== 1 ? 's' : ''} a pedir)
             </Button>
             <Button
               onClick={onLoadBackend}
               variant="outline"
               className="w-full"
             >
-              Cargar carrito guardado ({backendItemCount} producto{backendItemCount !== 1 ? 's' : ''})
+              Cargar carrito guardado ({backendItemCount} clave{backendItemCount !== 1 ? 's' : ''} a pedir)
             </Button>
           </div>
         </div>

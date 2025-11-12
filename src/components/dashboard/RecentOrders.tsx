@@ -10,7 +10,7 @@ interface RecentOrder {
     full_name: string;
     email: string;
   };
-  total: number;
+  total_amount: number;
   status: string;
   items_count: number;
   created_at: string;
@@ -25,7 +25,7 @@ export function RecentOrders({ orders, loading = false }: RecentOrdersProps) {
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat("es-ES", {
       style: "currency",
-      currency: "USD",
+      currency: "COP",
     }).format(amount);
   };
 
@@ -135,7 +135,7 @@ export function RecentOrders({ orders, loading = false }: RecentOrdersProps) {
                     </span>
                   </div>
                   <div className="font-bold text-gray-900">
-                    {formatCurrency(order.total)}
+                    {formatCurrency(order.total_amount)}
                   </div>
                 </div>
               </div>

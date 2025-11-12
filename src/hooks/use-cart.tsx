@@ -136,7 +136,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   const [showMergeDialog, setShowMergeDialog] = useState(false);
   const [backendCart, setBackendCart] = useState<CartItem[]>([]);
   const [mergeDone, setMergeDone] = useState(false); // Flag para saber si ya se hizo el merge
-  
+
   // Cola de sincronización para operaciones batch
   const syncQueueRef = useRef<Map<number, number>>(new Map()); // productId -> quantity
   // Map para almacenar la cantidad previa (antes de la operación) por productId
@@ -145,7 +145,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
 
   // Usar isAuthenticated del AuthProvider
   const { isAuthenticated } = useAuth();
-  
+
   const API_BASE = process.env.NEXT_PUBLIC_API_URL || "";
 
   /**
@@ -163,7 +163,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     if (!silent) {
       setIsLoading(true);
     }
-    
+
     try {
       const response = await fetch(`${API_BASE}/cart`, {
         method: "GET",
@@ -183,7 +183,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       }
 
       const data = await response.json();
-      
+
       if (data.success && data.data) {
         const backendItems = data.data.items.map((item: any) => ({
           id: String(item.product_id),
@@ -279,23 +279,23 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       }
 
       const data = await response.json();
-      
+
       // Verificar si hubo errores en alguna operación
       const failed = data.results?.filter((r: any) => r.action === 'failed') || [];
       if (failed.length > 0) {
         console.error("Some operations failed:", failed);
-        
+
         // Mostrar mensajes específicos de error
         failed.forEach((failedOp: any) => {
           console.error(`Product ${failedOp.productId}: ${failedOp.error}`);
         });
-        
+
         // Sincronizar el carrito con el backend para obtener el estado real
         await syncCart();
-        
+
         setToastMessage(`Error: ${failed[0].error}`);
         setShowToast(true);
-        
+
         return { success: false, failed };
       } else {
         console.log(`✅ Batch sync completed: ${operations.length} operations`);
@@ -393,21 +393,64 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
    * Función para enviar el carrito local al backend
    */
   const uploadLocalCartToBackend = useCallback(async (localItems: CartItem[]) => {
-    if (!isAuthenticated || localItems.length === 0) return;
+    if (!isAuthenticated) return;
+
+    // If localItems is empty, we still may want to clear backend
+    if (localItems.length === 0) {
+      try {
+        // Send a batch clear if backend has items (we don't know here) - call syncBatchToBackend with empty ops
+        // To be safe, call syncCart first to check
+        await syncCart();
+        const backendHasItems = items.length > 0;
+        if (backendHasItems) {
+          const clearOps = items.map((it) => ({ productId: Number(it.id), quantity: 0 }));
+          await syncBatchToBackend(clearOps);
+        }
+        setToastMessage("Carrito local sincronizado con el servidor");
+        setShowToast(true);
+      } catch (error) {
+        console.error("Error uploading/clearing local cart:", error);
+        setToastMessage("Error al sincronizar carrito");
+        setShowToast(true);
+      }
+      return;
+    }
 
     try {
       // Convertir items a operaciones batch
-      const operations = localItems.map(item => ({
+      const localOps = localItems.map(item => ({
         productId: Number(item.id),
         quantity: item.quantity,
         max_quantity: item.max_quantity ?? undefined,
       }));
 
-      await syncBatchToBackend(operations);
+      // Fetch backend cart directly to know which items to remove
+      const resp = await fetch(`${API_BASE}/cart`, {
+        method: "GET",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+      });
+      let backendList: any[] = [];
+      if (resp.ok) {
+        const data = await resp.json();
+        backendList = data?.data?.items || [];
+      }
+
+      const backendProductIds = new Set(backendList.map((it: any) => Number(it.product_id)));
+      const localProductIds = new Set(localItems.map((it) => Number(it.id)));
+
+      // Items present in backend but not in local should be removed (quantity 0)
+      const removeOps = Array.from(backendProductIds).filter((pid) => !localProductIds.has(pid)).map((pid) => ({ productId: pid, quantity: 0 }));
+
+      const operations = [...localOps, ...removeOps];
+
+      if (operations.length > 0) {
+        await syncBatchToBackend(operations);
+      }
 
       // Sincronizar para obtener el carrito actualizado con validación
       await syncCart();
-      
+
       setToastMessage("Carrito local sincronizado con el servidor");
       setShowToast(true);
     } catch (error) {
@@ -441,6 +484,31 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
         if (response.ok) {
           const data = await response.json();
           const backendItems = data.success && data.data ? data.data.items : [];
+
+          // Helper: comparar carts por product_id -> quantity
+          const compareCarts = (local: CartItem[], backend: any[]) => {
+            const mapLocal = new Map<number, number>()
+            local.forEach(it => mapLocal.set(Number(it.id), Number(it.quantity || 0)))
+            const mapBackend = new Map<number, number>()
+            backend.forEach((it: any) => mapBackend.set(Number(it.product_id), Number(it.quantity || 0)))
+
+            if (mapLocal.size !== mapBackend.size) return false
+            for (const [pid, qty] of mapLocal) {
+              if (!mapBackend.has(pid)) return false
+              if (mapBackend.get(pid) !== qty) return false
+            }
+            return true
+          }
+
+          // If both carts are present and identical, skip merge prompt
+          if (backendItems.length > 0 && localCart.length > 0 && compareCarts(localCart, backendItems)) {
+            // carts identical: mark merged and sync to ensure server/local are consistent
+            await syncCart();
+            setMergeDone(true);
+            setToastMessage('Carrito sincronizado automáticamente (sin cambios)');
+            setShowToast(true);
+            return;
+          }
 
           if (backendItems.length > 0) {
             // Hay carrito en ambos lados - preguntar al usuario
@@ -482,8 +550,17 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   const handleKeepLocal = useCallback(async () => {
     setShowMergeDialog(false);
     setBackendCart([]); // Limpiar el carrito del backend en memoria
-    await uploadLocalCartToBackend(items);
-    setMergeDone(true); // Marcar como completado
+    // Try to apply local cart to backend and keep local state
+    try {
+      await uploadLocalCartToBackend(items);
+      // local items already represent desired state, ensure merge flag set
+      setMergeDone(true);
+      setToastMessage("Se ha mantenido el carrito local y sincronizado con el servidor");
+      setShowToast(true);
+    } catch (e) {
+      // uploadLocalCartToBackend handles its own errors and toasts, but ensure mergeDone isn't set on failure
+      console.error("handleKeepLocal error:", e);
+    }
   }, [items, uploadLocalCartToBackend]);
 
   /**
@@ -492,8 +569,15 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   const handleLoadBackend = useCallback(async () => {
     setShowMergeDialog(false);
     setBackendCart([]); // Limpiar el carrito del backend en memoria
-    await syncCart();
-    setMergeDone(true); // Marcar como completado
+    try {
+      await syncCart();
+      // syncCart will populate `items` from backend; ensure local persists that
+      setMergeDone(true);
+      setToastMessage("Carrito del servidor cargado");
+      setShowToast(true);
+    } catch (e) {
+      console.error("handleLoadBackend error:", e);
+    }
   }, [syncCart]);
 
   /**
@@ -537,12 +621,12 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       }
     }
     setIsMounted(true);
-    
+
     // Verificar autenticación y sincronizar si está autenticado
     if (isAuthenticated) {
       syncCart();
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   /**
@@ -578,7 +662,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       // Llamar a handleLoginSync cuando el usuario inicia sesión
       handleLoginSync().catch(console.error);
     }
-    
+
     // Si el usuario cierra sesión, resetear el flag de merge
     if (isMounted && !isAuthenticated) {
       setMergeDone(false);
@@ -621,21 +705,21 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
    */
   const addItem = useCallback((item: Omit<CartItem, "quantity">) => {
     // Si el item provee max_quantity, respetarlo (stock disponible)
-  const currentItem = items.find((i) => i.id === item.id);
-  const currentQty = currentItem ? currentItem.quantity : 0;
-  // Normalize/parse max_quantity values (accept numeric strings, null)
-  const rawItemMax = (item as any).max_quantity;
-  const rawCurrentMax = currentItem?.max_quantity;
-  const parsedItemMax = rawItemMax != null && (typeof rawItemMax === 'number' || rawItemMax !== '') ? Number(rawItemMax) : undefined;
-  const parsedCurrentMax = rawCurrentMax != null && (typeof rawCurrentMax === 'number' || (typeof rawCurrentMax === 'string' && rawCurrentMax !== '')) ? Number(rawCurrentMax) : undefined;
-  const maxQty = parsedItemMax ?? parsedCurrentMax ?? Infinity;
-  const newQuantity = currentQty + 1;
+    const currentItem = items.find((i) => i.id === item.id);
+    const currentQty = currentItem ? currentItem.quantity : 0;
+    // Normalize/parse max_quantity values (accept numeric strings, null)
+    const rawItemMax = (item as any).max_quantity;
+    const rawCurrentMax = currentItem?.max_quantity;
+    const parsedItemMax = rawItemMax != null && (typeof rawItemMax === 'number' || rawItemMax !== '') ? Number(rawItemMax) : undefined;
+    const parsedCurrentMax = rawCurrentMax != null && (typeof rawCurrentMax === 'number' || (typeof rawCurrentMax === 'string' && rawCurrentMax !== '')) ? Number(rawCurrentMax) : undefined;
+    const maxQty = parsedItemMax ?? parsedCurrentMax ?? Infinity;
+    const newQuantity = currentQty + 1;
 
     // Debug: ayudar a diagnosticar problemas con addItem cuando no hay sesión
     // (se puede quitar luego)
     try {
-  // eslint-disable-next-line no-console
-  console.debug(`[cart] addItem called`, { id: item.id, name: item.name, currentQty, rawItemMax, rawCurrentMax, parsedItemMax, parsedCurrentMax, maxQty, newQuantity, isAuthenticated });
+      // eslint-disable-next-line no-console
+      console.debug(`[cart] addItem called`, { id: item.id, name: item.name, currentQty, rawItemMax, rawCurrentMax, parsedItemMax, parsedCurrentMax, maxQty, newQuantity, isAuthenticated });
     } catch (e) {
       // ignore
     }
@@ -649,7 +733,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       return;
     }
 
-  const previousItems = [...items]; // Guardar estado anterior para posible rollback
+    const previousItems = [...items]; // Guardar estado anterior para posible rollback
 
     // ACTUALIZACIÓN OPTIMISTA: Actualizar UI inmediatamente
     setItems((prevItems) => {
@@ -701,10 +785,10 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
    */
   const removeItem = useCallback((id: string) => {
     const previousItems = [...items]; // Guardar estado anterior para posible rollback
-    
+
     // ACTUALIZACIÓN OPTIMISTA: Remover de UI inmediatamente
     setItems((prevItems) => prevItems.filter((item) => item.id !== id));
-    
+
     // Si está autenticado, encolar la operación para batch y guardar cantidad previa
     if (isAuthenticated) {
       const pid = Number(id);
@@ -776,24 +860,34 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
    * Remueve todos los items del carrito local y del backend si está autenticado.
    */
   const clearCart = useCallback(async () => {
+    // Prefer to clear backend first; only clear local state on success to avoid data loss
     const currentItems = [...items]; // Guardar items actuales
-    setItems([]);
-    
-    // Si está autenticado, limpiar también el backend usando batch
     if (isAuthenticated && currentItems.length > 0) {
       try {
-        // Crear operaciones batch para eliminar todos los items
-        const operations = currentItems.map(item => ({
-          productId: Number(item.id),
-          quantity: 0,
-          max_quantity: item.max_quantity ?? undefined,
-        }));
-
-        await syncBatchToBackend(operations);
-        console.log(`✅ Cart cleared: ${operations.length} items removed from backend`);
+        const operations = currentItems.map(item => ({ productId: Number(item.id), quantity: 0 }));
+        const result = await syncBatchToBackend(operations);
+        // If backend indicates success (no failed ops), clear local
+        const failed = result?.failed || [];
+        if (failed.length === 0) {
+          setItems([]);
+          setToastMessage("Carrito vacío");
+          setShowToast(true);
+          console.log(`✅ Cart cleared: ${operations.length} items removed from backend`);
+        } else {
+          setToastMessage("No se pudo vaciar completamente el carrito en el servidor");
+          setShowToast(true);
+          console.error("Some items failed to clear:", failed);
+        }
       } catch (error) {
         console.error("Error clearing backend cart:", error);
+        setToastMessage("Error al vaciar el carrito en el servidor");
+        setShowToast(true);
       }
+    } else {
+      // Not authenticated or already empty - just clear local
+      setItems([]);
+      setToastMessage("Carrito vacío");
+      setShowToast(true);
     }
   }, [isAuthenticated, items, syncBatchToBackend]);
 
@@ -851,8 +945,9 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
         onClose={() => setShowMergeDialog(false)}
         onKeepLocal={handleKeepLocal}
         onLoadBackend={handleLoadBackend}
-        localItemCount={items.length}
-        backendItemCount={backendCart.length}
+        // Enviar suma de cantidades (claves a pedir) en lugar de número de líneas
+        localItemCount={items.reduce((s, it) => s + Number(it.quantity || 0), 0)}
+        backendItemCount={backendCart.reduce((s, it) => s + Number(it.quantity || 0), 0)}
       />
     </CartContext.Provider>
   );

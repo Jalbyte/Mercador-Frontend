@@ -92,8 +92,8 @@ type LicenseType = {
 export default function DashboardPage() {
   // Función helper para obtener el stock (prioriza available_keys si está disponible)
   const getProductStock = (product: Product): number => {
-    return typeof product.available_keys === 'number' 
-      ? product.available_keys 
+    return typeof product.available_keys === 'number'
+      ? product.available_keys
       : product.stock_quantity;
   };
 
@@ -197,7 +197,7 @@ export default function DashboardPage() {
   // Estados para el nuevo dashboard analítico
   const [selectedPeriod, setSelectedPeriod] = useState<"7d" | "30d" | "90d">("30d");
   const [analyticsLoading, setAnalyticsLoading] = useState(false);
-  
+
   // Datos de estadísticas generales con tendencias
   const [overviewStats, setOverviewStats] = useState({
     totalRevenue: { value: 0, trend: 0, trendLabel: "" },
@@ -213,15 +213,19 @@ export default function DashboardPage() {
 
   // Top productos
   const [topProducts, setTopProducts] = useState<
-    Array<{ id: string; name: string; sales: number; revenue: number; stock: number }>
+    Array<{ id: string; name: string; sales: number; revenue: number; stock_quantity: number }>
   >([]);
 
   // Órdenes recientes
   const [recentOrdersData, setRecentOrdersData] = useState<
     Array<{
       id: string;
-      user: { id: string; full_name: string; email: string };
-      total: number;
+      user: {
+        id: string;
+        full_name: string;
+        email: string;
+      };
+      total_amount: number;
       status: string;
       items_count: number;
       created_at: string;
@@ -231,12 +235,10 @@ export default function DashboardPage() {
   // Alertas de stock bajo
   const [lowStockItems, setLowStockItems] = useState<
     Array<{
+      stock_quantity: number;
       id: string;
       name: string;
-      current_stock: number;
-      min_stock: number;
-      sales_last_30d: number;
-      category: string;
+      image_url: string;
     }>
   >([]);
 
@@ -268,7 +270,7 @@ export default function DashboardPage() {
     async function checkAdminAccess() {
       // Esperar a que termine la carga de autenticación
       if (authLoading) return;
-      
+
       if (!mounted) return;
 
       // Si no hay usuario o no es admin, redirigir
@@ -320,9 +322,9 @@ export default function DashboardPage() {
         // Filtrar por búsqueda
         const filtered = searchTerm
           ? data.filter((user: User) =>
-              user.full_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-              user.email?.toLowerCase().includes(searchTerm.toLowerCase())
-            )
+            user.full_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            user.email?.toLowerCase().includes(searchTerm.toLowerCase())
+          )
           : data;
         setUsers(filtered);
         setTotalPages(Math.ceil(filtered.length / 12));
@@ -490,7 +492,7 @@ export default function DashboardPage() {
     </Modal>
   );
   // ...en el render principal, antes de los modales de producto:
-  {renderUserEditModal()}
+  { renderUserEditModal() }
 
   // Funciones del ProductAdmin existente
   async function fetchLicenseTypes() {
@@ -499,7 +501,7 @@ export default function DashboardPage() {
       const resp = await fetch(`${API_BASE}/products/license-types`, {
         credentials: "include",
       });
-      
+
       if (!resp.ok) {
         console.error("Failed to fetch license types:", resp.status);
         return;
@@ -547,6 +549,8 @@ export default function DashboardPage() {
         if (ordersResp.ok) {
           const ordersData = await ordersResp.json();
           allOrders = ordersData?.data || ordersData || [];
+          console.log(allOrders)
+          setRecentOrdersData(allOrders);
 
           // Calcular ingresos totales
           totalRevenue = allOrders.reduce((sum: number, order: any) => {
@@ -617,26 +621,27 @@ export default function DashboardPage() {
           { credentials: "include" }
         );
         if (overviewResp.ok) {
-          const data = await overviewResp.json();
+          let data = await overviewResp.json();
+          data = data.data
           setOverviewStats({
             totalRevenue: {
-              value: data.total_revenue || 0,
-              trend: data.revenue_growth || 0,
+              value: data.totalRevenue || 0,
+              trend: data.revenueGrowth || 0,
               trendLabel: `vs período anterior`,
             },
             totalOrders: {
-              value: data.total_orders || 0,
-              trend: data.orders_growth || 0,
+              value: data.totalOrders || 0,
+              trend: data.ordersGrowth || 0,
               trendLabel: `vs período anterior`,
             },
             totalUsers: {
-              value: data.total_users || 0,
-              trend: data.users_growth || 0,
+              value: data.totalUsers || 0,
+              trend: data.usersGrowth || 0,
               trendLabel: `vs período anterior`,
             },
             totalProducts: {
-              value: data.total_products || 0,
-              trend: data.products_growth || 0,
+              value: data.totalProducts || 0,
+              trend: data.productsGrowth || 0,
               trendLabel: `vs período anterior`,
             },
           });
@@ -653,7 +658,7 @@ export default function DashboardPage() {
         );
         if (salesResp.ok) {
           const data = await salesResp.json();
-          setSalesData(data.sales || []);
+          setSalesData(data.data.sales || []);
         }
       } catch (e) {
         console.log("No se pudo cargar sales data:", e);
@@ -667,7 +672,7 @@ export default function DashboardPage() {
         );
         if (topProductsResp.ok) {
           const data = await topProductsResp.json();
-          setTopProducts(data.products || []);
+          setTopProducts(data.data || []);
         }
       } catch (e) {
         console.log("No se pudo cargar top products:", e);
@@ -681,7 +686,6 @@ export default function DashboardPage() {
         );
         if (ordersResp.ok) {
           const data = await ordersResp.json();
-          setRecentOrdersData(data.orders || []);
         }
       } catch (e) {
         console.log("No se pudo cargar recent orders:", e);
@@ -695,7 +699,7 @@ export default function DashboardPage() {
         );
         if (lowStockResp.ok) {
           const data = await lowStockResp.json();
-          setLowStockItems(data.products || []);
+          setLowStockItems(data.data || []);
         }
       } catch (e) {
         console.log("No se pudo cargar low stock alerts:", e);
@@ -709,7 +713,7 @@ export default function DashboardPage() {
         );
         if (categoryResp.ok) {
           const data = await categoryResp.json();
-          setCategoryData(data.categories || []);
+          setCategoryData(data.data || []);
         }
       } catch (e) {
         console.log("No se pudo cargar category data:", e);
@@ -723,7 +727,7 @@ export default function DashboardPage() {
         );
         if (usersResp.ok) {
           const data = await usersResp.json();
-          setRecentUsersData(data.users || []);
+          setRecentUsersData(data.data || []);
         }
       } catch (e) {
         console.log("No se pudo cargar recent users:", e);
@@ -783,8 +787,7 @@ export default function DashboardPage() {
       } catch (parseErr) {
         const text = await resp.text().catch(() => "");
         throw new Error(
-          `Server returned ${resp.status} ${resp.statusText}: ${
-            text || "non-JSON response"
+          `Server returned ${resp.status} ${resp.statusText}: ${text || "non-JSON response"
           }`
         );
       }
@@ -794,11 +797,11 @@ export default function DashboardPage() {
           json?.error ?? json?.message ?? "Failed to fetch products";
         const errMsg = Array.isArray(errObj)
           ? errObj
-              .map((it: any) => it?.message ?? JSON.stringify(it))
-              .join("\n")
+            .map((it: any) => it?.message ?? JSON.stringify(it))
+            .join("\n")
           : typeof errObj === "string"
-          ? errObj
-          : errObj?.message ?? JSON.stringify(errObj);
+            ? errObj
+            : errObj?.message ?? JSON.stringify(errObj);
         setError(errMsg || "Failed to fetch products");
         setProducts([]);
         setTotalProductsCount(0);
@@ -868,8 +871,7 @@ export default function DashboardPage() {
           } catch (e) {
             const text = await resp.text().catch(() => "");
             throw new Error(
-              `Server returned ${resp.status} ${resp.statusText}: ${
-                text || "non-JSON response"
+              `Server returned ${resp.status} ${resp.statusText}: ${text || "non-JSON response"
               }`
             );
           }
@@ -878,11 +880,11 @@ export default function DashboardPage() {
             throw new Error(
               Array.isArray(msg)
                 ? msg
-                    .map((m: any) => m?.message ?? JSON.stringify(m))
-                    .join("\n")
+                  .map((m: any) => m?.message ?? JSON.stringify(m))
+                  .join("\n")
                 : typeof msg === "string"
-                ? msg
-                : JSON.stringify(msg)
+                  ? msg
+                  : JSON.stringify(msg)
             );
           }
           created.push(json.data);
@@ -926,8 +928,7 @@ export default function DashboardPage() {
         } catch (e) {
           const text = await resp.text().catch(() => "");
           throw new Error(
-            `Server returned ${resp.status} ${resp.statusText}: ${
-              text || "non-JSON response"
+            `Server returned ${resp.status} ${resp.statusText}: ${text || "non-JSON response"
             }`
           );
         }
@@ -937,8 +938,8 @@ export default function DashboardPage() {
             Array.isArray(msg)
               ? msg.map((m: any) => m?.message ?? JSON.stringify(m)).join("\n")
               : typeof msg === "string"
-              ? msg
-              : JSON.stringify(msg)
+                ? msg
+                : JSON.stringify(msg)
           );
         }
         setExistingKeys((prev) => [json.data, ...(prev || [])]);
@@ -975,8 +976,7 @@ export default function DashboardPage() {
       } catch (e) {
         const text = await resp.text().catch(() => "");
         throw new Error(
-          `Server returned ${resp.status} ${resp.statusText}: ${
-            text || "non-JSON response"
+          `Server returned ${resp.status} ${resp.statusText}: ${text || "non-JSON response"
           }`
         );
       }
@@ -986,8 +986,8 @@ export default function DashboardPage() {
           Array.isArray(msg)
             ? msg.map((m: any) => m?.message ?? JSON.stringify(m)).join("\n")
             : typeof msg === "string"
-            ? msg
-            : JSON.stringify(msg)
+              ? msg
+              : JSON.stringify(msg)
         );
       }
       setExistingKeys((prev) => (prev || []).filter((k) => k.id !== keyId));
@@ -1095,8 +1095,7 @@ export default function DashboardPage() {
       } catch (parseErr) {
         const text = await resp.text().catch(() => "");
         throw new Error(
-          `Server returned ${resp.status} ${resp.statusText}: ${
-            text || "non-JSON response"
+          `Server returned ${resp.status} ${resp.statusText}: ${text || "non-JSON response"
           }`
         );
       }
@@ -1108,11 +1107,11 @@ export default function DashboardPage() {
           `Failed to save product (status ${resp.status})`;
         const errMsg = Array.isArray(errObj)
           ? errObj
-              .map((it: any) => it?.message ?? JSON.stringify(it))
-              .join("\n")
+            .map((it: any) => it?.message ?? JSON.stringify(it))
+            .join("\n")
           : typeof errObj === "string"
-          ? errObj
-          : errObj?.message ?? JSON.stringify(errObj);
+            ? errObj
+            : errObj?.message ?? JSON.stringify(errObj);
         setError(errMsg || `Failed to save product (status ${resp.status})`);
       } else {
         await fetchProducts();
@@ -1140,8 +1139,7 @@ export default function DashboardPage() {
       } catch (parseErr) {
         const text = await resp.text().catch(() => "");
         throw new Error(
-          `Server returned ${resp.status} ${resp.statusText}: ${
-            text || "non-JSON response"
+          `Server returned ${resp.status} ${resp.statusText}: ${text || "non-JSON response"
           }`
         );
       }
@@ -1150,11 +1148,11 @@ export default function DashboardPage() {
         const errObj = json?.error ?? json?.message ?? "Failed to delete";
         const errMsg = Array.isArray(errObj)
           ? errObj
-              .map((it: any) => it?.message ?? JSON.stringify(it))
-              .join("\n")
+            .map((it: any) => it?.message ?? JSON.stringify(it))
+            .join("\n")
           : typeof errObj === "string"
-          ? errObj
-          : errObj?.message ?? JSON.stringify(errObj);
+            ? errObj
+            : errObj?.message ?? JSON.stringify(errObj);
         setError(errMsg || "Failed to delete");
       } else {
         await fetchProducts();
@@ -1216,18 +1214,18 @@ export default function DashboardPage() {
     selectedLicenseFilter === "all"
       ? products
       : products.filter((product) => {
-          const licenseId =
-            typeof product.license_type === "number"
-              ? product.license_type.toString()
-              : product.license_type ?? undefined;
-          const fallbackId = product.license_category?.id
-            ? product.license_category.id.toString()
-            : undefined;
-          return (
-            licenseId === selectedLicenseFilter ||
-            fallbackId === selectedLicenseFilter
-          );
-        });
+        const licenseId =
+          typeof product.license_type === "number"
+            ? product.license_type.toString()
+            : product.license_type ?? undefined;
+        const fallbackId = product.license_category?.id
+          ? product.license_category.id.toString()
+          : undefined;
+        return (
+          licenseId === selectedLicenseFilter ||
+          fallbackId === selectedLicenseFilter
+        );
+      });
 
   // Paginación de productos (calculada desde el servidor cuando no hay filtro)
   const productsPerPage = 12;
@@ -1416,8 +1414,8 @@ export default function DashboardPage() {
                 required
               />
               <p className="text-xs text-gray-500 mt-1">
-                {typeof price === "number" && price > 0 
-                  ? `$ ${price.toLocaleString('es-CO')}` 
+                {typeof price === "number" && price > 0
+                  ? `$ ${price.toLocaleString('es-CO')}`
                   : "Ingrese el precio en pesos colombianos"}
               </p>
             </div>
@@ -1703,92 +1701,80 @@ export default function DashboardPage() {
           <nav className="flex space-x-1">
             <button
               onClick={() => setActiveSection("dashboard")}
-              className={`relative py-4 px-6 font-medium transition-all duration-300 ${
-                activeSection === "dashboard"
-                  ? "text-blue-600"
-                  : "text-gray-500 hover:text-gray-700"
-              }`}
+              className={`relative py-4 px-6 font-medium transition-all duration-300 ${activeSection === "dashboard"
+                ? "text-blue-600"
+                : "text-gray-500 hover:text-gray-700"
+                }`}
             >
               Estadísticas
               <span
-                className={`absolute bottom-0 left-0 w-full h-0.5 bg-blue-600 transition-all duration-300 transform ${
-                  activeSection === "dashboard" ? "scale-x-100" : "scale-x-0"
-                }`}
+                className={`absolute bottom-0 left-0 w-full h-0.5 bg-blue-600 transition-all duration-300 transform ${activeSection === "dashboard" ? "scale-x-100" : "scale-x-0"
+                  }`}
               ></span>
             </button>
             <button
               onClick={() => setActiveSection("products")}
-              className={`relative py-4 px-6 font-medium transition-all duration-300 ${
-                activeSection === "products"
-                  ? "text-blue-600"
-                  : "text-gray-500 hover:text-gray-700"
-              }`}
+              className={`relative py-4 px-6 font-medium transition-all duration-300 ${activeSection === "products"
+                ? "text-blue-600"
+                : "text-gray-500 hover:text-gray-700"
+                }`}
             >
               Gestión de Productos
               <span
-                className={`absolute bottom-0 left-0 w-full h-0.5 bg-blue-600 transition-all duration-300 transform ${
-                  activeSection === "products" ? "scale-x-100" : "scale-x-0"
-                }`}
+                className={`absolute bottom-0 left-0 w-full h-0.5 bg-blue-600 transition-all duration-300 transform ${activeSection === "products" ? "scale-x-100" : "scale-x-0"
+                  }`}
               ></span>
             </button>
             <button
               onClick={() => setActiveSection("users")}
-              className={`relative py-4 px-6 font-medium transition-all duration-300 ${
-                activeSection === "users"
-                  ? "text-blue-600"
-                  : "text-gray-500 hover:text-gray-700"
-              }`}
+              className={`relative py-4 px-6 font-medium transition-all duration-300 ${activeSection === "users"
+                ? "text-blue-600"
+                : "text-gray-500 hover:text-gray-700"
+                }`}
             >
               Usuarios
               <span
-                className={`absolute bottom-0 left-0 w-full h-0.5 bg-blue-600 transition-all duration-300 transform ${
-                  activeSection === "users" ? "scale-x-100" : "scale-x-0"
-                }`}
+                className={`absolute bottom-0 left-0 w-full h-0.5 bg-blue-600 transition-all duration-300 transform ${activeSection === "users" ? "scale-x-100" : "scale-x-0"
+                  }`}
               ></span>
             </button>
             <button
               onClick={() => setActiveSection("returns")}
-              className={`relative py-4 px-6 font-medium transition-all duration-300 ${
-                activeSection === "returns"
-                  ? "text-blue-600"
-                  : "text-gray-500 hover:text-gray-700"
-              }`}
+              className={`relative py-4 px-6 font-medium transition-all duration-300 ${activeSection === "returns"
+                ? "text-blue-600"
+                : "text-gray-500 hover:text-gray-700"
+                }`}
             >
               Devoluciones
               <span
-                className={`absolute bottom-0 left-0 w-full h-0.5 bg-blue-600 transition-all duration-300 transform ${
-                  activeSection === "returns" ? "scale-x-100" : "scale-x-0"
-                }`}
+                className={`absolute bottom-0 left-0 w-full h-0.5 bg-blue-600 transition-all duration-300 transform ${activeSection === "returns" ? "scale-x-100" : "scale-x-0"
+                  }`}
               ></span>
             </button>
             <button
               onClick={() => setActiveSection("points")}
-              className={`relative py-4 px-6 font-medium transition-all duration-300 ${
-                activeSection === "points"
-                  ? "text-blue-600"
-                  : "text-gray-500 hover:text-gray-700"
-              }`}
+              className={`relative py-4 px-6 font-medium transition-all duration-300 ${activeSection === "points"
+                ? "text-blue-600"
+                : "text-gray-500 hover:text-gray-700"
+                }`}
             >
               Puntos
               <span
-                className={`absolute bottom-0 left-0 w-full h-0.5 bg-blue-600 transition-all duration-300 transform ${
-                  activeSection === "points" ? "scale-x-100" : "scale-x-0"
-                }`}
+                className={`absolute bottom-0 left-0 w-full h-0.5 bg-blue-600 transition-all duration-300 transform ${activeSection === "points" ? "scale-x-100" : "scale-x-0"
+                  }`}
               ></span>
             </button>
             <button
               onClick={() => setActiveSection("reports")}
-              className={`relative py-4 px-6 font-medium transition-all duration-300 ${
-                activeSection === "reports"
-                  ? "text-blue-600"
-                  : "text-gray-500 hover:text-gray-700"
-              }`}
+              className={`relative py-4 px-6 font-medium transition-all duration-300 ${activeSection === "reports"
+                ? "text-blue-600"
+                : "text-gray-500 hover:text-gray-700"
+                }`}
             >
               Reportes
               <span
-                className={`absolute bottom-0 left-0 w-full h-0.5 bg-blue-600 transition-all duration-300 transform ${
-                  activeSection === "reports" ? "scale-x-100" : "scale-x-0"
-                }`}
+                className={`absolute bottom-0 left-0 w-full h-0.5 bg-blue-600 transition-all duration-300 transform ${activeSection === "reports" ? "scale-x-100" : "scale-x-0"
+                  }`}
               ></span>
             </button>
           </nav>
@@ -2014,9 +2000,8 @@ export default function DashboardPage() {
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <span
-                            className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                              user.is_deleted ? "bg-red-100 text-red-800" : "bg-green-100 text-green-800"
-                            }`}
+                            className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${user.is_deleted ? "bg-red-100 text-red-800" : "bg-green-100 text-green-800"
+                              }`}
                           >
                             {user.is_deleted ? (
                               <span className="px-2 py-1 rounded bg-red-100 text-red-700 text-xs font-semibold">Inactivo</span>
@@ -2066,11 +2051,10 @@ export default function DashboardPage() {
                     setCurrentPage((p: number) => Math.max(1, p - 1))
                   }
                   disabled={currentPage === 1}
-                  className={`px-3 py-1 border rounded-md text-sm font-medium ${
-                    currentPage === 1
-                      ? "bg-gray-50 text-gray-400 cursor-not-allowed"
-                      : "bg-white text-gray-700 hover:bg-gray-50"
-                  }`}
+                  className={`px-3 py-1 border rounded-md text-sm font-medium ${currentPage === 1
+                    ? "bg-gray-50 text-gray-400 cursor-not-allowed"
+                    : "bg-white text-gray-700 hover:bg-gray-50"
+                    }`}
                 >
                   Anterior
                 </button>
@@ -2080,8 +2064,8 @@ export default function DashboardPage() {
                     currentPage <= 3
                       ? i + 1
                       : currentPage >= totalPages - 2
-                      ? totalPages - 4 + i
-                      : currentPage - 2 + i;
+                        ? totalPages - 4 + i
+                        : currentPage - 2 + i;
 
                   // Asegurarse de que no se muestren números de página fuera de rango
                   if (pageNum < 1 || pageNum > totalPages) return null;
@@ -2090,11 +2074,10 @@ export default function DashboardPage() {
                     <button
                       key={pageNum}
                       onClick={() => setCurrentPage(pageNum)}
-                      className={`px-3 py-1 border rounded-md text-sm font-medium ${
-                        currentPage === pageNum
-                          ? "bg-blue-50 text-blue-600 border-blue-300"
-                          : "bg-white text-gray-700 hover:bg-gray-50"
-                      }`}
+                      className={`px-3 py-1 border rounded-md text-sm font-medium ${currentPage === pageNum
+                        ? "bg-blue-50 text-blue-600 border-blue-300"
+                        : "bg-white text-gray-700 hover:bg-gray-50"
+                        }`}
                     >
                       {pageNum}
                     </button>
@@ -2105,11 +2088,10 @@ export default function DashboardPage() {
                     setCurrentPage((p: number) => Math.min(totalPages, p + 1))
                   }
                   disabled={currentPage === totalPages}
-                  className={`px-3 py-1 border rounded-md text-sm font-medium ${
-                    currentPage === totalPages
-                      ? "bg-gray-50 text-gray-400 cursor-not-allowed"
-                      : "bg-white text-gray-700 hover:bg-gray-50"
-                  }`}
+                  className={`px-3 py-1 border rounded-md text-sm font-medium ${currentPage === totalPages
+                    ? "bg-gray-50 text-gray-400 cursor-not-allowed"
+                    : "bg-white text-gray-700 hover:bg-gray-50"
+                    }`}
                 >
                   Siguiente
                 </button>
@@ -2349,17 +2331,16 @@ export default function DashboardPage() {
                   >
                     Anterior
                   </button>
-                  
+
                   <div className="flex gap-2">
                     {Array.from({ length: totalProductPages }, (_, i) => i + 1).map((page) => (
                       <button
                         key={page}
                         onClick={() => setCurrentProductPage(page)}
-                        className={`px-4 py-2 rounded-lg transition-colors ${
-                          currentProductPage === page
-                            ? "bg-blue-600 text-white"
-                            : "border border-gray-300 hover:bg-gray-50"
-                        }`}
+                        className={`px-4 py-2 rounded-lg transition-colors ${currentProductPage === page
+                          ? "bg-blue-600 text-white"
+                          : "border border-gray-300 hover:bg-gray-50"
+                          }`}
                       >
                         {page}
                       </button>

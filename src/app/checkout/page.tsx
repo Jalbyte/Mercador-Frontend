@@ -209,6 +209,44 @@ function CheckoutPage() {
     return Math.floor(finalTotal / pointsBalance.constants.earningDivisor);
   };
 
+  // Manejar pago 100% con puntos
+  const handlePayWithPoints = async () => {
+    if (!order) {
+      setError("No hay orden disponible");
+      return;
+    }
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await fetch(`${API_BASE}/wompi/pay-with-points`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+        body: JSON.stringify({ orderId: order.id }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || 'No se pudo procesar el pago con puntos');
+      }
+
+      const result = await response.json();
+      console.log("✅ Pago con puntos exitoso:", result);
+      
+      if (!isExistingOrder) {
+        clearCart();
+      }
+      router.push(`/checkout/success?orderId=${order.id}&transactionId=points-payment`);
+
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   if (isAuthLoading || loading) {
     return (
       <div className="p-8 max-w-2xl mx-auto">
@@ -539,28 +577,36 @@ function CheckoutPage() {
               </div>
             )}
 
-            {/* Componente de Wompi */}
-            <WompiCheckout
-              amount={calculateFinalTotal()}
-              currency="COP"
-              reference={`ORDER-${order.id}`}
-              customerEmail={user.email || ""}
-              customerName={user.full_name || "Cliente"}
-              customerPhone="3001234567"
-              onBeforePayment={savePointsBeforePayment}
-              onSuccess={(transaction) => {
-                console.log("✅ Pago exitoso:", transaction);
-                // Solo limpiar el carrito si no es una orden existente
-                if (!isExistingOrder) {
-                  clearCart();
-                }
-                router.push(`/checkout/success?orderId=${order.id}&transactionId=${transaction.id}`);
-              }}
-              onError={(error) => {
-                console.error("❌ Error en el pago:", error);
-                // router.push(`/checkout/failure?orderId=${order.id}&error=${encodeURIComponent(error.message || 'Error desconocido')}`);
-              }}
-            />
+            {/* Componente de Wompi o Botón de Pagar con Puntos */}
+            {calculateFinalTotal() === 0 && usePoints ? (
+              <button
+                onClick={handlePayWithPoints}
+                className="w-full py-3 text-lg bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-lg shadow-md hover:from-green-600 hover:to-emerald-700 transition-all"
+                disabled={loading}
+              >
+                {loading ? 'Procesando...' : 'Confirmar Pago con Puntos'}
+              </button>
+            ) : (
+              <WompiCheckout
+                amount={calculateFinalTotal()}
+                currency="COP"
+                reference={`ORDER-${order.id}`}
+                customerEmail={user.email || ""}
+                customerName={user.full_name || "Cliente"}
+                customerPhone="3001234567"
+                onBeforePayment={savePointsBeforePayment}
+                onSuccess={(transaction) => {
+                  console.log("✅ Pago exitoso:", transaction);
+                  if (!isExistingOrder) {
+                    clearCart();
+                  }
+                  router.push(`/checkout/success?orderId=${order.id}&transactionId=${transaction.id}`);
+                }}
+                onError={(error) => {
+                  console.error("❌ Error en el pago:", error);
+                }}
+              />
+            )}
           </div>
         </div>
       </div>

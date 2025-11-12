@@ -234,8 +234,8 @@ describe('PointsBalance Component', () => {
       expect(screen.getByText('1,000')).toBeInTheDocument()
     })
 
-    // Trigger re-render
-    rerender(<PointsBalance />)
+    // Force a remount by changing the key so the effect runs again and consumes the second fetch mock
+    rerender(<PointsBalance key="remount-1" />)
 
     await waitFor(() => {
       expect(screen.getByText('1,250')).toBeInTheDocument()

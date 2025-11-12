@@ -8,7 +8,7 @@ interface TopProduct {
   name: string;
   sales: number;
   revenue: number;
-  stock: number;
+  stock_quantity: number;
 }
 
 interface TopProductsListProps {
@@ -21,9 +21,9 @@ export function TopProductsList({
   loading = false,
 }: TopProductsListProps) {
   const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat("es-ES", {
+    return new Intl.NumberFormat("es-CO", {
       style: "currency",
-      currency: "USD",
+      currency: "COP",
     }).format(amount);
   };
 
@@ -83,7 +83,7 @@ export function TopProductsList({
                         <FiPackage size={14} />
                         {product.sales} ventas
                       </span>
-                      {product.stock < 10 && (
+                      {product.stock_quantity < 10 && (
                         <span className="flex items-center gap-1 text-orange-600">
                           <FiAlertTriangle size={14} />
                           Stock bajo
@@ -97,7 +97,7 @@ export function TopProductsList({
                     {formatCurrency(product.revenue)}
                   </div>
                   <div className="text-xs text-gray-500">
-                    Stock: {product.stock}
+                    Stock: {product.stock_quantity}
                   </div>
                 </div>
               </div>

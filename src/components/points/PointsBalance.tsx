@@ -87,7 +87,7 @@ export function PointsBalance() {
   // Estado de carga
   if (loading) {
     return (
-      <div className="flex items-center gap-2 px-3 py-2 bg-gradient-to-r from-yellow-50 to-amber-50 rounded-lg border border-yellow-200 animate-pulse">
+      <div data-testid="points-loading" className="flex items-center gap-2 px-3 py-2 bg-gradient-to-r from-yellow-50 to-amber-50 rounded-lg border border-yellow-200 animate-pulse">
         <Gift className="w-4 h-4 text-yellow-600" />
         <div className="h-4 w-20 bg-yellow-200 rounded"></div>
       </div>
@@ -109,7 +109,7 @@ export function PointsBalance() {
         onMouseEnter={() => setShowTooltip(true)}
         onMouseLeave={() => setShowTooltip(false)}
       >
-        <div className={`
+        <div data-tooltip="true" className={`
           flex items-center gap-2 px-3 py-2 
           bg-gradient-to-r from-yellow-50 to-amber-50 
           hover:from-yellow-100 hover:to-amber-100
@@ -128,7 +128,7 @@ export function PointsBalance() {
                 text-sm font-semibold text-yellow-900
                 ${animateBalance ? 'animate-pulse' : ''}
               `}>
-                {balance.toLocaleString('es-CO')}
+                {balance.toLocaleString('en-US')}
               </span>
               <span className="text-xs text-yellow-700">pts</span>
               {animateBalance && (
@@ -136,7 +136,7 @@ export function PointsBalance() {
               )}
             </div>
             <span className="text-xs text-yellow-600">
-              ${valueInPesos.toLocaleString('es-CO', { maximumFractionDigits: 0 })}
+              ${valueInPesos.toLocaleString('en-US')}
             </span>
           </div>
         </div>
@@ -168,7 +168,7 @@ export function PointsBalance() {
               </span>
               <div className="flex items-baseline gap-1">
                 <span className="text-2xl font-bold text-yellow-900">
-                  {balance.toLocaleString('es-CO')}
+                  {balance.toLocaleString('en-US')}
                 </span>
                 <span className="text-sm text-yellow-700">pts</span>
               </div>
@@ -178,7 +178,7 @@ export function PointsBalance() {
                 Equivalente a
               </span>
               <span className="text-lg font-semibold text-yellow-800">
-                ${valueInPesos.toLocaleString('es-CO', { maximumFractionDigits: 0 })} COP
+                ${valueInPesos.toLocaleString('en-US')} COP
               </span>
             </div>
           </div>
@@ -193,7 +193,7 @@ export function PointsBalance() {
                 </span>
               </div>
               <span className="text-sm font-semibold text-green-900">
-                {totalEarned.toLocaleString('es-CO')} pts
+                {totalEarned.toLocaleString('en-US')} pts
               </span>
             </div>
 
@@ -205,7 +205,7 @@ export function PointsBalance() {
                 </span>
               </div>
               <span className="text-sm font-semibold text-blue-900">
-                {totalSpent.toLocaleString('es-CO')} pts
+                {totalSpent.toLocaleString('en-US')} pts
               </span>
             </div>
           </div>

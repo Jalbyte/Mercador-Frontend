@@ -20,14 +20,14 @@ export function SalesChart({ data, loading = false }: SalesChartProps) {
 
   const formatDate = (dateStr: string) => {
     const date = new Date(dateStr);
-    return date.toLocaleDateString("es-ES", { month: "short", day: "numeric" });
+    return date.toLocaleDateString("es-CO", { month: "short", day: "numeric" });
   };
 
   const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat("es-ES", {
+    return new Intl.NumberFormat("es-CO", {
       style: "currency",
-      currency: "USD",
-      minimumFractionDigits: 0,
+      currency: "COP",
+      minimumFractionDigits: 2,
     }).format(amount);
   };
 
